@@ -1,0 +1,180 @@
+TIA-102.BAEE-C: Project 25 Radio Management Protocols
+ANSI/TIA-102.BAEE-C-2015 | Approved December 9, 2015
+Revision C — supersedes TIA-102.BAEE-B
+
+OVERVIEW
+
+TIA-102.BAEE-C specifies the Radio Management Protocols (RMP) used over the
+A Interface (also called the Mobile Data Peripheral Interface) in Project 25
+Land Mobile Radio systems. The A Interface connects a Mobile Data Peripheral
+(MDP) — a computing device such as a laptop or mobile data terminal — to a
+Subscriber Unit (SU), i.e., a P25 radio. This document defines how the MDP
+can configure the SU, query its status, and receive asynchronous event
+notifications from it, through two distinct protocols: the Radio Control
+Protocol (RCP) and the Simple Network Management Protocol (SNMP).
+
+The document is the fourth edition of a specification that originated in
+December 1995. Revision A (2004) added the SNMP addendum and the IANA OID
+assignment. Revision B (2010) updated the document per reaffirmation ballot.
+Revision C (2015) addresses errata and aligns the document with the TIA TR-8.5
+Packet Data Document Suite, particularly TIA-102.BAEA-C (Data Overview and
+Specification). The document was developed under the TIA TR-8.5 Signaling and
+Data Transmission Subcommittee based on APCO Project 25 Interface Committee
+(APIC) Data Task Group materials.
+
+WHY IT EXISTS
+
+P25 data-capable radios require remote management — configuration loading,
+status polling, statistics gathering, and event reporting — without interrupting
+voice or data traffic. The A Interface is the physical and logical boundary
+between the MDP host software and the radio. Without a standardized management
+protocol across this boundary, each radio vendor would implement proprietary
+solutions, breaking interoperability. TIA-102.BAEE-C provides a standardized
+mechanism that any MDP can use to manage any conforming P25 radio.
+
+ARCHITECTURE
+
+The document adopts the five-area OSI Network Management Model: Fault,
+Accounting, Configuration, Performance, and Security Management. The RMP and
+ICMP together define the control plane across the A Interface. RMP messages
+are carried over UDP; the specific RMP protocol in use is identified by the
+UDP port number. RCP uses port 469 (IANA-assigned). SNMP uses port 161
+(queries) and port 162 (traps).
+
+RADIO CONTROL PROTOCOL (RCP)
+
+RCP is an application-layer protocol custom-designed for P25 radio management
+over UDP. Key characteristics:
+
+- Multithreaded: the MDP may have multiple outstanding requests simultaneously;
+  responses need not arrive in the order requests were sent.
+- Transaction-based: each Request SDU produces exactly one Response SDU,
+  correlated by a 16-bit SDU Tag. Tag value $FFFF is reserved for unsolicited
+  Report SDUs from the SU.
+- SDU structure: 6+ octets — Type (1 octet), Length (2 octets), SDU Tag
+  (2 octets), MFID (1 octet), Data (variable).
+- Three SDU classes:
+    RQST ($43) — MDP-to-SU commands
+    RESP ($52) — SU-to-MDP responses
+    RPRT ($45) — SU-to-MDP asynchronous event reports
+
+REQUEST OPERATORS (RQST SDUs):
+
+  GET_INFO    ($47) + INFO_BLOCK ($43)     — Retrieves SW version,
+              manufacturer ID, CAI LLI (3 octets), MTU, serial number,
+              registration status, channel quality, signal strength,
+              battery level. Response payload: 25 octets (octets 7-30).
+
+  GET_CONFG   ($33) + CONFIG_BLOCK ($39)  — Retrieves RF power mode,
+              data delivery mode, encryption state, data configuration
+              mode. Response payload: 4 config octets (octets 7-10).
+
+  RST_DFLT    ($34) + CONFIG_BLOCK        — Loads non-volatile defaults
+              into current operating config. Response: SUCCESS/FAIL.
+
+  SET_CONF    ($35) + CONFIG_BLOCK values — Writes config to volatile
+              memory (does not persist across reboot). Response: SUCCESS/FAIL.
+
+  SAVE_DFLT   ($36) + CONFIG_BLOCK        — Writes volatile config to
+              non-volatile memory (makes current config the new default).
+              Response: SUCCESS/FAIL.
+
+  RESET_STATS ($4C) + STATS_BLOCK ($4B)  — Clears packet counters.
+              Response: SUCCESS/FAIL.
+
+  GET_STATS   ($4D) + STATS_BLOCK         — Retrieves total sent and
+              received IP datagram counts (two 4-octet fields, hex).
+              Response payload: 8 octets.
+
+RESPONSE CODES: SUCCESS = $53 (ASCII 'S'), FAIL = $46 (ASCII 'F').
+Unknown command response appends UNKNOWN = $55 (ASCII 'U') after FAIL.
+
+REPORT IDs (unsolicited, RPRT SDUs, SDU Tag = $FFFF):
+  POWER_UP             ($50) — Radio has powered up (1 data octet)
+  RADIO_REGISTRATION   ($4E) — Registration status changed (1 status octet):
+                               REGISTERED=$41, NOT_REGISTERD=$42
+  DATA_SVC_AVAILABILITY($44) — Data service state changed (1 status octet):
+                               SERVICE_NOT_AVAILABLE=$30, SERVICE_AVAILABLE=$31
+
+CONFIGURATION BLOCK PARAMETER ENCODING (each param 1 octet, ASCII):
+  POWER_MODE:   High=$30, Low=$31, Adaptive=$32
+  DATA_DELIVERY: Confirmed=$33, Unconfirmed=$34
+  ENCRYPTION:   Disabled=$35, Enabled=$36
+  DATA_CONFIG:  Repeated=$37, FNE=$38, Direct=$39
+
+SIMPLE NETWORK MANAGEMENT PROTOCOL (SNMP)
+
+As an alternative to RCP, TIA-102 systems may implement SNMP for radio
+management. SNMP is the IETF standard (STD0016/STD0015/STD0017/STD0058/
+STD0062) for network management. The document defines functional equivalence
+between RCP SDUs and SNMP operations: RCP GETs map to SNMP Get-requests,
+RCP SETs map to Set-requests, and RCP REPORTs map to SNMP Traps.
+
+The document provides a formal MIB definition in Annex A (normative ASN.1).
+IANA has assigned Private Enterprise Number 17405 to "Telecommunications
+Industry Association TR8dot5" for the RMP OID subtree. The OID root is:
+  {iso org dod internet private enterprise TR8dot5} = {1.3.6.1.4.1.17405}
+
+MIB HIERARCHY:
+  TR8dot5 (1.3.6.1.4.1.17405)
+    TR8dot5Generic (.1)
+      TR8dot5RmpMIB (.1.1)
+        TR8dot5RmpEvents (.1.1.0)    — Trap notifications
+        TR8dot5RmpInfoObjs (.1.1.1)  — Read-only status objects (10 objects)
+        TR8dot5RmpConfigObjs (.1.1.2)— Read-write config objects (5 objects)
+        TR8dot5RmpStatsObjs (.1.1.3) — Packet counter objects (3 objects)
+
+INFO OBJECTS: rmpSwVersion, rmpRadioMan, rmpLlid, rmpMtu, rmpRadioSn,
+  rmpRegStatus (-1 to 100), rmpChanQual (-1 to 100), rmpSigStrength (-1 to 100),
+  rmpBatteryLevel (-1 to 100), rmpDataService (available/unavailable).
+
+CONFIG OBJECTS (read-write): rmpPowerMode (high/low/adaptive),
+  rmpDataDelivery (confirmed/unconfirmed), rmpEncryption (enabled/disabled),
+  rmpDataMode (fne/direct/repeated), rmpConfigStatusMode (default/modified/stored).
+  The rmpConfigStatusMode object controls the volatile/non-volatile boundary:
+  setting to "stored" commits current volatile settings to NV memory;
+  setting to "default" restores NV defaults.
+
+STATS OBJECTS: rmpTotalNumRcvdPackets (Unsigned32), rmpTotalNumSentPackets
+  (Unsigned32), rmpStatisticsState (cleared/active). Setting rmpStatisticsState
+  to "cleared" resets both counters.
+
+TRAP NOTIFICATIONS: rmpPowerUpEvent (carries rmpPowerMode), rmpRegistrationEvent
+  (carries rmpRegStatus), rmpDataServiceEvent (carries rmpDataService).
+
+MTU CONSTRAINT: The SU_MTU field limits MDP-generated IP datagram size to the
+radio's CAI payload capacity. Maximum CAI packet = 2028 octets. The MTU value
+must include IP and UDP headers but may exclude A Interface link-layer overhead.
+
+STANDARDS RELATIONSHIPS
+
+This document depends on:
+  TIA-102.BAEA-C — P25 Data Overview and Specification (defines the A Interface
+                   architecture this document operates within)
+  TIA-102.BAEG   — P25 Mobile Data Peripheral Interface (defines the A Interface
+                   physical/link layer)
+  TIA-102.BAAC-C — P25 Common Air Interface Reserved Values (MFID encoding)
+  IETF RFC 768   — UDP transport for both RCP and SNMP
+  IETF SNMPv1/v2 RFCs 1155, 1157, 1212, 1213, 2578-2580, 3411-3418
+
+The informative Annex B maps all RMP parameters and SNMP objects to the five
+OSI network management functional areas, providing implementors with guidance
+on how each managed object serves fault, accounting, configuration, performance,
+or security management roles.
+
+LIMITATIONS
+
+- No test vectors or conformance test procedures are provided; those are in
+  separate conformance documents.
+- The SNMP MIB module identity timestamp ("0302250000Z") appears to reflect the
+  original module revision date, not the 2015 Revision C date.
+- DATA_DELIVERY (confirmed vs. unconfirmed) is marked "future support" in the
+  configuration block mapping in Annex B, suggesting this feature may not have
+  been fully implemented in all equipment at publication time.
+- No security mechanism is specified for RCP. SNMP community-string security
+  applies for the SNMP path.
+- The document acknowledges some aspects of the specification "may not have been
+  fully operationally tested."
+
+STATUS: Active as of December 2015 (Revision C). Supersedes TIA-102.BAEE-B.
+No subsequent revision has been identified as of 2026.

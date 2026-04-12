@@ -1,0 +1,147 @@
+TIA-102.AABD-A-2: Project 25 Trunking Procedures, Addendum 2
+Summary
+=============================================================
+Document Number: TIA-102.AABD-A-2
+Published: September 2012
+Formulating Body: TIA TR-8.10 Subcommittee on Trunking and Conventional Control
+Pages: 20 (addendum only); base standard TIA-102.AABD-A is 152 pages (December 2008)
+
+NOTE: The directory TIA-102.AABD-A contains three documents: the base standard
+(December 2008), Addendum 1 (April 2011), and Addendum 2 (September 2012). This
+summary covers specifically Addendum 2, the document at the specified PDF path.
+
+---
+
+WHAT THIS DOCUMENT IS
+
+TIA-102.AABD-A-2 is the second addendum to TIA-102.AABD-A, "Project 25 Trunking
+Procedures." It is a targeted, 20-page standards amendment with a single normative
+scope: adding Conventional Fallback procedures to the trunking standard. The base
+document defines how subscriber units (SUs) and RF subsystems (RFSSs) operate on
+P25 trunked networks — channel acquisition, registration, call setup, and maintenance.
+This addendum extends the base standard to define what happens when the trunking
+control infrastructure fails and one or more repeaters must provide degraded-mode
+conventional service to the coverage area.
+
+---
+
+WHY THIS DOCUMENT EXISTS
+
+Trunked P25 systems depend on a functioning control channel and RFSS controller. When
+that infrastructure fails — due to equipment failure, maintenance outage, or disaster
+conditions — radios configured only for trunking lose their ability to communicate. Prior
+to this addendum, the behavior of trunked radios in this scenario was unspecified.
+Conventional Fallback is a graceful degradation mechanism: a repeater with sufficient
+intelligence can detect the loss of trunking control and begin broadcasting in conventional
+mode, allowing previously-trunked radios to fall back to basic repeater operation.
+This addendum specifies the procedures precisely enough to ensure that SUs from
+different manufacturers and FNEs from different vendors can interoperate in this
+degraded mode.
+
+---
+
+WHAT IT DEFINES
+
+The addendum adds or amends five technical areas:
+
+1. CONTROL CHANNEL HUNTING (Section 5 amendments): Adds two new triggers to the
+   existing control channel hunt state machine. A short hunt is now triggered when
+   conventional fallback operation ends (so the SU can return to trunking). An extended
+   hunt now escalates to a conventional fallback search when no control channel data
+   is found. An updated Figure 5-1 replaces the original, adding a "SYSTEM ID
+   CONVENTIONAL FALLBACK" state reached when the extended hunt exhausts without
+   finding a valid control channel.
+
+2. CONVENTIONAL FALLBACK OVERVIEW (Section 16.1): Conventional Fallback is optional
+   and requires deliberate configuration of both the FNE repeaters and the SUs with
+   matching Fallback Channel IDs. A repeater broadcasts the LC_CONV_FALLBACK Link
+   Control Word (LCW) to signal its fallback state. The LCW includes up to six Fallback
+   CH IDs; an SU selects a fallback channel by matching its configured CH IDs against
+   those broadcast. Wildcard (CH ID = 0) allows SUs to find a fallback channel even
+   without a specific pre-configured match, as a last resort.
+
+3. FNE PROCEDURES (Sections 16.2–16.5): Defines what the repeater must do during
+   fallback. During idle, the repeater continuously transmits (or intermittently, for power
+   conservation), sending LC_CONV_FALLBACK at least every T_Conv_Fallback_LC (default
+   10 seconds). During active calls, it repeats voice and data per TIA-102.BAAD-A and
+   replaces LDU1 LCWs with LC_CONV_FALLBACK on the same timer. When trunking
+   resumes, the repeater stops sending LC_CONV_FALLBACK and returns to its normal
+   trunked role (control channel, traffic channel, packet data, or composite).
+
+4. SU PROCEDURES (Sections 16.6–16.11): Defines the SU fallback state machine. After
+   exhausting extended control channel hunt, the SU scans the short-hunt channel set
+   (plus any SU-configured additions), waiting up to T_Conv_Fallback_LC per channel for
+   an LC_CONV_FALLBACK. Matching on Fallback CH ID and NAC selects the channel.
+   Wildcard channels are remembered and used only if no specific match is found.
+   If no fallback channel is found, the SU re-runs the extended hunt, alternating
+   indefinitely. The SU may exit fallback at any time to search for the control channel;
+   it must exit after missing N_Conv_Fallback_LC (default 2) consecutive LC_CONV_FALLBACK
+   messages or detecting a control channel on the current channel. On exit, the SU uses
+   its remembered control channel parameters and follows the registration decision logic
+   from the base standard.
+
+5. OPERATIONAL PARAMETERS (Section 17): Adds two timers/counters to the parameter
+   table: T_Conv_Fallback_LC (maximum interval between LC_CONV_FALLBACK transmissions,
+   default 10 seconds) and N_Conv_Fallback_LC (number of missed LC_CONV_FALLBACK
+   messages before exiting fallback, default 2). Also addresses talkgroup continuity
+   (SU transmits with its last affiliated talkgroup unless specifically configured for
+   fallback), audible indication (synced to the T flag in LC_CONV_FALLBACK), networked
+   operation (the N flag signals simulcast/networked vs. single-site), and encryption
+   (SU uses its configured fallback encryption parameters, recommended to match
+   those used during trunked operation). Dynamic regroup state is cleared on fallback entry
+   and should be re-established by the FNE when trunking resumes.
+
+---
+
+KEY PARAMETERS
+
+| Parameter         | Default | Max  | Notes                                           |
+|-------------------|---------|------|-------------------------------------------------|
+| T_Conv_Fallback_LC | 10s    | 10s  | Max interval between LC_CONV_FALLBACK transmits |
+| N_Conv_Fallback_LC | 2      | —    | Missed LCWs before SU exits fallback mode       |
+| T_flag repeat     | ≥10s   | —    | Audible failsoft indication trigger interval    |
+
+---
+
+RELATIONSHIP TO OTHER DOCUMENTS
+
+This addendum is one layer of a multi-document stack:
+
+- TIA-102.AABD-A (December 2008): Base trunking procedures standard. Defines all normal
+  trunked operation including control channel acquisition, registration, group/individual
+  calls, site trunking, and the parameter table that this addendum extends.
+- TIA-102.AABD-A-1 (April 2011): Addendum 1, which added multiple-channel and other
+  enhancements (separate document in the same directory).
+- TIA-102.AABD-A-2 (September 2012): This document — adds Conventional Fallback.
+- TIA-102.AABD-B: A later complete revision of the trunking procedures, which
+  incorporates the addenda into a unified document.
+- TIA-102.BAAD-A (February 2010): Conventional Procedures standard. Referenced
+  normatively — during fallback, the SU and repeater operate per BAAD-A rules for
+  voice and data handling.
+- TIA-102.AABF / AABG: Define the Link Control Word formats used on the traffic channel,
+  including the LC_CONV_FALLBACK LCW format referenced throughout this addendum.
+
+---
+
+LIMITATIONS AND OPEN ISSUES
+
+The document acknowledges several items outside its scope or left implementation-defined:
+- The specific format and bit fields of LC_CONV_FALLBACK are defined in related LCW
+  documents (not repeated here).
+- Audible indication parameters (duration, frequency, waveform) are beyond scope.
+- How the SU chooses among multiple wildcard channels is manufacturer-defined.
+- The T_Conv_Fallback_LC minimum value is unspecified; FNEs may use values shorter
+  than the 10s default to trade faster SU identification against other operational needs.
+- Conformance tests for the Conventional Fallback procedures had not been developed
+  at time of publication.
+
+---
+
+OPEN-SOURCE AND IMPLEMENTATION RELEVANCE
+
+The LC_CONV_FALLBACK detection and fallback channel scan logic affects SDR-based P25
+receivers (SDRTrunk, OP25) that monitor trunked systems. A correctly implemented
+monitor should be able to follow a site into fallback mode by detecting the transition
+from control channel PDUs to LC_CONV_FALLBACK in LDU1 or extended terminators.
+The parameters T_Conv_Fallback_LC and N_Conv_Fallback_LC inform the timing for any
+state machine implementation of this feature.

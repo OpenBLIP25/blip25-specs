@@ -1,0 +1,156 @@
+TIA-102.AABC-E: Trunking Control Channel Messages — Summary
+============================================================
+
+Standard:       ANSI/TIA-102.AABC-E
+Title:          Project 25 — Trunking Control Channel Messages
+Revision:       E (supersedes TIA-102.AABC-D)
+ANSI Approval:  April 16, 2019
+Published:      April 23, 2019
+Status:         Active
+Classification: message_format, protocol
+
+OVERVIEW
+--------
+TIA-102.AABC-E defines all Trunking Control Channel (TSBK) message formats for
+Project 25 (P25) digital land mobile radio systems. It specifies the bit-level
+encoding of every control plane message exchanged between Subscriber Units (SUs)
+and Fixed Network Equipment (FNE) on the P25 trunked control channel. This is
+the foundational message-format reference for anyone implementing a P25 trunking
+controller, subscriber radio firmware, or a protocol decoder.
+
+PACKET STRUCTURE
+----------------
+Two packet formats are defined:
+
+1. TSBK (Trunking Signaling Block): A fixed 12-octet (96-bit) single-block
+   format. Octet 0 carries LB (Last Block, bit 7), P (Protected, bit 6), and
+   Opcode (bits 5-0). Octet 1 carries the Manufacturer's ID (MFID; $00 =
+   standard TIA). Octets 10-11 carry a CCITT CRC-16.
+
+2. MBT (Multiple Block Trunking): A multiblock format consisting of a 12-octet
+   Header Block followed by one or more 12-octet Data Blocks. The Header Block's
+   Octet 0 carries IO (bit 5; %0=ISP, %1=OSP), Format (bits 4-0; %10111 for
+   standard MBT). Octet 6 carries the Blocks-to-Follow count. The last Data
+   Block carries a Packet CRC or Multiple Block CRC.
+
+Messages are classified as ISP (Inbound Signaling Packet, SU→FNE) or OSP
+(Outbound Signaling Packet, FNE→SU). When source and target SUs share the same
+Home system and the source resides there, abbreviated (TSBK) format is used with
+24-bit Working Unit IDs (WUIDs). When roaming or cross-system, extended (MBT)
+format is used with full 56-bit SUIDSs (20-bit WACN ID + 12-bit System ID +
+24-bit Unit ID).
+
+OPCODE SPACE
+------------
+Each direction (ISP/OSP) has a 6-bit opcode space (64 possible values). As of
+Revision E, approximately 30 ISP opcodes and 35 OSP opcodes are assigned, with
+the remainder reserved.
+
+Key ISP opcodes:
+  %000000  GRP_V_REQ          Group Voice Service Request
+  %000100  UU_V_REQ           Unit-to-Unit Voice Service Request
+  %001000  TELE_INT_DIAL_REQ  Telephone Interconnect Explicit Dial Request
+  %010010  SN-DATA_CHN_REQ    SNDCP Data Channel Request
+  %011000  STS_UPDT_REQ       Status Update Request
+  %011100  MSG_UPDT_REQ       Message Update Request
+  %011101  RAD_MON_REQ        Radio Unit Monitor Request
+  %011110  RAD_MON_ENH_REQ    Radio Unit Monitor Enhanced Request
+  %100000  ACK_RSP_U          Acknowledge Response - Unit
+  %100011  CAN_SRV_REQ        Cancel Service Request
+  %100111  EMRG_ALRM_REQ      Emergency Alarm Request
+  %101000  GRP_AFF_REQ        Group Affiliation Request
+  %101100  U_REG_REQ          Unit Registration Request
+  %101101  LOC_REG_REQ        Location Registration Request
+  %110010  IDEN_UP_REQ        Identifier Update Request
+  %110110  ROAM_ADDR_REQ      Roaming Address Request
+  %110111  ROAM_ADDR_RSP      Roaming Address Response
+  %111000  AUTH_RESP          Authentication Response
+  %111001  AUTH_RESP_M        Authentication Response Mutual
+  %111010  AUTH_FNE_RST       Authentication FNE Result
+  %111011  AUTH_SU_DMD        Authentication SU Demand
+
+Key OSP opcodes:
+  %000000  GRP_V_CH_GRANT     Group Voice Channel Grant
+  %000010  GRP_V_CH_GRANT_UPDT Group Voice Channel Grant Update
+  %000100  UU_V_CH_GRANT      Unit-to-Unit Voice Channel Grant
+  %011111  CALL_ALRT          Call Alert
+  %100000  ACK_RSP_FNE        Acknowledge Response - FNE
+  %100001  QUE_RSP            Queued Response
+  %100111  DENY_RSP           Deny Response
+  %101000  GRP_AFF_RSP        Group Affiliation Response
+  %101100  U_REG_RSP          Unit Registration Response
+  %110000  SYNC_BCST          Synchronization Broadcast (TDMA micro-slot sync)
+  %110001  AUTH_DMD           Authentication Demand
+  %110011  IDEN_UP_TDMA       Identifier Update for TDMA
+  %110100  IDEN_UP_VU         Identifier Update for VHF/UHF Bands
+  %110101  TIME_DATE_ANN      Time and Date Announcement
+  %111000  SYS_SRV_BCST       System Service Broadcast
+  %111001  SCCB               Secondary Control Channel Broadcast
+  %111010  RFSS_STS_BCST      RFSS Status Broadcast
+  %111011  NET_STS_BCST       Network Status Broadcast
+  %111100  ADJ_STS_BCST       Adjacent Status Broadcast
+  %111101  IDEN_UP            Identifier Update (FDMA)
+  %111110  ADJ_STS_BCST_UNC   Adjacent Status Broadcast Uncoordinated
+
+TRANSACTION CATEGORIES
+----------------------
+Section 4 — Voice Service: GRP_V_REQ/CH_GRANT, UU_V_REQ/CH_GRANT, telephone
+  interconnect dial/answer, channel grant updates. All voice channel grants
+  include a 16-bit Channel field [Identifier(15-12) | Number(11-0)] referencing
+  the channel parameters broadcast in IDEN_UP/IDEN_UP_VU/IDEN_UP_TDMA.
+
+Section 5 — Data Service: SNDCP data channel request, page, announce. Legacy
+  IND_DATA and GRP_DATA messages are explicitly marked OBSOLETE.
+
+Section 6 — Control and Status: Registration (U_REG_REQ/RSP, LOC_REG_REQ/RSP,
+  U_DE_REG_REQ/ACK), affiliation (GRP_AFF_REQ/RSP, GRP_AFF_Q/Q_RSP), system
+  broadcasts (RFSS_STS_BCST, NET_STS_BCST, ADJ_STS_BCST, SYS_SRV_BCST,
+  SCCB/SCCB_EXP), supplementary services (status, message, call alert,
+  emergency), authentication (AUTH_DMD, AUTH_RESP, AUTH_RESP_M, AUTH_FNE_RST,
+  AUTH_FNE_RESP, AUTH_SU_DMD), roaming (ROAM_ADDR_REQ/RSP/CMD/UPDT),
+  and TDMA sync (SYNC_BCST, IDEN_UP_TDMA).
+
+KEY FIELDS AND ENCODING
+------------------------
+- Channel Type (4-bit): %0011=TDMA 12.5kHz 2-slot half-rate, %0100=TDMA 25kHz
+  4-slot, %0101=TDMA 12.5kHz 2-slot H-D8PSK, %0000=%0001=FDMA 12.5kHz.
+- Capabilities (8-bit): V=valid, 2HR=2-slot TDMA capable, 4HR=4-slot TDMA,
+  HF=half-rate FDMA, 8LVL=H-D8PSK TDMA.
+- Service Options (8-bit): E=emergency, P=protected, Duplex, Packet Mode, Priority.
+- EMRG_ALRM_REQ SI-1 flags: MD=Man-Down, VSE=Vehicle Sensed, ASE=Accessory
+  Sensed, IC3-IC6=Interoperable Condition, AC=additional codes present.
+- SYNC_BCST: Carries UTC time, Local Time Offset, and 6-bit Micro-Slots field
+  for TDMA channel synchronization.
+- Transmit Offset: 9-bit (FDMA), 14-bit VU (VHF/UHF FDMA), 14-bit TDMA; all
+  use High/Low sign bit + unsigned magnitude.
+
+OBSOLETE MESSAGES
+-----------------
+The following messages are explicitly marked obsolete in Revision E and shall
+not be used in new implementations:
+  - IND_DATA_REQ / IND_DATA_CH_GRANT (individual data legacy)
+  - GRP_DATA_REQ / GRP_DATA_CH_GRANT / GRP_DATA_CH_ANN / GRP_DATA_CH_ANN_EXP
+    (group data legacy)
+  - AUTH_Q / AUTH_RSP (legacy authentication; replaced by AUTH_DMD/AUTH_RESP)
+  - P_PARM_REQ (protection parameter request)
+  - AUTH_CMD (authentication command)
+
+AUTHENTICATION FRAMEWORK
+------------------------
+Revision E defines a modern mutual authentication framework:
+  FNE→SU: AUTH_DMD (RAND1 challenge) → SU→FNE: AUTH_RESP (RES1) or
+  AUTH_RESP_M (RES1 + RAND2) → FNE→SU: AUTH_FNE_RESP (RES2) →
+  SU→FNE: AUTH_FNE_RST (R2=pass/fail).
+  AUTH_SU_DMD allows the SU to demand the FNE initiate authentication.
+
+ANNEXES
+-------
+  Annex A: Cancel Reason Codes ($00=no reason, $10=terminate queued,
+           $20=terminate assignment, $80-$FF=user/system definable)
+  Annex B: Deny Response Reason Codes (~30 defined codes covering unit
+           validity, authentication failure, resource unavailability,
+           call pre-emption, and service option errors)
+  Annex C: Queued Response Reason Codes (~12 defined codes covering
+           unit/group activity, resource availability, superseding services)
+  Annex D: Complete ISP and OSP opcode tables (normative)
+  Annex E: Referenced standards list

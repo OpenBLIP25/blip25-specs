@@ -1,0 +1,117 @@
+TIA-102.AAAB-A-1: Project 25 Security Services Overview — Addendum 1: Key Management Architecture
+Summary (~1,000 words)
+ANSI/TIA-102.AAAB-A-1:2014 | Approved: September 9, 2014
+Developed by: APCO Project 25 Interface Committee (APIC) Encryption Task Group (ETG)
+
+WHAT THIS DOCUMENT IS
+
+TIA-102.AAAB-A-1 is an addendum to TIA-102.AAAB-A (Project 25 Security Services Overview, January 2005).
+It adds Section 7 — "Key Management Architecture" — an entirely informative section that was not present in
+the original AAAB-A. It also modifies Section 6 (Key Management) of the base document by replacing its
+description of inter-KMF communication with a forward reference to the new Section 7 material. The
+addendum was developed over a three-year drafting cycle (May 2011 through June 2014), with IP Data
+Encryption and Air Interface Encryption subsections left as explicitly incomplete ("TBD") at time of
+publication due to ongoing architecture discussions within the ETG.
+
+The document's audience is system architects, procurement engineers, and developers who need a high-level
+map of the P25 security landscape before engaging the detailed protocol-level specifications (OTAR messages,
+Key Fill Device interface, KMF-to-KMF interface, Block Encryption Protocol, Link Layer Authentication).
+
+WHY IT EXISTS
+
+The base TIA-102.AAAB-A provided a brief, single-section overview of key management but did not describe
+the functional models or topology configurations for how key material flows between system components. As
+P25 networks grew more complex — multi-site, multi-RFSS, ISSI-linked, and supporting both voice
+encryption and CAI data encryption — implementors needed a reference map of the architectures before
+diving into the protocol specs. This addendum fills that gap with 31 figures illustrating functional
+models and architecture configurations for every supported key management pathway.
+
+WHAT IT DEFINES
+
+The document organizes P25 security into three overlapping domains:
+
+1. USER VOICE AND DATA ENCRYPTION
+   Voice Encryption uses TIA-approved algorithms (AES is primary; DES/3DES are deprecated and supported
+   only for legacy interoperability) with unique Traffic Encryption Keys (TEKs). Voice messages are
+   divided into superframes; encryption sync links consecutive superframes to support late entry and
+   prevent malicious reordering. Each Voice Encryption endpoint requires an encryption function,
+   decryption function, Algorithm ID (ALGID), Message Indicator (MI), and Key ID. A Cryptonet is a
+   logical grouping of SUs sharing a common TEK and algorithm; each endpoint may belong to multiple
+   Cryptonets. Voice encryption does NOT protect air interface signaling (talkgroup identities, call
+   setup messages on the control channel) — that is Air Interface Encryption's role.
+
+   CAI Data Encryption applies to Conventional FDMA systems only (not Trunked). Encrypted PDUs embed MI,
+   Key ID, and ALGID in the CAI message header per TIA-102.AAAD-A (Block Encryption Protocol). The two
+   primary configurations are SU-to-FNE and SU-to-SU, with the FNE acting as a CAI endpoint in the
+   former. A Grouping Profile associates each application with its algorithm and keys.
+
+   IP Data Encryption is deferred — Section 7.1.4 is marked incomplete pending ongoing ETG discussions.
+
+2. KEY MANAGEMENT ARCHITECTURE
+   Key management covers the full lifecycle of cryptographic keys: generation, distribution, entry, use,
+   storage, destruction, and archiving. The document specifies only the distribution, entry, and use
+   elements; generation and archiving doctrine is left to each procuring organization.
+
+   Key Management endpoints are classified as Key Managers (KMF, KFD, AF) or Key Management targets (SU,
+   FNE). Key Management Messages (KMMs) carry key material protected by a two-layer encryption scheme:
+   inner layer (key wrapping) uses a Key Encryption Key (KEK) to protect TEKs and other keys; outer
+   layer uses a management TEK to protect the KMM envelope. OTAR messages additionally carry Message
+   Authentication Codes (MACs) and sequence numbers for replay protection. KMMs sent on the wireline
+   Key Fill interface are not encrypted.
+
+   Three delivery methods are defined: (a) Wireline Key Fill — KFD connects physically to SU via the Key
+   Fill Device Interface (TIA-102.AACD-A); (b) Wireline KMF-to-KFD — KMF programs a KFD via the
+   KMF-to-KFD interface (TIA-102.AACD-A-1); (c) Wireless OTAR — KMF delivers KMMs through the RFSS
+   infrastructure over the E_d interface, through the IP network, and out over the CAI (U_m). OTAR
+   requires the TIA102 packet data architecture as a prerequisite.
+
+   Inter-KMF communication uses the IKI (Inter-KMF Interface), protected by S/MIME as defined in
+   TIA-102.BAKA. This allows KMFs to share key material across system boundaries. OTAR delivery across
+   ISSI is also defined, enabling a Home KMF to rekey SUs registered at a foreign RFSS.
+
+   For CAI Data Encryption specifically, KMFs can combine wireline initial provisioning (via KFD) with
+   wireless OTAR for ongoing key lifecycle management — the canonical combined architecture shown in
+   Figure 24.
+
+3. LINK LAYER AUTHENTICATION
+   LLA validates radio and FNE identity across the FDMA Trunking Control Channel. It is currently
+   defined for Trunked systems only. Two forms are defined: Unit Authentication (FNE challenges SU) and
+   optional Mutual Authentication (SU additionally challenges FNE).
+
+   Authentication uses two algorithm invocations: AM1 derives session key KS from authentication key K
+   and random seed RS; AM2 computes the challenge response from KS and random challenge RAND1. For
+   Mutual Authentication, AM3 derives KS' and AM4 computes RES2 for the reverse challenge. The
+   authentication key K is a shared secret provisioned via wireline Key Fill; it never traverses the air.
+
+   LLA Key Management endpoints are the Authentication Facility (AF) and KFD as Key Managers, with SU
+   and FNE as LLA endpoints. The AF-to-FNE provisioning interface is explicitly noted as non-standard
+   (no TIA spec covers it at publication time). When an SU roams to a new RFSS, session material is
+   retrieved from the Home FNE via the ISSI (per TIA-102.BACA-B).
+
+   Air Interface Encryption (Section 7.1.6) is deferred — marked incomplete pending ongoing ETG
+   architecture discussions.
+
+KEY PARAMETERS AND RELATIONSHIPS
+
+- Algorithms: AES (primary), DES/3DES (legacy interop only, deprecated)
+- Keys: TEK (Traffic Encryption Key), KEK (Key Encryption Key), UKEK (Unique KEK), K (authentication key)
+- Session keys: KS, KS' (derived per-session by AM1/AM3 from K + RS; never transmitted)
+- Identifiers: ALGID, KEY ID, MI (Message Indicator), SUID, SLN (Storage Location Number)
+- Interfaces referenced: E_d (data network), Key Fill Device Interface, KMF-to-KFD Interface,
+  Inter-KMF Interface (IKI), G/ISSI (inter-subsystem), U_m CAI, A interface (mobile data peripheral)
+
+RELATIONSHIPS TO OTHER DOCUMENTS
+
+This addendum supplements TIA-102.AAAB-A and is normatively dependent on:
+TIA-102.AACA-A (OTAR Messages and Procedures), TIA-102.AACD-A (Key Fill Device Interface),
+TIA-102.AACD-A-1 (KFD Interface Addendum 1), TIA-102.BAKA (KMF-to-KMF Interface),
+TIA-102.AAAD-A (Block Encryption Protocol), TIA-102.AACE-A (Link Layer Authentication),
+TIA-102.BACA-B (ISSI Messages and Procedures).
+
+LIMITATIONS ACKNOWLEDGED
+
+- IP Data Encryption architecture (Section 7.1.4) is incomplete — on hold at time of publication.
+- Air Interface Encryption / Link Layer Encryption (Section 7.1.6) is incomplete — on hold.
+- AF-to-FNE LLA provisioning interface is non-standard with no TIA spec at time of publication.
+- This document is entirely informative (Section 7 is explicitly marked [Informative] throughout).
+  It does not define normative requirements; all normative content is in the referenced protocol specs.

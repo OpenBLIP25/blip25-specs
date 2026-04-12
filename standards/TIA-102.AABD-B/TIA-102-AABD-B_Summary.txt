@@ -1,0 +1,202 @@
+TIA-102.AABD-B Summary
+Project 25 FDMA — Common Air Interface — Trunking Control Channel Procedures
+Published: November 5, 2014 (Base B Revision)
+Later amendments: B-1 (2023-12-13), B-2 (2023-07-26), B-3 (2025-02-12)
+Document length: 172 pages
+
+================================================================================
+WHAT THIS DOCUMENT SPECIFIES
+================================================================================
+
+This document is the primary behavioral procedures specification for P25
+(Project 25) trunked radio systems operating on the FDMA Common Air Interface.
+It defines the complete set of actions that both Subscriber Units (SUs) — radios
+used by first responders, police, fire, and EMS — and Fixed Network Equipment
+(FNE), also called the RF Subsystem (RFSS), must perform to operate a trunked
+radio system. It supersedes TSB-102.AABD (the original 1997 bulletin) and
+incorporates significant enhancements including TDMA-related extensions,
+Composite Control Channel (CCC) procedures, enhanced radio unit monitor, and
+Emergency procedures refinements.
+
+The document deliberately does not define message formats (bit layouts and
+opcodes — those are in TIA-102.AABC), physical layer waveforms (in
+TIA-102.BAAA), or security/authentication algorithms (in TIA-102.AACE). Instead,
+it defines the behavioral procedures: when to send what message, how to respond
+to each response, what timers to start, how many retries to attempt, and how to
+handle failure cases.
+
+================================================================================
+WHY IT EXISTS
+================================================================================
+
+Before P25, different vendors' land mobile radio systems were incompatible — a
+Motorola radio could not roam onto a Kenwood system without the two vendors
+explicitly cooperating. P25 was created to establish an open standard that allows
+any compliant SU from any manufacturer to operate on any compliant P25
+infrastructure. This document is the behavioral rulebook that makes that
+interoperability possible: it specifies, in normative terms (shall/shall not), the
+precise stimulus-response behavior required for both the radio and the
+infrastructure. Any implementation that follows this spec can interoperate with
+any other implementation that follows this spec.
+
+================================================================================
+KEY PROCEDURES DEFINED
+================================================================================
+
+CHANNEL ACCESS (Section 4): P25 uses Slotted Aloha for inbound control channel
+access. A SU picks a random slot within a window (N_random = 5 slots at T_SLOT =
+37.5 ms each), transmits its service request, and waits up to T_RFSS_RSP = 500 ms
+for a response. If no response, it retries up to N_retry = N_max - 1 = 4 times.
+The RFSS must respond within T_RFSS_RSP or the SU will retry.
+
+CONTROL CHANNEL ACQUISITION (Section 5): SUs maintain a list of candidate control
+channel frequencies. When the serving control channel is lost (T_ctrl = 300 ms of
+no valid NID), the SU initiates a Short Hunt through a prioritized channel list,
+followed by an Extended Hunt if necessary. Signal quality is monitored using
+manufacturer-set error rate (E,Te) and signal strength (S,Ts) thresholds.
+
+REGISTRATION (Section 6): Before requesting any service, a SU must register with
+the RFSS, which assigns a 24-bit Working Unit ID (WUID) — an abbreviated address
+valid for T_wuid_validity = 4 hours. Registration is required on power-on, system
+change, WUID expiry, or RFSS command. Location registration (LOC_REG_REQ/RSP)
+allows lightweight location updates within the same system. De-registration
+(U_DE_REG_REQ) is sent on power-off. Group affiliation (GRP_AFF_REQ/RSP)
+associates a SU with a talkgroup so the RFSS can route group calls to it.
+
+GROUP VOICE CALL (Section 7.1): The SU sends GRP_V_REQ. The RFSS grants a traffic
+channel (GRP_V_CH_GRANT) or queues the request (QUE_RSP) if no channel is
+available. The RFSS simultaneously sends GRP_V_CH_GRANT on the outbound control
+channel to notify all affiliated SUs. The RFSS supports both message trunking
+(channel held during hang time) and transmission trunking (channel released
+between transmissions). During message trunking, the RFSS sends Grant Update
+messages to allow late entry.
+
+UNIT-TO-UNIT VOICE CALL (Section 7.3): The SU sends UU_V_REQ. The RFSS
+optionally checks availability with the destination SU (UU_ANS_REQ/RSP). If the
+destination accepts, the RFSS grants a channel (UU_V_CH_GRANT). If no channel
+available, the RFSS queues with QUE_RSP. Either SU may terminate with
+CAN_SRV_REQ.
+
+TELEPHONE INTERCONNECT (Sections 7.4-7.6): SUs can make outbound calls to PSTN
+(explicit dialing with TELE_INT_DIAL_REQ or implicit with TELE_INT_PSTN_REQ).
+Inbound PSTN calls to groups (via GRP_V_CH_GRANT) or to individual SUs (via
+TELE_INT_ANS_REQ/RSP exchange) are also specified.
+
+SUPPLEMENTARY DATA SERVICES (Section 10): Call Alert (short page), Message Update
+(pre-programmed short message), Status Update (machine-readable status codes),
+Status Query, and Radio Unit Monitor (dispatcher forces a SU to transmit so the
+dispatcher can listen in). Enhanced Radio Unit Monitor adds the ability to force a
+SU to initiate a group call or a secure call.
+
+EMERGENCY PROCEDURES (Section 11): A comprehensive emergency handling system.
+The SU sets the "E" bit in Service Options to indicate emergency. Emergency alarms
+(EMRG_ALRM_REQ) notify dispatch consoles. Emergency calls receive priority above
+normal queued calls and may ruthlessly preempt lower-priority in-progress calls.
+Emergency registration allows SUs to access sites previously marked "site access
+denied." Emergency group calls can be cancelled via CAN_SRV_REQ with specific
+service type field. Two cancellation methods: user-initiated (SU clears E bit) and
+FNE-timer-based (FNE waits for activity timeout).
+
+EXTENDED FUNCTIONS (Section 13): Radio Check (verifies SU is present), Radio
+Inhibit (shuts down SU, persists through power cycling), Radio Uninhibit (restores
+inhibited SU), Radio Detach (de-registers SU), and Alert Tones (under
+development). All use the EXT_FNCT_CMD/EXT_FNCT_RSP exchange.
+
+COMPOSITE CONTROL CHANNEL (Section 14): An optional feature for sites with one
+or very few channels. A CCC operates as either a control channel or a traffic
+channel, but not both simultaneously. The control channel is temporarily
+surrendered to carry voice/data traffic during calls. SUs must detect CCC mode
+via the composite mode bit in RFSS_STS_BCST. No update messages are transmitted
+in single-channel CCC sites. CCC mode is indicated in ADJ_STS_BCST for adjacent
+site awareness.
+
+CONVENTIONAL FALLBACK (Section 16): When the trunking controller fails, repeaters
+can broadcast LC_CONV_FALLBACK Link Control Words to signal fallback operation.
+SUs scan for fallback channels matching their configured Fallback CH ID and NAC.
+A wildcard channel (Fallback CH ID = 0) catches SUs without a matching ID. SUs
+in fallback operate in conventional (non-trunked) repeater mode using their last
+affiliated talkgroup.
+
+================================================================================
+KEY PARAMETERS
+================================================================================
+
+T_SLOT = 37.5 ms — Slotted Aloha inbound slot time
+T_RFSS_RSP = 500 ms default — RFSS response window
+N_max = 5 — Maximum transmissions per access attempt
+N_retry = 4 — Maximum retry attempts
+T_ACK = 4 sec default (10 sec max, 1 sec min) — Wait for target unit ACK
+T_rec = 35 ms default — Time to tune to traffic channel
+T_BCST = 3 sec — Maximum interval between control channel broadcasts
+T_noact = 3 sec default — Traffic channel inactivity timeout
+T_wuid_validity = 4 hours — WUID validity period
+T_TRAFFIC_LC = 3 superframes — Traffic channel Link Control frequency
+T_conv_fallback_LC = 10 sec — Conventional fallback LC word interval
+N_conv_fallback_LC = 2 — Consecutive missed fallback LCWs before exit
+
+================================================================================
+ADDRESSING SCHEME
+================================================================================
+
+The P25 addressing hierarchy is four-deep:
+  Network (WACN ID, 20 bits) → System (12 bits) → RFSS (8 bits) → Site (8 bits)
+
+Each SU has a 56-bit Subscriber Unit ID (SUID) = WACN ID (20) + System ID (12) +
+Unit ID (24). Within a Registration Area, SUs use a 24-bit Working Unit ID (WUID).
+Home SUs default to the lower 24 bits of SUID as WUID. Roaming SUs get assigned
+WUIDs from reserved pools.
+
+Special WUIDs: $FFFFFC (FNE radio dispatch), $FFFFFD (System Default / FNE call
+processing), $FFFFFE (Registration Default), $FFFFFF (ALL UNIT).
+
+Talkgroups use a 48-bit Subscriber Group ID (SGID) = WACN ID (20) + System ID
+(12) + Group ID (16). Within a system, the 16-bit Working Group ID (WGID) is used.
+Special WGIDs: $0000 (null), $FFFF (ALL group).
+
+================================================================================
+RELATIONSHIPS TO OTHER DOCUMENTS IN THE SUITE
+================================================================================
+
+This document works in close concert with:
+- TIA-102.AABC: Defines all message formats (opcodes, field layouts) referenced
+  throughout this document as ISPs and OSPs
+- TIA-102.BAAA: FDMA physical and link layer that carries the messages
+- TIA-102.AACE: Security services (authentication procedures referenced in
+  Section 15 and the T_AUTH parameter)
+- TIA-102.BAAC: Manufacturer IDs (MFIDs) used in ESN assignment
+- TIA-102.BBAC: TDMA (Phase 2) MAC procedures; this document includes TDMA
+  extensions (IDEN_UP_TDMA, SYNC_BCST, LC messages for TDMA)
+
+================================================================================
+OPEN-SOURCE IMPLEMENTATION RELEVANCE
+================================================================================
+
+Every P25 open-source implementation that handles trunked operation must implement
+the procedures in this document:
+- SDRTrunk implements SU-side trunking: control channel acquisition, slotted Aloha
+  access, group voice/unit-to-unit call handling, registration, and affiliation
+- OP25 implements similar SU-side trunked monitoring
+- GNU Radio P25 implementations reference this document for state machine logic
+- Any P25 infrastructure software (e.g. open-source FNE implementations) must
+  implement all RFSS-side procedures defined here
+
+The state machines described in Sections 5-7 (control channel acquisition,
+registration, group voice call) are the core logic that any P25 SU or
+infrastructure implementation must correctly implement.
+
+================================================================================
+LIMITATIONS AND NOTES
+================================================================================
+
+- Section 15 (Protection) notes that the original Link Layer encryption content
+  from TSB-102.AABD was deleted; Link Layer encryption remains under study in TIA.
+- Section 13.6 (Alert Tones) is marked "under development."
+- P_PARM_BCST (Section 12.5) is obsoleted.
+- Annex G (Composite Control Channels) is deleted and replaced by Section 14.
+- This document specifies procedures for P25 Phase 1 (FDMA) CAI. Phase 2 (TDMA)
+  introduces additional MAC layer procedures via TIA-102.BBAC, but this document
+  also includes TDMA-related extensions (IDEN_UP_TDMA, SYNC_BCST) for FDMA
+  control channels coordinating TDMA traffic channels.
+- The 2014 base "B" revision has been subsequently amended three times:
+  B-1 (December 2023), B-2 (July 2023), B-3 (February 2025). The B-3 amendment
+  is the most current version of this standard as of April 2026.

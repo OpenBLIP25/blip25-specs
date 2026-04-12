@@ -1,0 +1,1451 @@
+# P25 TIA-102 Standards Cross-Reference Index
+#
+# This file tracks which TIA specs have been processed, what files were produced,
+# and which Rust modules implement them.
+#
+# Status values:
+#   "processed"    - Phase 2 + Phase 3 (implementation specs produced)
+#   "extracted"    - Phase 2 only (full text, summary, context — no impl specs yet)
+#   "pending"      - Have the PDF, not yet processed
+#   "not_required" - Overview/conformance/measurement doc, no code extraction needed
+#
+# Classification values:
+#   "algorithm", "message_format", "protocol", "vocoder",
+#   "measurement", "conformance", "overview", "interop_test",
+#   "compliance", "location", "data", "infrastructure"
+
+[meta]
+project = "TIA-P25"
+last_updated = "2026-04-13"
+prompt_version = "2.1"
+total_documents = 129
+processed_phase3 = 21
+extracted_phase2 = 2
+pending = 106
+notes = """
+Processing pipeline: Upload PDF + docs/TIA_P25_Processing_Prompt_v2.md -> Claude extracts.
+Files stay in per-document directories (TIA-102.XXXX/).
+Only derived works (summaries, context, impl specs) are committed — PDFs and full-text
+extractions are .gitignored. The download script (tools/_download_tia.py) lets anyone
+fetch the originals from TIA's public library.
+"""
+
+# =============================================================================
+# Phase 2 Two-Slot TDMA Core Documents (BB series)
+# =============================================================================
+
+[specs."TSB-102.BBAA"]
+title = "P25 Two-Slot TDMA Overview"
+classification = ["overview"]
+status = "extracted"
+current_revision = "BBAA"
+published = "2010-03"
+processed_date = "2026-04-12"
+notes = "Architecture overview of the TDMA suite. Non-normative. No impl specs needed."
+
+[specs."TSB-102.BBAA".extracted_files]
+full_text = "standards/TSB-102.BBAA/TSB-102-BBAA_full_text.md"
+summary   = "standards/TSB-102.BBAA/TSB-102-BBAA_summary.txt"
+context   = "standards/TSB-102.BBAA/TSB-102-BBAA_context.md"
+
+[specs."TIA-102.BBAB"]
+title = "Phase 2 Two-Slot TDMA Physical Layer Protocol Specification"
+classification = ["algorithm"]
+status = "processed"
+current_revision = "BBAB"
+published = "2009-07"
+processed_date = "2026-04-12"
+rust_modules = ["p25_tdma::phy::modulation", "p25_tdma::phy::burst"]
+notes = """
+Defines H-DQPSK/H-CPM modulation, symbol rate (6000 sym/s), burst timing,
+superframe/ultraframe structure. Phase 2 extracted, needs Phase 3 impl specs
+for demodulator (H-CPM MLSE, sync sequences, power ramp profiles).
+"""
+depends_on = ["TSB-102.BBAA"]
+referenced_by = ["TIA-102.BBAC-A", "TIA-102.CCAA"]
+
+[specs."TIA-102.BBAB".extracted_files]
+full_text  = "standards/TIA-102.BBAB/TIA-102.BBAB_Full_Text.md"
+summary    = "standards/TIA-102.BBAB/TIA-102.BBAB_Summary.txt"
+context    = "standards/TIA-102.BBAB/TIA-102.BBAB_Related_Resources.md"
+phy_spec   = "standards/TIA-102.BBAB/P25_TDMA_Physical_Layer_Implementation_Spec.md"
+
+[specs."TIA-102.BBAC-A"]
+title = "Phase 2 Two-Slot TDMA MAC Layer Description"
+classification = ["algorithm", "message_format", "protocol"]
+status = "processed"
+current_revision = "BBAC-A"
+published = "2019-11"
+processed_date = "2026-04-12"
+rust_modules = [
+    "p25_tdma::mac::scrambler",
+    "p25_tdma::mac::pdu",
+    "p25_tdma::mac::messages",
+    "p25_tdma::phy::burst",
+]
+notes = """
+Base MAC spec (consolidated, absorbs BBAC-1 addendum). Phase 2 extracted.
+Needs Phase 3 impl specs — complete MAC PDU framing rules, Network Status
+Broadcast, Service Options bits, MAC_PTT/MAC_END_PTT, SACCH ultraframe scheduling.
+HIGHEST PRIORITY for Phase 3 processing.
+"""
+depends_on = ["TIA-102.BBAB", "TIA-102.AABC-E", "TIA-102.AABF-D"]
+referenced_by = ["TIA-102.BCAD", "TIA-102.BCAE", "TIA-102.CCAA"]
+
+[specs."TIA-102.BBAC-A".extracted_files]
+full_text  = "standards/TIA-102.BBAC-A/TIA-102-BBAC-A_full_text.md"
+summary    = "standards/TIA-102.BBAC-A/TIA-102-BBAC-A_summary.txt"
+context    = "standards/TIA-102.BBAC-A/TIA-102-BBAC-A_context.md"
+mac_spec   = "standards/TIA-102.BBAC-A/P25_TDMA_MAC_Layer_Implementation_Spec.md"
+
+[specs."TIA-102.BBAC-1"]
+title = "Phase 2 Two-Slot TDMA MAC Layer Description — Addendum 1"
+classification = ["algorithm", "message_format", "protocol"]
+status = "processed"
+current_revision = "Absorbed into BBAC-A"
+published = "2013-02"
+withdrawn = true
+processed_date = "2026-04-12"
+source_pdf = "812 TIA 102 BBAC 1 Final Published Document 2013 02 21.pdf"
+rust_modules = [
+    "p25_tdma::mac::scrambler",
+    "p25_tdma::mac::pdu",
+    "p25_tdma::mac::messages",
+    "p25_tdma::mac::procedures",
+    "p25_tdma::phy::burst",
+]
+
+[specs."TIA-102.BBAC-1".extracted_files]
+full_text       = "standards/TIA-102.BBAC-1/TIA-102-BBAC-1_Full_Text.md"
+summary         = "standards/TIA-102.BBAC-1/TIA-102-BBAC-1_Summary.txt"
+context         = "standards/TIA-102.BBAC-1/TIA-102-BBAC-1_Context.md"
+scrambling_spec = "standards/TIA-102.BBAC-1/P25_TDMA_Scrambling_Implementation_Spec.md"
+mac_parsing     = "standards/TIA-102.BBAC-1/P25_TDMA_MAC_Message_Parsing_Spec.md"
+burst_tables    = "standards/TIA-102.BBAC-1/P25_TDMA_Annex_E_Burst_Bit_Tables.md"
+
+[specs."TIA-102.BBAD-A"]
+title = "Phase 2 Two-Slot TDMA MAC Layer Messages"
+classification = ["message_format"]
+status = "processed"
+current_revision = "BBAD-A"
+published = "2019-11"
+processed_date = "2026-04-12"
+rust_modules = ["p25_tdma::mac::messages", "p25_tdma::mac::control_channel"]
+notes = """
+All MAC message formats for LCCH and VCH. 150 pages — was split into 5 parts
+for LLM processing (parts in TIA-102.BBAD-A/LLM Processing/). Phase 2 extracted,
+needs Phase 3 impl specs (opcode dispatch table, byte-level message formats).
+"""
+depends_on = ["TIA-102.BBAC-A"]
+
+[specs."TIA-102.BBAD-A".extracted_files]
+full_text     = "standards/TIA-102.BBAD-A/TIA-102_BBAD-A_Full_Text.md"
+summary       = "standards/TIA-102.BBAD-A/TIA-102_BBAD-A_Summary.txt"
+context       = "standards/TIA-102.BBAD-A/TIA-102_BBAD-A_Related_Resources.md"
+mac_parsing   = "standards/TIA-102.BBAD-A/P25_TDMA_MAC_Message_Parsing_Implementation_Spec.md"
+
+[specs."TIA-102.BBAD-A".split_parts]
+part1 = "standards/TIA-102.BBAD-A/LLM Processing/Part1_Front_Matter.md"
+part2 = "standards/TIA-102.BBAD-A/LLM Processing/Part2_Intro_MAC_PDUs.md"
+part3 = "standards/TIA-102.BBAD-A/LLM Processing/Part3_MAC_Messages_A.md"
+part4 = "standards/TIA-102.BBAD-A/LLM Processing/Part4_MAC_Messages_B.md"
+part5 = "standards/TIA-102.BBAD-A/LLM Processing/Part5_MAC_Fields_Annex.md"
+
+[specs."TIA-102.BBAD"]
+title = "Phase 2 Two-Slot TDMA MAC Layer Control Channel (original)"
+classification = ["message_format", "protocol"]
+status = "pending"
+current_revision = "Superseded by BBAD-A"
+published = "2017-08"
+withdrawn = true
+notes = "Original combined document. Revision A split this into BBAD-A (messages) + BBAE (procedures)."
+
+[specs."TIA-102.BBAD-A-1"]
+title = "Phase 2 TDMA MAC Layer Messages — Addendum 1: Location on PTT and User Alias"
+classification = ["message_format"]
+status = "processed"
+current_revision = "BBAD-A-1"
+published = "2025-03"
+processed_date = "2026-04-12"
+rust_modules = ["p25_tdma::mac::messages::loptt", "p25_tdma::mac::messages::user_alias"]
+notes = "Adds 3 new VCH MAC messages: MAC_MFIDA4_UA (User Alias), and two LoPTT variants."
+depends_on = ["TIA-102.BBAD-A"]
+
+[specs."TIA-102.BBAD-A-1".extracted_files]
+full_text   = "standards/TIA-102.BBAD-A-1/TIA-102_BBAD-A-1_Full_Text.md"
+summary     = "standards/TIA-102.BBAD-A-1/TIA-102_BBAD-A-1_Summary.txt"
+context     = "standards/TIA-102.BBAD-A-1/TIA-102_BBAD-A-1_Related_Resources.md"
+loptt_spec  = "standards/TIA-102.BBAD-A-1/P25_TDMA_LoPTT_UserAlias_Implementation_Spec.md"
+
+[specs."TIA-102.BBAE"]
+title = "Phase 2 Two-Slot TDMA MAC Layer Procedures"
+classification = ["protocol"]
+status = "processed"
+current_revision = "BBAE"
+published = "2019-11"
+processed_date = "2026-04-12"
+rust_modules = ["p25_tdma::mac::procedures"]
+notes = """
+State machines for call setup, maintenance, teardown, preemption, channel management.
+Needs Phase 3 impl specs (state machine diagrams, PDU sequencing, timing).
+"""
+depends_on = ["TIA-102.BBAC-A", "TIA-102.BBAD-A"]
+
+[specs."TIA-102.BBAE".extracted_files]
+full_text       = "standards/TIA-102.BBAE/TIA-102.BBAE_Full_Text.md"
+summary         = "standards/TIA-102.BBAE/TIA-102.BBAE_Summary.txt"
+context         = "standards/TIA-102.BBAE/TIA-102.BBAE_Context.md"
+procedures_spec = "standards/TIA-102.BBAE/P25_TDMA_MAC_Procedures_Implementation_Spec.md"
+
+[specs."TIA-102.BBAE-1"]
+title = "Phase 2 TDMA MAC Layer Procedures — Addendum 1: Location on PTT and User Alias"
+classification = ["protocol"]
+status = "processed"
+current_revision = "BBAE-1"
+published = "2025-03"
+processed_date = "2026-04-12"
+rust_modules = ["p25_tdma::mac::procedures::loptt", "p25_tdma::mac::procedures::user_alias"]
+notes = "Adds LoPTT and User Alias procedures (subclauses 4.6, 4.7) to BBAE."
+depends_on = ["TIA-102.BBAE", "TIA-102.BBAD-A-1"]
+
+[specs."TIA-102.BBAE-1".extracted_files]
+full_text = "standards/TIA-102.BBAE-1/TIA-102_BBAE-1_Full_Text.md"
+summary   = "standards/TIA-102.BBAE-1/TIA-102_BBAE-1_Summary.txt"
+context   = "standards/TIA-102.BBAE-1/TIA-102_BBAE-1_Related_Resources.md"
+
+# =============================================================================
+# Phase 2 TDMA Conformance (BC series)
+# =============================================================================
+
+[specs."TIA-102.BCAD"]
+title = "Phase 2 Two-Slot TDMA CAI Conformance Specification"
+classification = ["conformance"]
+status = "not_required"
+current_revision = "BCAD"
+published = "2011-09"
+
+[specs."TIA-102.BCAE"]
+title = "Phase 2 TDMA Trunked Voice Messages and Procedures Conformance"
+classification = ["conformance"]
+status = "not_required"
+current_revision = "BCAE"
+published = "2011-07"
+notes = "Withdrawn Nov-19, absorbed into BBAC-A."
+withdrawn = true
+
+[specs."TIA-102.BCAF"]
+title = "Trunked TDMA Voice Channel Conformance Profiles"
+classification = ["conformance"]
+status = "done"
+current_revision = "BCAF"
+published = "2012-08"
+dir = "standards/TIA-102.BCAF"
+files = [
+  "TIA-102-BCAF_Full_Text.md",
+  "TIA-102-BCAF_Summary.txt",
+  "TIA-102-BCAF_Related_Resources.md",
+]
+notes = "29 CPs for TDMA trunked voice CAI conformance. Covers group, unit-to-unit, PSTN interconnect, preemption, emergency, encrypted, broadcast. No Phase 3 (conformance doc, not implementation spec)."
+
+# =============================================================================
+# Security / Encryption / OTAR / Key Management (AA series)
+# =============================================================================
+
+[specs."TIA-102.AAAB-A"]
+title = "P25 Digital Land Mobile Radio — Security Services Overview (original)"
+classification = ["overview"]
+status = "pending"
+current_revision = "Superseded by AAAB-B"
+withdrawn = true
+
+[specs."TIA-102.AAAB-B"]
+title = "P25 Digital Land Mobile Radio — Security Services Overview"
+classification = ["overview"]
+status = "pending"
+current_revision = "AAAB-B"
+published = "2019-02"
+
+[specs."TIA-102.AAAD-A"]
+title = "P25 Digital Land Mobile Radio Block Encryption Protocol (original)"
+classification = ["algorithm"]
+status = "pending"
+current_revision = "Superseded by AAAD-B"
+withdrawn = true
+rust_modules = ["p25_crypto::block_encryption"]
+
+[specs."TIA-102.AAAD-B"]
+title = "P25 Digital Land Mobile Radio Block Encryption Protocol"
+classification = ["algorithm"]
+status = "processed"
+current_revision = "AAAD-B"
+published = "2015-12"
+processed_date = "2026-04-12"
+rust_modules = ["p25_crypto::block_encryption"]
+notes = """
+AES-256 and DES-OFB encryption for P25 voice and data. ESS carries ALGID, KID, MI.
+ESS bit placement in TDMA bursts is in BBAC Annex E (already extracted from BBAC-1).
+"""
+
+[specs."TIA-102.AAAD-B".extracted_files]
+full_text       = "standards/TIA-102.AAAD-B/TIA-102-AAAD-B_Full_Text.md"
+summary         = "standards/TIA-102.AAAD-B/TIA-102-AAAD-B_Summary.txt"
+context         = "standards/TIA-102.AAAD-B/TIA-102-AAAD-B_Related_Resources.md"
+encryption_spec = "standards/TIA-102.AAAD-B/P25_Block_Encryption_Protocol_Implementation_Spec.md"
+
+[specs."TIA-102.AACE"]
+title = "P25 Link Layer Authentication (original)"
+classification = ["algorithm", "protocol"]
+status = "pending"
+current_revision = "Superseded by AACE-A"
+withdrawn = true
+
+[specs."TIA-102.AACE-A"]
+title = "P25 Link Layer Authentication"
+classification = ["algorithm", "protocol"]
+status = "processed"
+current_revision = "AACE-A"
+published = "2011-04"
+processed_date = "2026-04-12"
+rust_modules = ["p25_crypto::authentication"]
+
+[specs."TIA-102.AACE-A".extracted_files]
+full_text  = "standards/TIA-102.AACE-A/TIA-102-AACE-A_Full_Text.md"
+summary    = "standards/TIA-102.AACE-A/TIA-102-AACE-A_Summary.txt"
+context    = "standards/TIA-102.AACE-A/TIA-102-AACE-A_Related_Resources.md"
+auth_spec  = "standards/TIA-102.AACE-A/P25_Link_Layer_Authentication_Implementation_Spec.md"
+
+[specs."TIA-102.AACA-B"]
+title = "P25 Over-the-Air Rekeying (OTAR) Messages and Procedures"
+classification = ["message_format", "protocol", "algorithm"]
+status = "processed"
+current_revision = "AACA-B (September 2021)"
+notes = "Triple-classified: MESSAGE_FORMAT + PROTOCOL + ALGORITHM. Supersedes AACA-A. DES deprecated per FPIC. Phase 3 specs pending."
+summary   = "standards/TIA-102.AACA-B/TIA-102-AACA-B_Summary.txt"
+context   = "standards/TIA-102.AACA-B/TIA-102-AACA-B_Related_Resources.md"
+full_text = "standards/TIA-102.AACA-B/TIA-102-AACA-B_Full_Text.md"
+phase3_pending = ["TIA-102-AACA-B_Message_Parsing_Spec.md", "TIA-102-AACA-B_OTAR_Procedures_Spec.md", "TIA-102-AACA-B_Key_Crypto_Implementation_Spec.md"]
+
+[specs."TIA-102.AACA-C"]
+title = "P25 OTAR Protocol (revision C)"
+classification = ["protocol"]
+status = "pending"
+current_revision = "Superseded by AACA-D"
+
+[specs."TIA-102.AACA-D"]
+title = "P25 Over-the-Air Rekeying (OTAR) Protocol"
+classification = ["message_format", "protocol", "algorithm"]
+status = "processed"
+current_revision = "AACA-D"
+published = "2025-04"
+rust_modules = ["p25_crypto::otar"]
+phase2_files = [
+  "TIA-102.AACA-D/TIA-102-AACA-D_Summary.txt",
+  "TIA-102.AACA-D/TIA-102-AACA-D_Related_Resources.md",
+  "TIA-102.AACA-D/TIA-102-AACA-D_Full_Text.md",
+]
+phase3_pending = [
+  "TIA-102-AACA-D_OTAR_Message_Parsing_Spec.md",
+  "TIA-102-AACA-D_OTAR_Procedures_Spec.md",
+  "TIA-102-AACA-D_Key_Management_Crypto_Implementation_Spec.md",
+]
+
+[specs."TIA-102.AACC"]
+title = "P25 OTAR Conformance Tests (original)"
+classification = ["conformance"]
+status = "not_required"
+current_revision = "Superseded by AACC-A"
+
+[specs."TIA-102.AACC-A"]
+title = "Conformance Tests for P25 OTAR Protocol"
+classification = ["conformance"]
+status = "not_required"
+current_revision = "AACC-A"
+published = "2006-08"
+ansi = true
+
+[specs."TIA-102.AACD"]
+title = "P25 Key Fill Device Interface Protocol (original)"
+classification = ["protocol"]
+status = "pending"
+current_revision = "Superseded by AACD-A"
+
+[specs."TIA-102.AACD-A"]
+title = "P25 Key Fill Device (KFD) Interface Protocol"
+classification = ["protocol"]
+status = "pending"
+current_revision = "AACD-A"
+published = "2014-09"
+rust_modules = ["p25_crypto::kfd"]
+
+[specs."TIA-102.AACD-B"]
+title = "P25 KFD Interface Protocol (revision B — in progress)"
+classification = ["protocol"]
+status = "pending"
+current_revision = "AACD-B"
+notes = "May be a draft or recent revision."
+
+# =============================================================================
+# Trunking / Control Channel / Link Control (AAB series)
+# =============================================================================
+
+[specs."TIA-102.AABA-B"]
+title = "P25 Trunking Overview"
+classification = ["overview"]
+status = "pending"
+current_revision = "Superseded by AABA-C"
+notes = "Current approved is AABA-C (Dec-19)."
+
+[specs."TIA-102.AABB-A"]
+title = "P25 Trunking Control Channel Formats (original)"
+classification = ["message_format"]
+status = "pending"
+current_revision = "Superseded by AABB-B"
+
+[specs."TIA-102.AABB-B"]
+title = "P25 Trunking Control Channel Formats"
+classification = ["message_format"]
+status = "processed"
+current_revision = "AABB-B"
+published = "2011-07"
+ansi = true
+processed_date = "2026-04-12"
+rust_modules = ["p25_trunking::control_channel::formats"]
+
+[specs."TIA-102.AABB-B".extracted_files]
+full_text    = "standards/TIA-102.AABB-B/TIA-102-AABB-B_Full_Text.md"
+summary      = "standards/TIA-102.AABB-B/TIA-102-AABB-B_Summary.txt"
+context      = "standards/TIA-102.AABB-B/TIA-102-AABB-B_Related_Resources.md"
+formats_spec = "standards/TIA-102.AABB-B/P25_Trunking_Control_Channel_Formats_Implementation_Spec.md"
+
+[specs."TIA-102.AABC-D"]
+title = "P25 Trunking Control Channel Messages (revision D)"
+classification = ["message_format", "protocol"]
+status = "processed"
+current_revision = "Superseded by AABC-E"
+published = "2015-04"
+processed_date = "2026-04-13"
+pdf = "standards/TIA-102.AABC-D/8.10_TIA-102.AABC-D_Final Published Document_2015_04_06.pdf"
+summary = "standards/TIA-102.AABC-D/TIA-102-AABC-D_Summary.txt"
+context = "standards/TIA-102.AABC-D/TIA-102-AABC-D_Related_Resources.md"
+full_text = "standards/TIA-102.AABC-D/TIA-102-AABC-D_Full_Text.md"
+rust_modules = ["p25_trunking::tsbk", "p25_trunking::messages", "p25_trunking::control_channel"]
+notes = """
+230-page core document. Defines all ISP/OSP TSBK messages for P25 trunked systems:
+34 ISPs and 46 OSPs covering voice, data, control/status. Includes multiblock format,
+abbreviated/extended address forms, 3 normative annex reason code tables (Cancel/Deny/Queue).
+Superseded by AABC-E which absorbed addenda D-1 through D-3.
+"""
+depends_on = ["TIA-102.AABA", "TIA-102.AABB"]
+
+[specs."TIA-102.AABC-E"]
+title = "P25 Trunking Control Channel Messages"
+classification = ["message_format", "protocol"]
+status = "processed"
+current_revision = "AABC-E"
+published = "2019-04"
+ansi = true
+processed_date = "2026-04-12"
+rust_modules = ["p25_trunking::control_channel", "p25_trunking::messages"]
+notes = """
+Consolidated version absorbing AABC-D plus addenda D-1 through D-3. Defines all
+control channel OSP/ISP messages: channel grants, registration, affiliation,
+authentication. Plus addenda E-1 (Dec-23) and E-3 (Feb-25) extend it further.
+"""
+depends_on = ["TIA-102.AABF-D"]
+
+[specs."TIA-102.AABC-E".extracted_files]
+full_text      = "standards/TIA-102.AABC-E/TIA-102-AABC-E_Full_Text.md"
+summary        = "standards/TIA-102.AABC-E/TIA-102-AABC-E_Summary.txt"
+context        = "standards/TIA-102.AABC-E/TIA-102-AABC-E_Related_Resources.md"
+trunking_spec  = "standards/TIA-102.AABC-E/P25_Trunking_Control_Channel_Messages_Implementation_Spec.md"
+
+[specs."TIA-102.AABD-A"]
+title = "P25 Trunking Procedures (revision A, original)"
+classification = ["protocol"]
+status = "pending"
+current_revision = "Superseded by AABD-B"
+notes = "Directory has 3 PDFs (original, A-1, A-2)."
+
+[specs."TIA-102.AABD-B"]
+title = "P25 Trunking Procedures"
+classification = ["protocol"]
+status = "processed"
+current_revision = "AABD-B"
+published = "2014-11"
+processed_date = "2026-04-12"
+rust_modules = ["p25_trunking::procedures"]
+notes = "Has 4 PDFs (B, B-1 LOP, B-2 UA, B-3 RAE). Current work: AABD-C in draft."
+
+[specs."TIA-102.AABD-B".extracted_files]
+full_text        = "standards/TIA-102.AABD-B/TIA-102-AABD-B_Full_Text.md"
+summary          = "standards/TIA-102.AABD-B/TIA-102-AABD-B_Summary.txt"
+context          = "standards/TIA-102.AABD-B/TIA-102-AABD-B_Related_Resources.md"
+procedures_spec  = "standards/TIA-102.AABD-B/P25_Trunking_Procedures_Implementation_Spec.md"
+
+[specs."TIA-102.AABD-B-3"]
+title = "P25 Trunking Procedures — RAE Addendum 3"
+classification = ["protocol"]
+status = "done"
+current_revision = "AABD-B-3"
+published = "2025-02"
+depends_on = ["TIA-102.AABD-B"]
+full_text        = "standards/TIA-102.AABD-B-3/TIA-102-AABD-B-3_Full_Text.md"
+summary          = "standards/TIA-102.AABD-B-3/TIA-102-AABD-B-3_Summary.txt"
+context          = "standards/TIA-102.AABD-B-3/TIA-102-AABD-B-3_Related_Resources.md"
+phase3_pending   = "TIA-102-AABD-B-3_RAE_Protocol_Implementation_Spec.md"
+
+[specs."TIA-102.AABF-C"]
+title = "P25 Link Control Word Formats and Messages (revision C) + Addendum 1"
+classification = ["message_format"]
+status = "done"
+current_revision = "AABF-C-1 (Addendum 1, Jan 2013); base C superseded by AABF-D"
+published = "2013-01"
+ansi = true
+processed_date = "2026-04-13"
+notes = "Addendum 1 adds LC_CONV_FALLBACK (LCO=42): Conventional Fallback Indication LCW. Adds Fallback CH ID field, N (Failsoft Network) flag, T (Alert Tone Sync) flag. Contents absorbed into AABF-D."
+phase3_pending = "TIA-102-AABF-C_LCW_Message_Parsing_Spec.md"
+
+[specs."TIA-102.AABF-C".extracted_files]
+full_text = "standards/TIA-102.AABF-C/TIA-102-AABF-C_Full_Text.md"
+summary   = "standards/TIA-102.AABF-C/TIA-102-AABF-C_Summary.txt"
+context   = "standards/TIA-102.AABF-C/TIA-102-AABF-C_Related_Resources.md"
+
+[specs."TIA-102.AABF-D"]
+title = "P25 Link Control Word Formats and Messages"
+classification = ["message_format"]
+status = "processed"
+current_revision = "AABF-D"
+published = "2015-04"
+ansi = true
+processed_date = "2026-04-12"
+rust_modules = ["p25_common::link_control"]
+notes = "LCW definitions used by both FDMA and TDMA. Has addenda D-1 (Dec-23) and D-2 (Jul-23)."
+
+[specs."TIA-102.AABF-D".extracted_files]
+full_text   = "standards/TIA-102.AABF-D/TIA-102-AABF-D_Full_Text.md"
+summary     = "standards/TIA-102.AABF-D/TIA-102-AABF-D_Summary.txt"
+context     = "standards/TIA-102.AABF-D/TIA-102-AABF-D_Related_Resources.md"
+lcw_spec    = "standards/TIA-102.AABF-D/P25_Link_Control_Word_Implementation_Spec.md"
+
+[specs."TIA-102.AABG"]
+title = "P25 Conventional Control Messages"
+classification = ["message_format"]
+status = "processed"
+current_revision = "AABG"
+published = "2009-04"
+processed_date = "2026-04-12"
+rust_modules = ["p25_conventional::messages"]
+
+[specs."TIA-102.AABG".extracted_files]
+full_text         = "standards/TIA-102.AABG/TIA-102-AABG_Full_Text.md"
+summary           = "standards/TIA-102.AABG/TIA-102-AABG_Summary.txt"
+context           = "standards/TIA-102.AABG/TIA-102-AABG_Related_Resources.md"
+conventional_spec = "standards/TIA-102.AABG/P25_Conventional_Control_Messages_Implementation_Spec.md"
+
+[specs."TIA-102.AABH"]
+title = "P25 Dynamic Regrouping Messages and Procedures"
+classification = ["message_format", "protocol"]
+status = "processed"
+current_revision = "AABH"
+published = "2014-11"
+processed_date = "2026-04-12"
+rust_modules = ["p25_trunking::regrouping"]
+
+[specs."TIA-102.AABH".extracted_files]
+full_text        = "standards/TIA-102.AABH/TIA-102-AABH_Full_Text.md"
+summary          = "standards/TIA-102.AABH/TIA-102-AABH_Summary.txt"
+context          = "standards/TIA-102.AABH/TIA-102-AABH_Related_Resources.md"
+regroup_spec     = "standards/TIA-102.AABH/P25_Dynamic_Regrouping_Implementation_Spec.md"
+
+# =============================================================================
+# FDMA Common Air Interface / Conventional (BA series)
+# =============================================================================
+
+[specs."TIA-102.BAAA-A"]
+title = "P25 FDMA Common Air Interface (original revision)"
+classification = ["algorithm", "message_format", "protocol"]
+status = "processed"
+current_revision = "Superseded by BAAA-B"
+approved = "2003-09-17"
+reaffirmed = "2013-08-02"
+ansi = true
+
+[specs."TIA-102.BAAA-A".extracted_files]
+full_text = "standards/TIA-102.BAAA-A/TIA-102-BAAA-A_Full_Text.md"
+summary   = "standards/TIA-102.BAAA-A/TIA-102-BAAA-A_Summary.txt"
+context   = "standards/TIA-102.BAAA-A/TIA-102-BAAA-A_Related_Resources.md"
+
+[specs."TIA-102.BAAA-B"]
+title = "P25 FDMA — Common Air Interface"
+classification = ["algorithm", "message_format", "protocol"]
+status = "processed"
+current_revision = "BAAA-B"
+published = "2017-06"
+ansi = true
+processed_date = "2026-04-12"
+rust_modules = ["p25_fdma::cai"]
+notes = """
+Phase 1 FDMA CAI. Defines C4FM modulation, HDU/LDU/TDU frame types,
+NID, IMBE voice frame placement. Foundation for Phase 1 decoding.
+"""
+
+[specs."TIA-102.BAAA-B".extracted_files]
+full_text  = "standards/TIA-102.BAAA-B/TIA-102-BAAA-B_Full_Text.md"
+summary    = "standards/TIA-102.BAAA-B/TIA-102-BAAA-B_Summary.txt"
+context    = "standards/TIA-102.BAAA-B/TIA-102-BAAA-B_Related_Resources.md"
+fdma_spec  = "standards/TIA-102.BAAA-B/P25_FDMA_Common_Air_Interface_Implementation_Spec.md"
+
+[specs."TIA-102.BAAB-B"]
+title = "P25 Common Air Interface Conformance Test"
+classification = ["conformance"]
+status = "complete"
+current_revision = "BAAB-B"
+published = "2013-03"
+full_text  = "standards/TIA-102.BAAB-B/TIA-102-BAAB-B_Full_Text.md"
+summary    = "standards/TIA-102.BAAB-B/TIA-102-BAAB-B_Summary.txt"
+context    = "standards/TIA-102.BAAB-B/TIA-102-BAAB-B_Related_Resources.md"
+
+[specs."TIA-102.BAAC-C"]
+title = "P25 CAI Reserved Values (revision C)"
+classification = ["message_format"]
+status = "pending"
+current_revision = "Superseded by BAAC-D"
+
+[specs."TIA-102.BAAC-D"]
+title = "P25 Common Air Interface Reserved Values"
+classification = ["message_format"]
+status = "processed"
+current_revision = "BAAC-D"
+published = "2017-06"
+ansi = true
+processed_date = "2026-04-12"
+rust_modules = ["p25_common::reserved_values"]
+notes = """
+Defines reserved/assigned values for NAC, MFID (Manufacturer Feature ID),
+service options, algorithm IDs, etc. Essential lookup tables.
+"""
+
+[specs."TIA-102.BAAC-D".extracted_files]
+full_text       = "standards/TIA-102.BAAC-D/TIA-102-BAAC-D_Full_Text.md"
+summary         = "standards/TIA-102.BAAC-D/TIA-102-BAAC-D_Summary.txt"
+context         = "standards/TIA-102.BAAC-D/TIA-102-BAAC-D_Related_Resources.md"
+reserved_values = "standards/TIA-102.BAAC-D/P25_Reserved_Values_Implementation_Spec.md"
+
+[specs."TIA-102.BAAD-A"]
+title = "P25 Conventional Procedures (revision A)"
+classification = ["protocol"]
+status = "pending"
+current_revision = "Superseded by BAAD-B"
+
+[specs."TIA-102.BAAD-B"]
+title = "P25 Conventional Procedures"
+classification = ["protocol"]
+status = "processed"
+current_revision = "BAAD-B"
+published = "2015-08"
+processed_date = "2026-04-12"
+rust_modules = ["p25_conventional::procedures"]
+
+[specs."TIA-102.BAAD-B".extracted_files]
+full_text        = "standards/TIA-102.BAAD-B/TIA-102-BAAD-B_Full_Text.md"
+summary          = "standards/TIA-102.BAAD-B/TIA-102-BAAD-B_Summary.txt"
+context          = "standards/TIA-102.BAAD-B/TIA-102-BAAD-B_Related_Resources.md"
+conv_procs_spec  = "standards/TIA-102.BAAD-B/P25_Conventional_Procedures_Implementation_Spec.md"
+
+# =============================================================================
+# Vocoder (BAB series)
+# =============================================================================
+
+[specs."TIA-102.BABA"]
+title = "P25 Vocoder Description (original IMBE)"
+classification = ["vocoder"]
+status = "pending"
+current_revision = "Superseded by BABA-A"
+notes = "Directory has 2 PDFs."
+
+[specs."TIA-102.BABA-A"]
+title = "P25 Vocoder Description (IMBE Full-Rate and Half-Rate)"
+classification = ["vocoder"]
+status = "processed"
+current_revision = "BABA-A"
+published = "2014-02"
+ansi = true
+processed_date = "2026-04-12"
+rust_modules = ["p25_vocoder::imbe", "p25_vocoder::ambe"]
+notes = """
+Full-rate IMBE (7.2 kbps, 144 bits/20ms) and half-rate (3.6 kbps, 49 bits/20ms).
+Phase 1 (FDMA) uses full-rate; Phase 2 (TDMA) uses half-rate. Quantization
+tables in Annexes A-T. Note: IMBE frame format is a transport container for
+MBE model parameters — synthesis engine is independent of frame format.
+See analysis/vocoder_wire_vs_codec.md.
+"""
+
+[specs."TIA-102.BABA-A".extracted_files]
+full_text     = "standards/TIA-102.BABA-A/TIA-102-BABA-A_Full_Text.md"
+summary       = "standards/TIA-102.BABA-A/TIA-102-BABA-A_Summary.txt"
+context       = "standards/TIA-102.BABA-A/TIA-102-BABA-A_Related_Resources.md"
+vocoder_spec  = "standards/TIA-102.BABA-A/P25_Vocoder_Implementation_Spec.md"
+
+[specs."TIA-102.BABC"]
+title = "P25 Vocoder Reference Test"
+classification = ["measurement"]
+status = "processed"
+current_revision = "BABC"
+published = "1999-04"
+withdrawn = true
+processed_date = "2026-04-12"
+notes = "Expired/withdrawn. Defines IMBE conformance test methodology using DVSI A25VCTS."
+
+[specs."TIA-102.BABC".extracted_files]
+summary       = "standards/TIA-102.BABC/TIA-EIA-102_BABC_Summary.txt"
+context       = "standards/TIA-102.BABC/TIA-EIA-102_BABC_Related_Resources.md"
+vocoder_test  = "standards/TIA-102.BABC/TIA-EIA-102_BABC_Vocoder_Reference_Test.md"
+
+[specs."TIA-102.BABB"]
+title = "P25 Vocoder Mean Opinion Score Conformance Test"
+classification = ["measurement"]
+status = "needed"
+current_revision = "BABB"
+published = "1999-05"
+ansi = true
+notes = """
+MOS-based subjective quality test for P25 vocoders. Referenced by BABC as the
+companion subjective test method. Often misidentified in cross-references as the
+AMBE+2 vocoder spec or half-rate vocoder — it is neither. It is a conformance
+test procedure. See analysis/vocoder_missing_specs.md.
+"""
+
+[specs."TIA-102.BABG"]
+title = "P25 Enhanced Vocoder Methods of Measurement for Performance"
+classification = ["measurement"]
+status = "processed"
+processed_date = "2026-04-13"
+current_revision = "BABG"
+published = "2010-03"
+notes = """
+Published 2010, contemporaneous with AMBE+2 deployment in production radios.
+Motorola's July 2013 TDMA white paper categorizes this as a TDMA testing doc
+and describes it as defining "methods of measurement to test performance of
+the P25 enhanced vocoder." This is the quality bar for AMBE+2-class
+implementations. Baseline IMBE explicitly cannot pass (Section 1.2).
+Ships with test vectors: 32 speech sentence pairs + 15 noise environments.
+See analysis/vocoder_missing_specs.md and analysis/vocoder_wire_vs_codec.md.
+"""
+
+[specs."TIA-102.BABG".extracted_files]
+full_text = "standards/TIA-102.BABG/TIA-102-BABG_Full_Text.md"
+summary   = "standards/TIA-102.BABG/TIA-102-BABG_Summary.txt"
+context   = "standards/TIA-102.BABG/TIA-102-BABG_Related_Resources.md"
+
+# =============================================================================
+# Inter-RF Subsystem Interface — ISSI (BAC series)
+# =============================================================================
+
+[specs."TIA-102.BACA"]
+title = "P25 ISSI Messages and Procedures for Voice and Mobility"
+classification = ["message_format", "protocol"]
+status = "extracted"
+current_revision = "BACA-B (multiple addenda; BACA-C in draft)"
+published = "2012-11"
+processed_date = "2026-04-13"
+rust_modules = ["p25_issi"]
+notes = "506-page base spec. Full text, summary, and related resources extracted. Covers SU-to-SU calls, group calls, mobility management (REGISTER), in-call roaming, vocoder mode negotiation (PT 100/101/102), PTT floor control (11 types), RFSS capability polling (OPTIONS), and console functionality."
+
+[specs."TIA-102.BACA".extracted_files]
+full_text = "standards/TIA-102.BACA/TIA-102-BACA_Full_Text.md"
+summary   = "standards/TIA-102.BACA/TIA-102-BACA_Summary.txt"
+context   = "standards/TIA-102.BACA/TIA-102-BACA_Related_Resources.md"
+
+[specs."TIA-102.BACA-B-3"]
+title = "P25 ISSI — Addendum 3: Interworking with IWF"
+classification = ["protocol"]
+status = "pending"
+current_revision = "BACA-B-3"
+published = "2021-01"
+depends_on = ["TIA-102.BACA"]
+
+[specs."TIA-102.BACE"]
+title = "P25 ISSI Messages and Procedures for Conventional Operations"
+classification = ["protocol"]
+status = "pending"
+current_revision = "BACE"
+published = "2008-06"
+
+[specs."TIA-102.BACF"]
+title = "P25 ISSI Messages and Procedures for Packet Data Services"
+classification = ["protocol"]
+status = "pending"
+current_revision = "BACF"
+published = "2009-10"
+
+# =============================================================================
+# Telephone Interconnect (BAD series)
+# =============================================================================
+
+[specs."TIA-102.BADA-1"]
+title = "P25 Telephone Interconnect — Addendum 1"
+classification = ["protocol"]
+status = "pending"
+current_revision = "BADA-1"
+
+[specs."TIA-102.BADA-A"]
+title = "P25 Telephone Interconnect Requirements and Definitions (Voice Services)"
+classification = ["protocol"]
+status = "pending"
+current_revision = "BADA-A"
+published = "2012-06"
+
+# =============================================================================
+# Data Services (BAE series)
+# =============================================================================
+
+[specs."TIA-102.BAEA-B"]
+title = "P25 Data Overview (revision B)"
+classification = ["overview", "data"]
+status = "pending"
+current_revision = "Superseded by BAEA-C"
+
+[specs."TIA-102.BAEA-C"]
+title = "P25 Data Overview"
+classification = ["overview", "data"]
+status = "pending"
+current_revision = "BAEA-C"
+published = "2015-12"
+ansi = true
+
+[specs."TIA-102.BAEB-B"]
+title = "P25 IP Data Bearer Service Specification (revision B)"
+classification = ["protocol", "data"]
+status = "pending"
+current_revision = "Superseded by BAEB-C"
+
+[specs."TIA-102.BAEB-C"]
+title = "P25 IP Data Bearer Service Specification"
+classification = ["protocol", "data"]
+status = "processed"
+current_revision = "BAEB-C"
+published = "2019-12"
+ansi = true
+processed_date = "2026-04-12"
+rust_modules = ["p25_data::ip_bearer"]
+
+[specs."TIA-102.BAEB-C".extracted_files]
+full_text       = "standards/TIA-102.BAEB-C/TIA-102-BAEB-C_Full_Text.md"
+summary         = "standards/TIA-102.BAEB-C/TIA-102-BAEB-C_Summary.txt"
+context         = "standards/TIA-102.BAEB-C/TIA-102-BAEB-C_Related_Resources.md"
+ip_bearer_spec  = "standards/TIA-102.BAEB-C/P25_IP_Data_Bearer_Implementation_Spec.md"
+
+[specs."TIA-102.BAED"]
+title = "P25 Packet Data Logical Link Control Procedures (original)"
+classification = ["protocol", "data"]
+status = "pending"
+current_revision = "Superseded by BAED-A"
+
+[specs."TIA-102.BAED-A"]
+title = "P25 Packet Data Logical Link Control Procedures"
+classification = ["protocol", "data"]
+status = "processed"
+current_revision = "BAED-A"
+published = "2019-04"
+ansi = true
+processed_date = "2026-04-12"
+rust_modules = ["p25_data::llc"]
+
+[specs."TIA-102.BAED-A".extracted_files]
+full_text  = "standards/TIA-102.BAED-A/TIA-102-BAED-A_Full_Text.md"
+summary    = "standards/TIA-102.BAED-A/TIA-102-BAED-A_Summary.txt"
+context    = "standards/TIA-102.BAED-A/TIA-102-BAED-A_Related_Resources.md"
+llc_spec   = "standards/TIA-102.BAED-A/P25_Packet_Data_LLC_Implementation_Spec.md"
+
+[specs."TIA-102.BAEE-B"]
+title = "P25 Radio Management Controls (revision B)"
+classification = ["protocol", "data"]
+status = "pending"
+current_revision = "Superseded by BAEE-C"
+
+[specs."TIA-102.BAEE-C"]
+title = "P25 Radio Management Controls"
+classification = ["protocol", "data"]
+status = "pending"
+current_revision = "BAEE-C"
+published = "2015-12"
+ansi = true
+
+[specs."TIA-102.BAEF"]
+title = "P25 Packet Data Host Network Interface"
+classification = ["protocol", "data"]
+status = "pending"
+current_revision = "BAEF"
+notes = "Current is BAEF-A (Feb-19)."
+
+[specs."TIA-102.BAEG"]
+title = "P25 Mobile Data Peripheral Interface (original)"
+classification = ["protocol", "data"]
+status = "pending"
+current_revision = "Superseded by BAEG-A"
+
+[specs."TIA-102.BAEG-A"]
+title = "P25 Mobile Data Peripheral Interface"
+classification = ["protocol", "data"]
+status = "pending"
+current_revision = "BAEG-A"
+published = "2019-03"
+ansi = true
+
+[specs."TIA-102.BAEJ"]
+title = "P25 Conventional Management Service for Packet Data (original)"
+classification = ["protocol", "data"]
+status = "pending"
+current_revision = "Superseded by BAEJ-A"
+
+[specs."TIA-102.BAEJ-A"]
+title = "P25 Conventional Management Service Specification for Packet Data"
+classification = ["protocol", "data"]
+status = "pending"
+current_revision = "BAEJ-A"
+published = "2019-03"
+ansi = true
+
+# =============================================================================
+# Network Management / Console (BAF/BAG series)
+# =============================================================================
+
+[specs."TSB-102.BAFA (APCO)"]
+title = "P25 Network Management Interface Overview (APCO version)"
+classification = ["overview", "infrastructure"]
+status = "pending"
+current_revision = "BAFA"
+
+[specs."TSB-102.BAFA-A"]
+title = "P25 Network Management Interface Overview"
+classification = ["overview", "infrastructure"]
+status = "pending"
+current_revision = "BAFA-A"
+published = "1999-07"
+
+# =============================================================================
+# Fixed Station Interface (BAH series)
+# =============================================================================
+
+[specs."TIA-102.BAHA-A"]
+title = "P25 Fixed Station Interface Messages and Procedures"
+classification = ["message_format", "protocol", "infrastructure"]
+status = "pending"
+current_revision = "BAHA-A"
+published = "2017-06"
+rust_modules = ["p25_fsi"]
+notes = "Console-to-RFSS interface. IWF addendum in progress."
+
+# =============================================================================
+# Location Services (BAJ series)
+# =============================================================================
+
+[specs."TIA-102.BAJB-A"]
+title = "P25 Tier 1 Location Services (revision A)"
+classification = ["protocol", "location"]
+status = "processed"
+current_revision = "Superseded by BAJB-B"
+processed_date = "2026-04-13"
+files = [
+  "TIA-102-BAJB-A_Full_Text.md",
+  "TIA-102-BAJB-A_Summary.txt",
+  "TIA-102-BAJB-A_Related_Resources.md",
+]
+phase3_needed = ["P25_Tier1_Location_Protocol_Implementation_Spec"]
+
+[specs."TIA-102.BAJB-B"]
+title = "P25 Tier 1 Location Services"
+classification = ["protocol", "location"]
+status = "pending"
+current_revision = "BAJB-B"
+published = "2019-12"
+ansi = true
+rust_modules = ["p25_location::tier1"]
+
+[specs."TIA-102.BAJC-A"]
+title = "P25 Tier 2 Location Services (revision A)"
+classification = ["protocol", "location"]
+status = "extracted"
+current_revision = "Superseded by BAJC-B"
+published = "2015-04"
+ansi = true
+pdf = "standards/TIA-102.BAJC-A/8.5_ANSI-TIA-102.BAJC-A_Final Published Document_2015_04_10.pdf"
+summary = "standards/TIA-102.BAJC-A/TIA-102-BAJC-A_Summary.txt"
+full_text = "standards/TIA-102.BAJC-A/TIA-102-BAJC-A_Full_Text.md"
+related_resources = "standards/TIA-102.BAJC-A/TIA-102-BAJC-A_Related_Resources.md"
+rust_modules = ["p25_location::lrrp"]
+
+[specs."TIA-102.BAJC-B"]
+title = "P25 Location Registration Reporting Protocol (LRRP)"
+classification = ["protocol", "location"]
+status = "processed"
+current_revision = "BAJC-B"
+published = "2019-03"
+ansi = true
+rust_modules = ["p25_location::tier2", "p25_location::lrrp"]
+pdf = "standards/TIA-102.BAJC-B/8.5_TIA-102.BAJC-B_Final Published Document_2019_03_111.pdf"
+summary = "standards/TIA-102.BAJC-B/TIA-102-BAJC-B_Summary.txt"
+full_text = "standards/TIA-102.BAJC-B/TIA-102-BAJC-B_Full_Text.md"
+related_resources = "standards/TIA-102.BAJC-B/TIA-102-BAJC-B_Related_Resources.md"
+phase3_pending = ["P25_LRRP_Protocol_State_Machine_Implementation_Spec.md", "P25_LRRP_Message_Format_Implementation_Spec.md"]
+
+[specs."TIA-102.BAJD"]
+title = "P25 TCP/UDP Port Number Assignments (original)"
+classification = ["message_format"]
+status = "pending"
+current_revision = "Superseded by BAJD-A"
+
+[specs."TIA-102.BAJD-A"]
+title = "P25 TCP/UDP Port Number Assignments"
+classification = ["message_format"]
+status = "pending"
+current_revision = "BAJD-A"
+published = "2019-01"
+
+# =============================================================================
+# KMF to KMF Interface (BAK series)
+# =============================================================================
+
+[specs."TIA-102.BAKA"]
+title = "P25 KMF to KMF Interface (original)"
+classification = ["protocol"]
+status = "pending"
+current_revision = "Superseded by BAKA-A"
+
+[specs."TIA-102.BAKA-A"]
+title = "P25 KMF to KMF Interface"
+classification = ["protocol", "security"]
+status = "processed"
+current_revision = "BAKA-A"
+published = "2024-07"
+rust_modules = ["p25_crypto::kmf"]
+summary = "standards/TIA-102.BAKA-A/TIA-102-BAKA-A_Summary.txt"
+full_text = "standards/TIA-102.BAKA-A/TIA-102-BAKA-A_Full_Text.md"
+related_resources = "standards/TIA-102.BAKA-A/TIA-102-BAKA-A_Related_Resources.md"
+phase3_needed = ["P25_IKMF_Message_Format_Implementation_Spec", "P25_IKMF_Protocol_State_Machine_Implementation_Spec", "P25_IKMF_Crypto_Layer_Implementation_Spec"]
+
+[specs."TIA-102.BAKA-A-1"]
+title = "P25 KMF to KMF Interface — Addendum 1"
+classification = ["protocol"]
+status = "pending"
+current_revision = "BAKA-A-1"
+published = "2024-12"
+depends_on = ["TIA-102.BAKA-A"]
+
+# =============================================================================
+# Transceiver Measurement / Performance — C4FM/CQPSK (CAA series)
+# =============================================================================
+
+[specs."TIA-102.CAAA-E"]
+title = "P25 C4FM/CQPSK Transceiver Measurement Methods (revision E)"
+classification = ["measurement"]
+status = "not_required"
+current_revision = "Superseded by CAAA-F"
+
+[specs."TIA-102.CAAA-F"]
+title = "P25 Digital C4FM/CQPSK Transceiver Measurement Methods"
+classification = ["measurement"]
+status = "processed"
+current_revision = "CAAA-F"
+published = "2021-09"
+ansi = true
+processed_date = "2026-04-12"
+output_dir = "standards/TIA-102.CAAA-F/"
+
+[specs."TIA-102.CAAB"]
+title = "P25 LMR Transceiver Performance Recommendations (multiple revisions)"
+classification = ["measurement"]
+status = "not_required"
+current_revision = "CAAB-E"
+notes = "Directory has 3 PDFs (E, E-1, E-2)."
+
+[specs."TIA-102.CAAB-E-2"]
+title = "P25 LMR Transceiver Performance Recommendations — Addendum 2"
+classification = ["measurement"]
+status = "not_required"
+current_revision = "CAAB-E-2"
+published = "2024-12"
+
+# =============================================================================
+# Interoperability Testing (CAB series)
+# =============================================================================
+
+[specs."TIA-102.CABA"]
+title = "P25 Interoperability Test Procedures — Conventional Voice"
+classification = ["interop_test"]
+status = "done"
+current_revision = "CABA-A"
+published = "2018-11"
+notes = "40 test suites, 114 tables. 3 contexts: direct SU-SU, via FNE, DMC+FNE. CONFORMANCE — no Phase 3 spec."
+
+[specs."TIA-102.CABB"]
+title = "P25 Interoperability Testing for OTAR"
+classification = ["interop_test"]
+status = "not_required"
+current_revision = "CABB-A"
+published = "2015-11"
+notes = "Directory has 2 PDFs."
+
+[specs."TIA-102.CABC"]
+title = "P25 Interoperability Testing for Voice Operation in Trunked Systems"
+classification = ["interop_test"]
+status = "not_required"
+current_revision = "CABC-C"
+published = "2017-02"
+
+# =============================================================================
+# ISSI Measurement / Performance / Conformance (CAC series)
+# =============================================================================
+
+[specs."TIA-102.CACA"]
+title = "P25 ISSI Measurement Methods for Voice Services"
+classification = ["measurement"]
+status = "not_required"
+current_revision = "CACA"
+published = "2007-04"
+
+[specs."TIA-102.CACB"]
+title = "P25 ISSI Performance Recommendations for Voice Services"
+classification = ["measurement"]
+status = "not_required"
+current_revision = "CACB"
+published = "2007-04"
+notes = "Directory has 2 PDFs (CACB and CACB-1)."
+
+[specs."TIA-102.CACC"]
+title = "P25 ISSI Conformance Test Procedures"
+classification = ["conformance"]
+status = "not_required"
+current_revision = "CACC"
+published = "2009-01"
+notes = "Directory has 2 PDFs (CACC and CACC-1)."
+
+[specs."TIA-102.CACD-C"]
+title = "P25 ISSI Interoperability Test Procedures (revision C)"
+classification = ["interop_test"]
+status = "not_required"
+current_revision = "Superseded by CACD-D"
+
+[specs."TIA-102.CACD-D"]
+title = "P25 ISSI Interoperability Test Procedures"
+classification = ["interop_test"]
+status = "not_required"
+current_revision = "CACD-D"
+published = "2018-11"
+
+# =============================================================================
+# Fixed Station Interface Conformance (CAD series)
+# =============================================================================
+
+[specs."TIA-102.CADA"]
+title = "P25 Fixed Station Interface Conformance Test Procedure"
+classification = ["conformance"]
+status = "not_required"
+current_revision = "CADA"
+published = "2007-04"
+
+# =============================================================================
+# Conformance Profiles (CAE series)
+# =============================================================================
+
+[specs."TIA-102.CAEA"]
+title = "P25 Conformance Profile Level One — Basic Conventional (original)"
+classification = ["conformance"]
+status = "not_required"
+current_revision = "Superseded by CAEA-A"
+
+[specs."TIA-102.CAEA-A"]
+title = "P25 Conformance Profile Level One — Basic Conventional Operation"
+classification = ["conformance"]
+status = "not_required"
+current_revision = "CAEA-A"
+published = "2016-06"
+
+[specs."TIA-102.CAEB"]
+title = "P25 Conformance Profile Level Two — Advanced Conventional (original)"
+classification = ["conformance"]
+status = "not_required"
+current_revision = "Superseded by CAEB-A"
+
+[specs."TIA-102.CAEB-A"]
+title = "P25 Conformance Profile Level Two — Advanced Conventional Operation"
+classification = ["conformance"]
+status = "not_required"
+current_revision = "CAEB-A"
+published = "2016-06"
+
+[specs."TIA-102.CAEC"]
+title = "P25 Conformance Profile Level Three — Basic Trunked Operation"
+classification = ["conformance"]
+status = "not_required"
+current_revision = "CAEC"
+published = "2011-12"
+
+[specs."TIA-102.CAED"]
+title = "P25 Conformance Profiles for Advanced Trunked Operations"
+classification = ["conformance"]
+status = "not_required"
+current_revision = "CAED"
+published = "2013-11"
+
+# =============================================================================
+# Two-Slot TDMA Transceiver Measurement / Performance (CC series)
+# =============================================================================
+
+[specs."TIA-102.CCAA-B"]
+title = "P25 Two-Slot TDMA Transceiver Measurement Methods (revision B)"
+classification = ["measurement"]
+status = "not_required"
+current_revision = "Superseded by CCAA-C"
+
+[specs."TIA-102.CCAA-C"]
+title = "P25 Two-Slot TDMA Transceiver Measurement Methods"
+classification = ["measurement"]
+status = "done"
+current_revision = "CCAA-C"
+published = "2022-07"
+ansi = true
+directory = "standards/TIA-102.CCAA-C"
+files = [
+  "TIA-102-CCAA-C_Full_Text.md",
+  "TIA-102-CCAA-C_Summary.txt",
+  "TIA-102-CCAA-C_Related_Resources.md",
+]
+depends_on = ["TIA-102.CAAA", "TIA-102.CAAB", "TIA-102.CAAC"]
+
+[specs."TIA-102.CCAB-A"]
+title = "P25 Two-Slot TDMA Transceiver Performance Recommendations (revision A)"
+classification = ["measurement"]
+status = "not_required"
+current_revision = "Superseded by CCAB-B"
+
+[specs."TIA-102.CCAB-B"]
+title = "P25 Two-Slot TDMA Transceiver Performance Recommendations"
+classification = ["measurement"]
+status = "done"
+current_revision = "CCAB-B"
+published = "2022-07"
+ansi = true
+files = [
+  "TIA-102.CCAB-B/TIA-102-CCAB-B_Full_Text.md",
+  "TIA-102.CCAB-B/TIA-102-CCAB-B_Summary.txt",
+  "TIA-102.CCAB-B/TIA-102-CCAB-B_Related_Resources.md",
+]
+
+[specs."TIA-102.CCAB-B-1"]
+title = "P25 Two-Slot TDMA Transceiver Performance — Addendum 1"
+classification = ["measurement"]
+status = "not_required"
+current_revision = "CCAB-B-1"
+published = "2024-12"
+
+# =============================================================================
+# TSB-102 Suite Overview & Bulletins
+# =============================================================================
+
+[specs."TSB-102-C"]
+title = "P25 Documentation Suite Overview (revision C)"
+classification = ["overview"]
+status = "pending"
+current_revision = "Superseded by TSB-102-D"
+
+[specs."TSB-102-D"]
+title = "P25 Documentation Suite Overview"
+classification = ["overview"]
+status = "complete"
+current_revision = "TSB-102-D"
+published = "2020-04"
+pdf_path = "standards/TSB-102-D/8.10_TSB-102-D_Final Published Document_2020_03_20.pdf"
+outputs = [
+  "TSB-102-D/TSB-102-D_Full_Text.md",
+  "TSB-102-D/TSB-102-D_Summary.txt",
+  "TSB-102-D/TSB-102-D_Related_Resources.md",
+]
+notes = "Master index and architectural overview of the entire TIA-102 (P25) standards suite. Informative TSB only — no Phase 3 impl spec needed."
+
+[specs."TSB-102.CAAC"]
+title = "P25 Mobile Radio PTT and Audio Interface — Definitions and Measurement"
+classification = ["measurement"]
+status = "not_required"
+current_revision = "CAAC"
+published = "2002-09"
+
+# =============================================================================
+# Location Services Bulletins
+# =============================================================================
+
+[specs."TSB-102.BAJA-A"]
+title = "P25 Location Services Overview (revision A)"
+classification = ["overview", "location"]
+status = "pending"
+current_revision = "Superseded by BAJA-B"
+
+[specs."TSB-102.BAJA-B"]
+title = "P25 Location Services Overview"
+classification = ["overview", "location"]
+status = "pending"
+current_revision = "BAJA-B"
+published = "2017-11"
+
+# =============================================================================
+# Compliance Assessment Program (CB series)
+# =============================================================================
+
+[specs."TSB-102.CBAA"]
+title = "P25 Compliance Assessment Overview"
+classification = ["compliance"]
+status = "not_required"
+current_revision = "CBAA"
+published = "2010-10"
+
+[specs."TSB-102.CBAB"]
+title = "P25 Compliance Assessment — Supplier Declaration Template"
+classification = ["compliance"]
+status = "not_required"
+current_revision = "CBAB"
+published = "2009-06"
+
+[specs."TSB-102.CBAC"]
+title = "P25 Compliance Assessment — Transceiver Performance Test Report Guidelines"
+classification = ["compliance"]
+status = "not_required"
+current_revision = "CBAC"
+published = "2009-04"
+
+[specs."TSB-102.CBAF"]
+title = "P25 Compliance Assessment — Trunking Interoperability Test Report Guidelines"
+classification = ["compliance"]
+status = "not_required"
+current_revision = "CBAF"
+published = "2009-04"
+
+[specs."TSB-102.CBBA"]
+title = "P25 Compliance Assessment Tests — Conventional Mode Subscriber (original)"
+classification = ["compliance"]
+status = "not_required"
+current_revision = "Superseded by CBBA-A"
+
+[specs."TSB-102.CBBA-A"]
+title = "P25 Compliance Assessment Tests — Conventional Mode Subscriber"
+classification = ["compliance"]
+status = "not_required"
+current_revision = "CBBA-A"
+published = "2015-06"
+
+[specs."TSB-102.CBBC"]
+title = "P25 Compliance Assessment Tests — Conventional Mode Fixed Station (original)"
+classification = ["compliance"]
+status = "not_required"
+current_revision = "Superseded by CBBC-A"
+
+[specs."TSB-102.CBBC-A"]
+title = "P25 Compliance Assessment Tests — Conventional Mode Fixed Station"
+classification = ["compliance"]
+status = "not_required"
+current_revision = "CBBC-A"
+published = "2015-06"
+
+[specs."TSB-102.CBBE"]
+title = "P25 Recommended Compliance Assessment Tests — Conventional Operation"
+classification = ["compliance"]
+status = "not_required"
+current_revision = "CBBE"
+published = "2011-09"
+
+[specs."TSB-102.CBBF"]
+title = "P25 Compliance Assessment Tests — Trunking Mode Subscriber (original)"
+classification = ["compliance"]
+status = "not_required"
+current_revision = "Superseded by CBBF-A"
+
+[specs."TSB-102.CBBF-A"]
+title = "P25 Compliance Assessment Tests — Trunking Mode Subscriber"
+classification = ["compliance"]
+status = "not_required"
+current_revision = "CBBF-A"
+published = "2015-06"
+
+[specs."TSB-102.CBBH"]
+title = "P25 Compliance Assessment Tests — Trunked Mode Fixed Station (original)"
+classification = ["compliance"]
+status = "not_required"
+current_revision = "Superseded by CBBH-A"
+
+[specs."TSB-102.CBBH-A"]
+title = "P25 Compliance Assessment Tests — Trunked Mode Fixed Station"
+classification = ["compliance"]
+status = "not_required"
+current_revision = "CBBH-A"
+published = "2015-05"
+
+[specs."TSB-102.CBBJ-B"]
+title = "P25 Compliance Assessment Tests — Trunking Interoperability (revision B)"
+classification = ["compliance"]
+status = "not_required"
+current_revision = "Superseded by CBBJ-C"
+
+[specs."TSB-102.CBBJ-C"]
+title = "P25 Compliance Assessment Tests — Trunking Interoperability"
+classification = ["compliance"]
+status = "not_required"
+current_revision = "CBBJ-C"
+published = "2015-06"
+
+[specs."TSB-102.CBBK-A"]
+title = "P25 Compliance Assessment Tests — Trunking ISSI (revision A)"
+classification = ["compliance"]
+status = "not_required"
+current_revision = "Superseded by CBBK-B"
+
+[specs."TSB-102.CBBK-B"]
+title = "P25 Compliance Assessment Tests — Trunking ISSI"
+classification = ["compliance"]
+status = "not_required"
+current_revision = "CBBK-B"
+published = "2018-11"
+
+[specs."TSB-102.CBBL"]
+title = "P25 Compliance Assessment Tests — TDMA Trunking Voice Channel (original)"
+classification = ["compliance"]
+status = "not_required"
+current_revision = "Superseded by CBBL-A"
+
+[specs."TSB-102.CBBL-A"]
+title = "P25 Compliance Assessment Tests — TDMA Trunking Voice Channel"
+classification = ["compliance"]
+status = "not_required"
+current_revision = "CBBL-A"
+published = "2015-06"
+
+# =============================================================================
+# Other
+# =============================================================================
+
+[specs."J-STD-200"]
+title = "Study of Interworking Between LMR and 3GPP"
+classification = ["overview"]
+status = "pending"
+current_revision = "J-STD-200"
+published = "2025-03"
+notes = "Not a TIA-102 doc. Interworking study between P25 and 3GPP/LTE."
+
+# =============================================================================
+# Processing Priority Queue
+# =============================================================================
+#
+# Recommended processing order based on dependency chain and implementation value:
+#
+# === PHASE 3 needed (have Phase 2, need implementation specs) ===
+# 1. TIA-102.BBAC-A — Base MAC spec (HIGHEST PRIORITY — fills gaps from BBAC-1)
+# 2. TIA-102.BBAB  — Physical layer (demod: H-CPM MLSE, sync, power ramp)
+# 3. TIA-102.BBAD-A — MAC messages (opcode dispatch, byte-level formats)
+# 4. TIA-102.BBAE  — MAC procedures (state machines, sequencing, timing)
+#
+# === Phase 2 extraction needed (have PDF, unprocessed) ===
+# 5. TIA-102.AABC-E — Control channel messages (trunking OSP/ISP)
+# 6. TIA-102.AABF-D — Link control words (referenced everywhere)
+# 7. TIA-102.BAAC-D — Reserved values (NAC, MFID, ALGID tables)
+# 8. TIA-102.AAAD-B — Encryption protocol
+# 9. TIA-102.BAAA-B — FDMA CAI (Phase 1 support)
+# 10. TIA-102.BABA-A — Vocoder (frame structure extraction only)
+# 11. Everything else as needed

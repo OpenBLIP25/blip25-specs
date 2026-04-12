@@ -1,0 +1,86 @@
+TIA-102.BAEG: Project 25 Mobile Data Peripheral Interface
+ANSI/TIA-102.BAEG-2013 | Approved May 10, 2013 | Published May 2013
+Developed by: TIA TR-8.5 Signaling and Data Transmission Subcommittee
+
+WHAT THIS DOCUMENT SPECIFIES
+
+This document defines the "A Interface" — formally called the Mobile Data Peripheral Interface — for Project 25 (P25) packet data systems. The A Interface is the physical and logical connection between a P25 Subscriber Unit (SU, i.e., the radio) and a Mobile Data Peripheral (MDP, i.e., a laptop, MDT, or other computing device carried in a vehicle or worn by a first responder).
+
+The document is a first edition (Original) that consolidates and supersedes the A Interface material previously split across two earlier documents: TIA-102.BAEA-A (Data Overview) and TIA-102.BAEB-A. By extracting this interface into a standalone specification, it simplifies maintenance and implementation of the MDP connection independently of broader data architecture changes.
+
+ARCHITECTURE AND PROTOCOL STACK
+
+The A Interface is defined as a three-layer stack. Implementers must choose one protocol at each layer and the document restricts the valid combinations to exactly four:
+
+  Serial (physical) layer:
+    - TIA-232 (RS-232 serial)
+    - USB 2.0
+
+  Point-to-Point layer:
+    - SLIP (Serial Line IP, RFC-1055)
+    - PPP (Point-to-Point Protocol, RFC-1661/1662/2153)
+
+  Network layer:
+    - IPv4 (RFC-791)
+
+The four valid combinations are: IPv4/SLIP/TIA-232, IPv4/PPP/TIA-232, IPv4/SLIP/USB, and IPv4/PPP/USB. The document presents protocol stack diagrams for all four.
+
+SERIAL INTERFACE REQUIREMENTS
+
+For TIA-232, the document specifies a required minimum set of three signals (Common C, Transmitted Data TD, Received Data RD) and six optional signals (DSR, DTR, RFR, TDC, CTS, RDC). Physical connector conformance to TIA-232 or ITU-T V.24 is recommended but not required. The DCE role in the DTE/DCE model corresponds to the SU (radio). The RFR signal (Ready for Receiving, new in TIA-232-F) replaces the legacy RTS signal for flow control from the DTE toward the DCE.
+
+For USB, the A Interface shall support USB 2.0, with a Series A plug on the SU and a Series A receptacle on the MDP. At least one USB Device Class capable of supporting a networking device (per USB CDC 1.2) must be included. Physical connector conformance is not required.
+
+POINT-TO-POINT LAYER
+
+SLIP is referenced normatively to RFC-1055. It provides no error detection, no link control negotiation, and no dynamic addressing — it is purely a framing mechanism for IP datagrams over a serial link.
+
+PPP is referenced normatively to RFC-1661 (core), RFC-1662 (HDLC-like framing), and RFC-2153 (vendor extensions). PPP provides CRC error detection, Link Control Protocol (LCP) for negotiation, and Network Control Protocols (NCP) including:
+  - Dynamic IP address management via DHCP (RFC-2131)
+  - Password Authentication Protocol (PAP, RFC-1334)
+  - Challenge-Handshake Authentication Protocol (CHAP, RFC-1994)
+
+IP ADDRESS BINDING
+
+The document does not mandate a specific IP address binding method, deferring to local policy. It describes four approaches as guidance:
+  1. Static binding — addresses pre-configured on both endpoints
+  2. Passive binding — SU learns MDP's address from first received datagram (disadvantage: SU cannot initiate until MDP sends first)
+  3. Active binding — SU sends ICMP Information Request to address 0.0.0.0; MDP replies with its IP address
+  4. Dynamic binding — MDP learns addressing from SU during PPP LCP/NCP negotiation
+
+NETWORK LAYER PAYLOAD
+
+IPv4 payloads on the A Interface are divided into two categories:
+
+  Data Application Information: Upper-layer protocols (TCP, UDP, and application data). Format and content are outside the scope of this document.
+
+  Control Signaling:
+    (a) Error Reporting via ICMP (RFC-792): The SU shall be configurable to enable or disable Echo Reply responses. ICMP messages that may be generated include Destination Unreachable (network/host/port), Parameter Problem (bad checksum, wrong IP version, oversized datagram without fragmentation support, header too short), and Echo Request/Reply.
+
+    (b) Radio Management: Signaling between A Interface endpoints using one of the radio management protocols defined in TIA-102.BAEE-B. The IPv4 Type of Service field shall be set to 0x00; the Protocol field identifies the transport protocol per TIA-102.BAEE-B.
+
+KEY PARAMETERS AND CONSTRAINTS
+
+TIA-232 typical data rate: 9.6 kb/s (up to 115.2 kb/s); signal voltage -12V to +12V (5V option for short range); 3–9 wire physical construct.
+
+USB 2.0 signal voltage: ±525mV; full speed 12 Mb/s (low speed 1.5 Mb/s, high speed 480 Mb/s); 4-wire physical construct; host (MDP) powers the bus.
+
+SLIP characteristics: asynchronous synchronization, no error detection, no dynamic link or network control.
+
+PPP characteristics: async or sync, CRC error detection, full LCP/NCP negotiation capability.
+
+RELATIONSHIP TO OTHER DOCUMENTS
+
+This document depends on TIA-102.BAEA-B (Data Overview and Specification) for the definitions of "A Interface," "Local Policy," and the broader P25 data architecture context. Radio management signaling over the A Interface is governed by TIA-102.BAEE-B (Radio Management Protocols). The SU's U_m Interface (the over-the-air interface) is separate from the A Interface and its routing is outside this specification.
+
+The document sits within the TIA-102 "BA" subcategory (packet data) alongside BAEA (data overview), BAEB (data host), BAED (interoperability), BAEE (radio management), and BAEF (gateway).
+
+LIMITATIONS AND SCOPE EXCLUSIONS
+
+The document explicitly excludes: the specific content and format of data application payloads, upper-layer transport protocol behavior, exception-to-ICMP-message mapping (left to local policy), and IP address binding method selection (left to local policy). The document does not define the U_m air interface data path.
+
+The Annex A (informative) provides a comparative feature/capability table for all four protocol technologies (TIA-232, USB, SLIP, PPP) as a quick reference for implementers.
+
+STATUS
+
+Active as of the original 2013 publication. This document was adopted by the APCO/NASTD/FED Project 25 Steering Committee on April 25, 2013.

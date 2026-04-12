@@ -1,0 +1,55 @@
+TIA-102.AAAD-A: Project 25 Digital Land Mobile Radio Block Encryption Protocol
+Summary (~1,000 words)
+ANSI/TIA-102.AAAD-A | Approved: August 20, 2009 | Revision of TIA-102.AAAD
+
+WHAT THIS DOCUMENT SPECIFIES
+
+This standard defines the Block Encryption Protocol (BEP) for Project 25 (P25) digital land mobile radio systems. It specifies how block ciphers are applied in Output FeedBack (OFB) mode to encrypt voice and data traffic transmitted over the Common Air Interface (CAI). The protocol is algorithm-agnostic at its core — it defines the operating framework (OFB mode, LFSR-based synchronization, key and IV management) into which any approved block cipher can be plugged. Three normative annexes specify the approved algorithms: DES (Annex A, ALGID $81), Triple DES / TDEA (Annex B, ALGID $83), and AES-256 (Annex C, ALGID $84).
+
+WHY IT EXISTS
+
+P25 systems are used by public safety agencies (police, fire, EMS) who require communications confidentiality. The encryption function sits above Layer 2 of the OSI model and operates end-to-end between endpoints (mobile radios, consoles, gateways) rather than at individual radio links. This means encryption/decryption occurs at the IMBE vocoder boundary for voice, or at the data application boundary for data messages. This document provides the specific protocol binding that allows equipment from different manufacturers to interoperate in encrypted mode.
+
+REVISION HISTORY
+
+This document is a revision of TIA-102.AAAD (originally published June 2002). Key changes include the addition of Two-Slot TDMA encryption schedules (Phase 2 / P25 TDMA support, added in 2008-2009) and the designation of AES as the mandatory algorithm (Section 7), replacing the earlier DES default. The revision was developed by the TR-8.3 Encryption Subcommittee with input from the TIA-APCO Project 25 Interface Committee (APIC).
+
+KEY PARAMETERS AND ARCHITECTURE
+
+The encryption system has four components: (1) an Encryption Algorithm with Key Variable, (2) an Operating Mode (OFB), (3) an Initialization Vector (IV), and (4) a Message Indicator (MI) used for synchronization.
+
+Message Indicator and LFSR: The MI is a 72-bit field carried in the CAI. Bits MI(0)–MI(7) are reserved and set to zero; bits MI(8)–MI(71) carry 64 bits of LFSR state. The LFSR uses the characteristic polynomial:
+
+  C(x) = 1 + x^15 + x^27 + x^38 + x^46 + x^62 + x^64
+
+This is a maximal-length 64-stage shift register with a period of 2^64 − 1. The LFSR is clocked 64 times per superframe to advance the MI. For FDMA, the MI is sent in the LDU2 of each voice superframe (every ~360 ms). For TDMA, it is sent every 360 ms via the Encryption Sync Signaling (ESS) word in the MAC layer.
+
+Initialization Vector: The first MI in a transmission (sent in the Header) is the IV. Each new transmission should use a fresh IV to prevent keystream reuse. Loading the LFSR with all zeros produces an invalid IV (all-zero MI is a reserved value indicating unencrypted traffic per TIA-102.BAAC).
+
+OFB Keystream Generation: For an n-bit block cipher operating in OFB mode, the LFSR register is loaded into the encryption input register (left-to-right) to initialize it. For n ≤ 64, the leftmost n bits of the LFSR are used directly. For n > 64 (i.e., AES with n=128), the 64 LFSR bits are placed in the rightmost 64 positions of an n-stage shift register running the same LFSR polynomial, then shifted left (n − 64) times to expand to n bits. The first OFB iteration (B#=1) encrypts the MI but its output is not used for plaintext encryption — it serves only to initialize the input register for subsequent iterations.
+
+FDMA VOICE ENCRYPTION: Each FDMA voice superframe contains 213 octets of encryptable content: 3 reserved octets, 8 octets of Link Control (LC) information, 18 IMBE voice frames of 11 octets each, and 4 octets of Low Speed Data (LSD). The number of OFB iterations per superframe is B = 1 + ceil(213/m), where m = n/8. For DES/TDEA (n=64, m=8): B = 28. For AES (n=128, m=16): B = 15. The encryption schedules mapping each plaintext octet to its OFB block and octet offset within that block are fully tabulated (Tables 5-5 and 5-6 for LDU1 and LDU2 respectively).
+
+TWO-SLOT TDMA VOICE ENCRYPTION (Phase 2): Each 360 ms interval contains 18 half-rate vocoder frames of 7 octets each (49 bits rounded up), giving 126 octets total. B = 1 + ceil(126/m). For AES (n=128): B = 9. For DES (n=64): B = 17. Full encryption schedules are given in Tables 5-8 (n=128) and 5-9 (n=64). The half-rate vocoder words W0–W6 are derived from vocoder output words U0–U3; the 7 least-significant bits of W6 are reserved and not transmitted.
+
+DATA ENCRYPTION: Data messages are encrypted on a packet-by-packet basis. An Encryption Synchronization (ES) Auxiliary Header is added to each fragment. This 13-octet header carries: 9 octets of MI (MI(71)–MI(8) plus a reserved octet $00), ALGID (1 octet), KID (2 octets), and a secondary SAP (1 octet, not encrypted). Everything after the ES header is encrypted (except CRC and optional pad octets). The data CRC covers encrypted content.
+
+KEY SELECTION: Each encryption key is stored with a 16-bit Key Identifier (KID) and an 8-bit Algorithm ID (ALGID). KID=$0000 is the default single-key value. ALGID=$80 indicates unencrypted traffic. The ALGID and KID values are transmitted with each message so the receiver can locate the correct key.
+
+MANDATORY ALGORITHM: As of the 2008 revision, AES (as specified in Annex C) is the mandatory algorithm for all conforming equipment. DES and TDEA remain supported for interoperability with legacy equipment.
+
+NORMATIVE ANNEXES
+
+Annex A (DES): n=64, k=56 effective (64-bit key with every 8th bit as parity), ALGID=$81, 64-bit OFB. Bit correspondence: protocol bit 63 = DES bit 1, protocol bit 0 = DES bit 64. Includes complete FDMA and TDMA test vectors.
+
+Annex B (TDEA/Triple DES): n=64, k=192 (three 64-bit keys with parity), ALGID=$83. Operation: Output = E_K3(D_K2(E_K1(Input))). Compatible with DES when K1=K2=K3. Uses TOFB64 mode. Includes FDMA and TDMA test vectors with key bundle K1/K2/K3.
+
+Annex C (AES-256): n=128, k=256, ALGID=$84, Nr=14 rounds. 128-bit OFB with the feedback loop running 14 times per iteration (not standard n-bit OFB). Bit 127 is AES bit 0, bit 0 is AES bit 127. Requires MI expansion from 64 to 128 bits per Section 4.2. Includes FDMA and TDMA test vectors.
+
+RELATIONSHIPS TO OTHER DOCUMENTS
+
+This document depends on: TIA-102.BABA (vocoder structure), TIA-102.BAAA-A (FDMA CAI format), TIA-102.BAAC-B (reserved values, including the invalid all-zero MI and ALGID assignments), and TIA-102.BBAC (Two-Slot TDMA MAC, for TDMA encryption sync). It expands TIA-102.AAAA (the earlier DES-only protocol).
+
+LIMITATIONS
+
+The protocol addresses over-the-air compatibility only — it does not specify key distribution, key management infrastructure, or anti-replay mechanisms. The choice of IV is left to implementors, who must ensure IV uniqueness per key to prevent keystream reuse attacks. The standard acknowledges that using a 64-bit LFSR (rather than the full 72 MI bits) reduces the LFSR period by a factor of approximately 256 compared to a 72-bit register.

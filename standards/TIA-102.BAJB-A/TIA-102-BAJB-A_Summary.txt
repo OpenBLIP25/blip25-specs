@@ -1,0 +1,136 @@
+TIA-102.BAJB-A: Project 25 Tier 1 Location Services Specification
+Summary
+ANSI/TIA-102.BAJB-A-2014 | Approved November 5, 2014 | Revision of TIA-102.BAJB
+===========================================================================
+
+WHAT THIS DOCUMENT SPECIFIES
+
+TIA-102.BAJB-A is the complete specification for the Tier 1 Location Service
+in Project 25 (P25) Land Mobile Radio (LMR) systems. It defines the
+architecture, protocols, message formats, performance requirements, and
+operational constraints for transmitting GPS-derived position data between
+Subscriber Units (SUs) over the P25 Common Air Interface (CAI) Data Bearer
+Service. The document is the second edition (Revision A) of TIA-102.BAJB,
+originally published February 2009, updated October 2014 to address errata
+and editorial issues.
+
+WHY IT EXISTS
+
+P25 public safety communications systems increasingly require integrated
+location tracking for situational awareness during field incidents. The
+Project 25 Steering Committee (APCO/NASTD/FED) commissioned this
+specification to standardize how SUs report their GPS location over the
+existing P25 data infrastructure without requiring IP networking, fixed host
+routing, or infrastructure-side software. Tier 1 is deliberately simple:
+it is designed for peer-to-peer, field-expedient scenarios where a portable
+device serves as the Location Service Host. A companion document suite
+(TSB-102.BAJA-A) provides the overview, while separate Tier 2 documents
+cover the more complex infrastructure-routed location service.
+
+WHAT IT DEFINES
+
+Architecture: Three architectural entities participate in Tier 1 Location
+Services. The Location Information System (LIS) -- typically a GPS receiver,
+integrated into or connected to the SU -- provides raw position data to the
+SU. The SU transmits that data over the air to a receiving SU. The receiving
+SU delivers it to the Location Service Host System (LSHS), which may be a
+mapping application running on another portable radio. The interfaces between
+LIS and SU, and between SU and LSHS, are deliberately left unstandardized to
+allow manufacturer flexibility and LIS-industry innovation. Only the SU-to-SU
+and SU-to-FSR air interfaces are standardized.
+
+Two RF configurations are supported: Direct Data (SU transmits directly to
+receiving SU) and Repeated Data (SU transmits through a Fixed Station
+Repeater to the receiving SU). Conventional FNE and Trunked FNE data
+configurations are explicitly out of scope for Tier 1.
+
+Protocol Stack: The transport layer uses the CAI Data Bearer Service with
+Unconfirmed Data Packet Delivery as specified in TIA-102.BAEA-B. The SAP
+Identifier field is set to the Location Service value from TIA-102.BAAC-C.
+The Data Header Offset is zero. The maximum packet size is 128 octets -- a
+deliberate design constraint to bound transmission time. The application
+protocol is NMEA 0183 (Version 3.01).
+
+NMEA 0183 Message Formats: The Tier 1 service uses a defined subset of NMEA
+0183 sentences. The GGA sentence (GPS Fix Data) is mandatory for both
+transmitting and receiving SUs. Six additional sentence types (GLL, GSA, GSV,
+RMA, RMC, VTG) are optional for transmitters but must be accepted by all
+receivers. The minimum acceptable GGA sentence for a transmitting SU is:
+
+  $GPGGA,hhmmss.sss,ddmm.mmmm,N/S,dddmm.mmmm,E/W,Q,,,a.a,M,,,*HH<CR><LF>
+
+An optional proprietary NMEA extension is defined to carry the SU's unit
+identifier (SUID) and up to 32 bytes of user-defined free-form data:
+
+  $PP25,UID,u...u*HH<CR><LF>
+
+This extension is appended in the same 128-octet packet immediately after the
+GGA sentence's CR/LF. The UID field is the SUID or a user-defined
+alphanumeric string of up to 8 characters.
+
+KEY PARAMETERS AND REQUIREMENTS
+
+- Maximum application message + optional data size: 128 octets
+- Um layer: Unconfirmed Data Packet Delivery, SAP = Location Service value
+- Data Header Offset: 0
+- GGA sentence: mandatory TX and RX
+- Checksum: XOR of all characters between '$' and '*', expressed as two hex
+  ASCII digits
+- Stale data retransmission limit: up to 4 retransmissions on trigger if
+  position has not changed; unlimited retransmission in response to a query
+- Triggering: locally configured in SU; not standardized
+- Batch reporting: SU may buffer multiple location messages and transmit on
+  user request
+
+PERFORMANCE CHARACTERISTICS
+
+Transmission times (including headers and CRC):
+- Minimum GPS update (24 bytes): 175 ms unencrypted, 200 ms encrypted
+- Typical GPS sentence (71 bytes): 300 ms unencrypted, 325 ms encrypted
+- Maximum standard NMEA 0183 (83 bytes): 325 ms / 350 ms
+- NMEA + user data at 128-byte limit: 385 ms / 425 ms
+
+Reliability degrades with user count and update frequency. At 10-second
+update intervals: 95% reliability for 2 users, 78% for 5 users, 58% for
+10 users, 20% for 25 users. To maintain 80% reliability: 3-second updates
+support 2 users; 10-second updates support 5 users; 50-second updates support
+18 users; 200-second updates support 100 users. The document recommends
+using channel-clear status checking to queue transmissions and improve
+reliability in dense user scenarios.
+
+RELATIONSHIPS TO OTHER TIA-102 DOCUMENTS
+
+- TIA-102.BAAC-C: Provides the SAP identifier value used for Location Service
+  packets on the CAI.
+- TIA-102.BAEA-B: Defines the CAI Data Bearer Service and the Direct Data and
+  Repeated Data configurations that Tier 1 Location Service runs over.
+- TSB-102.BAJA-A: Location Services Overview; defines the two-tier framework
+  and describes where BAJB-A fits within the larger P25 location suite.
+- TSB-102-B: TIA-102 Documentation Suite Overview; describes the full P25
+  standards family.
+- NMEA 0183 Version 3.01: The external standard whose sentence formats are
+  adopted as the Tier 1 application-layer protocol.
+
+LIMITATIONS
+
+Tier 1 Location Services have significant architectural constraints by design.
+The service operates only on Direct Data and Repeated Data configurations;
+it does not function on Conventional FNE or Trunked FNE data paths. It does
+not support IP addressing, fixed network host routing, or centralized location
+server infrastructure. All triggering logic is locally configured in the SU
+with no network-driven query-response capability for location polling. There
+is no ACK/NACK mechanism at the application layer; failed deliveries are
+silently dropped. Channel congestion severely limits simultaneous user counts
+at short update intervals. The LIS-to-SU and SU-to-LSHS interfaces are
+explicitly out of scope, leaving interoperability in those segments to
+individual manufacturers. For applications requiring infrastructure-hosted
+location services, network-driven triggers, or IP-routed location data, Tier 2
+Location Services (separate TIA-102 documents) must be used.
+
+REVISION HISTORY SUMMARY
+
+The original TIA-102.BAJB (February 2009) established Tier 1 Location
+Services. Revision A (TIA-102.BAJB-A, November 2014) addressed accumulated
+errata comments and editorial issues. It was adopted by the P25 Steering
+Committee on October 23, 2014 and approved as ANSI/TIA-102.BAJB-A-2014 on
+November 5, 2014. It fully cancels and replaces the original BAJB.

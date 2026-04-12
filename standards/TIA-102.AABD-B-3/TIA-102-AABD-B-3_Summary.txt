@@ -1,0 +1,51 @@
+TIA-102.AABD-B-3: Project 25 Trunking Procedures Addendum — Remotely Activated Emergency
+Summary
+Published: February 2025 | Addendum to TIA-102.AABD-B | TIA TR-8.10 Air Interface Subcommittee
+
+OVERVIEW
+
+TIA-102.AABD-B-3 is a short (six-page normative content) addendum to the Project 25 Trunking Procedures standard. It defines the air-interface procedures for a new P25 trunking service called Remotely Activated Emergency (RAE). The RAE service enables a sufficiently privileged user — operating either from a dispatch console or a mobile subscriber unit — to remotely trigger an emergency alarm on another subscriber unit (SU) whose user is unable to activate it themselves. The addendum inserts new section 11.2.4 into TIA-102.AABD-B and adds a call-sequence diagram (Figure 18-12) to Annex D of that document. It introduces no new air-interface message formats; all PDU definitions referenced here (RAE_REQ, RAE_CMD, ACK_RSP_FNE, ACK_RSP_U, DENY_RSP, EMRG_ALM_REQ) are defined in the parent TIA-102.AABD-B and its companion Control Channel Messages specification referenced as [1].
+
+PURPOSE AND MOTIVATION
+
+The RAE service addresses a recognized gap in P25 emergency alerting: situations where a field officer or first responder is incapacitated, coerced, or otherwise unable to press the emergency button on their radio. A dispatch supervisor or a partner unit can remotely trigger the emergency alarm on the target radio over the existing trunked air interface, causing it to transmit an EMRG_ALM_REQ with a special RAE bit set that identifies the alarm as remotely initiated. This flag allows receiving systems to distinguish remotely activated alarms from user-initiated alarms, which can be important for dispatch workflows and logging.
+
+KEY ENTITIES AND ROLES
+
+Three logical entities participate in the RAE procedure:
+
+1. Initiating SU (SU1): The subscriber unit or dispatch console that sends the RAE_REQ to its serving RFSS. Must be "sufficiently privileged" — the RFSS enforces authorization.
+
+2. RFSS (RF Subsystem): The trunked network infrastructure that accepts the RAE_REQ, validates authorization, routes the RAE_CMD to the target SU's RFSS (possibly via ISSI), manages timers, and relays acknowledgments back to the initiating SU.
+
+3. Target SU (SU2): The subscriber unit whose WUID appears in the RAE_CMD. Upon receipt, it autonomously initiates the emergency alarm procedure and sends EMRG_ALM_REQ with the RAE bit set, then responds with ACK_RSP_U.
+
+PROCEDURE FLOW
+
+The RAE procedure operates as follows:
+
+Step 1 — Initiation: The initiating user selects a target SU. If the initiating user is at a mobile SU, that SU sends a RAE_REQ over the control channel to its RFSS (per the random-access protocol of AABD section 4), carrying both the source and destination SU addresses. If the initiating user is resident in the RFSS (e.g., a wireline dispatch console), the RAE_REQ is generated internally in the RFSS and section 11.2.4.2 is bypassed.
+
+Step 2 — RFSS Processing: The RFSS may respond to a RAE_REQ with any combination of: (a) DENY_RSP if the request is not authorized; (b) ACK_RSP_FNE sourced by the FNE to acknowledge receipt without final disposition; (c) RAE_CMD sent to the target SU; or (d) ACK_RSP_FNE sourced by the target SU (indicating the target has accepted the command). If the target is co-located on the same RFSS, the RFSS sends the RAE_CMD directly and starts a local timer. If the target is at a different RFSS, the initiator RFSS forwards the request via the ISSI, and both RFSSs independently run timers: the initiator RFSS waiting on the ISSI return, the target RFSS waiting for ACK_RSP_U from the target SU.
+
+Step 3 — Initiating SU Behavior: After sending RAE_REQ (with retries per AABD section 4.1.3), the initiating SU processes responses as follows: DENY_RSP causes a return to idle with optional user notification; an ACK_RSP_FNE from the target unit causes a return to idle with success indication; receipt of ACK_RSP_FNE from the FNE or an overheard RAE_CMD causes the initiating SU to end its retry loop and start timer T_ACK. If T_ACK expires before an ACK_RSP_FNE sourced from the target SU is received, the operation is declared failed.
+
+Step 4 — Target SU Behavior: On receiving a RAE_CMD whose target address matches its own WUID, the target SU must either: (a) respond with ACK_RSP_U to the initiating SU and autonomously initiate its locally defined emergency alarm procedure (EMRG_ALM_REQ with RAE bit set, per section 11.2.1), or (b) ignore the message if the SU does not support this service. Ignoring is explicitly permitted for backward-compatible devices.
+
+Step 5 — RFSS Cleanup: The target RFSS cancels its timer on receipt of ACK_RSP_U and relays ACK_RSP_FNE (sourced as the target SU) to the initiating SU, per the signaling reliability rule of section 3.6. On timer expiry without ACK_RSP_U: if both initiator and target are on the same RFSS, it simply ends processing; if on different RFSSs, the target RFSS sends an unsuccessful forwarding indication via ISSI (defined in TIA-102.BACD-B) and ends processing, while the initiator RFSS ends processing upon receiving that indication or its own timer expiry.
+
+CALL SEQUENCE DIAGRAM
+
+Figure 18-12 illustrates three scenarios: (1) DENY response from the RFSS; (2) successful end-to-end RAE where the target SU accepts the command and transmits EMRG_ALM_REQ; and (3) target failure to respond, ending with T_ACK expiry at the initiating SU and RFSS timer expiry at the network. The diagram was generated with the open-source msc-generator tool (gitlab.com/msc-generator v8.2).
+
+RELATIONSHIP TO OTHER DOCUMENTS
+
+This addendum is narrowly scoped and depends heavily on the parent TIA-102.AABD-B for all trunking procedure context (random-access protocols, signaling reliability rules, timer definitions, and message formats). The EMRG_ALM_REQ procedure it invokes at the target SU is defined in TIA-102.AABD-B section 11.2.1. The ISSI unsuccessful forwarding indication that bounds RFSS failure handling is defined in TIA-102.BACD-B (ISSI standard). The RAE_REQ and RAE_CMD message format and opcode definitions are in the Control Channel Messages specification (referenced as [1] in the parent document). The addendum will be folded into the next full revision of TIA-102.AABD-B.
+
+LIMITATIONS AND SCOPE NOTES
+
+The document explicitly notes: (a) the unsuccessful forwarding indication over the ISSI is out of scope here and deferred to TIA-102.BACD-B; (b) no timer values for T_ACK or RFSS timers are defined within this addendum — implementers must consult TIA-102.AABD-B for those parameters; (c) the RAE service is optional — target SUs that do not implement it are permitted to silently ignore RAE_CMD. No conformance requirements or test procedures are defined in this addendum.
+
+STATUS
+
+Published February 2025. Approved to publication January 2025 per the revision history table. This is addendum revision -3 to TIA-102.AABD-B (i.e., the third addendum). Content will be absorbed into the next full numbered revision of TIA-102.AABD-B. No patents identified.

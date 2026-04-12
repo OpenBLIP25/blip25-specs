@@ -1,0 +1,145 @@
+TSB-102.BADA-A — Project 25 Telephone Interconnect Overview (Voice Service)
+Published: June 2012 | TIA TR-8.19 Subcommittee on Wireline System Interfaces
+
+DOCUMENT PURPOSE AND SCOPE
+
+TSB-102.BADA-A is an informative TIA Telecommunications Systems Bulletin providing an
+overview of telephone voice interconnect for P25 Land Mobile Radio (LMR) systems. It
+describes how telephone service is accessed by an LMR system through the Et (Telephone
+Interconnect) interface, and is intended for manufacturers and operators of equipment
+implementing telephone interconnect features. The document does not define normative wire
+formats or conformance requirements; rather, it establishes a shared conceptual framework for
+the features, behaviors, and interfaces involved in connecting P25 radio systems to the public
+switched telephone network (PSTN) or a Private Automatic Branch eXchange (PABX).
+
+The document covers only those telephone interconnect features necessary for basic telephone
+functionality. It explicitly does not describe roaming scenarios across multiple RFSSs, nor does
+it define the ergonomic (user interface) aspects of radio equipment.
+
+SYSTEM MODEL AND INTERFACES
+
+The document references the standard P25 System Model Reference Configuration. The key
+interface is the Et (Telephone Interconnect Interface) between the RF SubSystem (RFSS) and
+the telephone network. The Um and Um2 interfaces (Common Air Interface between subscriber
+units and the RFSS) carry the over-the-air signaling for telephone interconnect, with message
+formats defined in AABC (trunked) and AABG (conventional).
+
+USER EQUIPMENT OPERATION
+
+Three dialing modes are defined for Subscriber Units (SUs) initiating calls:
+
+  - Buffered Mode: The user pre-enters all digits, then presses send. The SU transmits the
+    complete digit string via air interface signaling to the RFSS.
+  - Live Key Mode: Each keypress immediately triggers an air interface message to the RFSS.
+    Sidetone may be generated locally.
+  - List Mode: The user selects from a preprogrammed list; the SU sends the selected entry
+    via air interface signaling.
+
+The dialed number buffer supports 1 to 34 digits, accommodating international calls via PABX
+circuits with external access codes. For trunked systems, the RFSS grants a traffic channel if
+interconnect access is available; for conventional systems, call progress tones are relayed
+over-the-air. Optional AABG responses allow conventional SUs to receive explicit call progress
+indications.
+
+Incoming individual calls alert the SU, which conveys user accept/reject back via air interface.
+For conventional systems, availability checks (per Clause 3.9) may precede voice connection.
+The hookflash feature (200–800 ms on-hook pulse at the Et point) is the only mandatory
+advanced feature, allowing access to PSTN/PABX supplementary services. Overdial allows
+post-connection digit entry (pass codes, extensions) via air interface or in-band DTMF.
+
+RFSS OPERATION
+
+Three duplex modes are supported at the RFSS:
+
+  - Full Duplex: Supported between some SUs and RFSS.
+  - Half Duplex: Base station may be continuously keyed or voice-switched; over-the-air
+    signaling per AABC/AABG compensates for user experience limitations.
+  - Simplex: Single-frequency base stations; digital voice-operated switching introduces
+    delays rather than hard cuts.
+
+Authorization to the telephone network is operator-controlled. Roamers failing authorization
+are generally denied interconnect.
+
+Classes of service configurable on a per-subscriber basis (trunked) or RFSS-wide basis
+(conventional) include: Restrict Toll Calls, Speed Dialing, Outgoing Only, Incoming Only, Speed
+Dial Override, and Hookflash. Speed dial is satisfied by systems supporting only Implicit Dialing.
+
+For conventional systems, specific channels may be designated as telephone interconnect
+channels, or single-channel RFSSs share usage between normal mobile activity and
+interconnect. Incoming calls route to channels or specific subscribers based on telephone
+number mapping.
+
+AVAILABILITY CHECK PROCEDURE
+
+For individual incoming calls, the RFSS may be configured to send an availability check to the
+target SU before answering the call. While awaiting the response, the RFSS provides ringback
+tone to the telephone network. On negative response or timeout, the call routes to tone signal,
+recorded announcement, operator position, or voicemail. On positive response, the RFSS
+connects the call and signals answer supervision. Operators may disable availability checks for
+SUs incapable of responding.
+
+INCOMING CALL ROUTING
+
+Incoming calls are routed by two main methods:
+  - Direct Inward Dial (DID): Telephone numbers map to specific subscribers; RFSS provides
+    ringback while the called SU responds.
+  - Overdial: RFSS answers, plays audible prompt, receives additional digits to map to
+    subscriber. Answer condition occurs immediately regardless of SU availability.
+
+Group Incoming Calls alert all group members; any can answer. For trunked systems, air
+interface signaling per AABC is used; an audible alert distinguishes the call from normal group
+traffic. Some DID or Overdial numbers may be mapped to groups; or a default group may be
+assigned to a telephone line.
+
+Unanswered calls may be routed to recordings, attendants, or console operators.
+
+Et INTERFACE ACCESS METHODS
+
+The RFSS may implement the Et interface using analog or digital methods:
+  - Analog: 4-Wire E&M, 2-Wire E&M, 2-Wire Direct Inward Dial (per TIA/EIA-464)
+  - Digital ISDN: BRI (2B+D) or PRI (24B+D North America, 30B+D elsewhere)
+  - VoIP: SIP (RFC 3261) for call control, SDP (RFC 4566) for session description,
+    RTP (RFC 3550) for voice transport
+
+The document does not mandate any specific access method; all are presented as examples of
+possible implementations.
+
+CALL TERMINATION
+
+Calls terminate by user action (air interface signaling per AABC/AABG, or preprogrammed
+disconnect code), or by far-end disconnect. The RFSS may implement a programmable
+airtime-conserving timer; when the timer expires, the RFSS tears down the call and sends a
+Call Termination/Cancellation message per AABF Section 7.3.8. An optional 'impending
+disconnect' audible warning may precede tear-down.
+
+RFSS FUNCTIONAL REQUIREMENTS
+
+The RFSS requires: a transcoder (digital-to-analog voice conversion), an air interface signaling
+driver, an audible signal generator/DSP (for DTMF overdial, analog interface tones, audible
+alerts), and a DTMF decoder for inbound overdial (except when using the half-rate vocoder
+per BABA-1, which carries tones as signaling).
+
+NOTE: Full-rate vocoder processing (per BABA) may distort or block call progress tones relayed
+through the system.
+
+RELATIONSHIPS TO OTHER DOCUMENTS
+
+This document references and is informed by the following TIA-102 suite members:
+  - TIA-102.AABC: Trunking Control Channel Messages (SU/RFSS signaling for interconnect)
+  - TIA-102.AABG: Conventional Control Messages (conventional signaling)
+  - TIA-102.AABF: Link Control Work Formats and Messages (call tear-down messaging)
+  - TIA-102.BAAA: FDMA Common Air Interface (physical layer)
+  - TIA-102.BABA / BABA-1: Vocoder descriptions (impacts tone relay)
+
+DOCUMENT LINEAGE
+
+Originally released as IS 102.BADA (May 1996), upgraded to TIA/EIA-102.BADA (March 2000),
+and revised to TSB-102.BADA-A (June 2012). Note: this is a TSB (Systems Bulletin), not a
+normative standard; it is informative in nature and carries no conformance requirements of
+its own.
+
+LIMITATIONS
+
+The document explicitly notes: (a) some aspects may not have been operationally tested;
+(b) roaming/wide-area scenarios are out of scope; (c) features described are not necessarily
+supported by the telephone network accessed; (d) no ergonomic interface guidance is provided.

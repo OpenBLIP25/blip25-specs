@@ -1,0 +1,142 @@
+TSB-102-D: Project 25 — TIA-102 Documentation Suite Overview
+Summary
+
+Document: TSB-102-D
+Published: March 2020
+Issuer: Telecommunications Industry Association (TIA), TR-8 Subcommittee on Trunking and Conventional Control
+Type: Telecommunications Systems Bulletin (informative, not normative)
+Revision: "D" — fourth major revision of the original TSB-102
+
+
+WHAT THIS DOCUMENT IS
+
+TSB-102-D is the master index and architectural overview for the entire Project 25 (P25)
+Land Mobile Radio (LMR) standards suite, known as the TIA-102 series. It does not define
+any protocol, message format, or algorithm. Instead, it provides a single authoritative
+reference explaining: (1) what services P25 systems support, (2) how those services map
+to functional system elements and open interfaces, and (3) which specific TIA-102
+document defines each subject.
+
+As an informative TSB (Telecommunications Systems Bulletin), it reflects the consensus
+position of the TR-8 committee and the APCO Project 25 Interface Committee (APIC), but
+it does not normatively mandate anything. It is the starting point for understanding the
+overall P25 standardization landscape before diving into specific protocol documents.
+
+
+WHY IT EXISTS
+
+The document was created in response to an April 1992 Memorandum of Understanding
+between APCO, NASTD, and FED, which directed TIA to provide technical assistance
+developing documentation for a common digital public safety communications standard.
+TSB-102 (in its various revisions) serves as the "front door" to that entire documentation
+suite — providing the architectural context, service taxonomy, and document inventory that
+newcomers and standards developers need to navigate the suite coherently.
+
+
+WHAT IT DEFINES
+
+The document is organized into four main sections and two annexes:
+
+Section 2 — Services Taxonomy: Comprehensively catalogs all services enabled by P25
+systems, organized into seven categories:
+  - Teleservices (voice): Broadcast Call, Announcement Group Call, Unaddressed Call,
+    Group Voice Call, Emergency Group Call, Individual Voice Call, System Call, All Call.
+  - Data Services: Low Speed Data, Supplementary Data Services (Status Update, Short
+    Message, Status Query, Emergency Alarm and Cancel, Call Alert, Radio Check, Radio
+    Inhibit/Uninhibit, Radio Detach, Radio Monitor), and Packet Data Services (network
+    access, CAI data bearer, IP data bearer, Location Services tiers 1 and 2, OTAR).
+  - Supplementary Services: Priority Call, Preemptive Priority Call, Dispatcher Audio
+    Takeover, Console Takeover, Voice Telephone Interconnect (Group and Individual),
+    Discreet Listening, Talking Party ID, Transmitting Subscriber Forced Preemption (TDMA only).
+  - Mobility and Registration Services: Addressing/Number Ranges, Full/Unit Registration,
+    Location Registration, Registration Areas, Deregistration, Affiliation, Roaming (intra-
+    system, inter-system, inter-WACN), Call Restriction, Call Routing, RFSS Capability
+    Polling, Dynamic Regrouping.
+  - Security Services: Encryption, SU Authentication, Encryption Key Update, Manual
+    (Wired) Key Fill, Over-The-Air Rekeying (OTAR).
+  - Network Management Services: Provisioning of the Network Management Interface.
+  - Services Local to the SU: Squelch modes (Monitor, Normal, Selective), Busy Channel
+    Lockout, Silent Emergency, Electronic Serial Number, Reception of Modulations,
+    Composite Control Channel.
+
+For each service category, tables (Tables 2-1 through 2-10) identify which interfaces
+support the service: Conventional CAI, Trunked CAI, Conventional ISSI, Trunked ISSI,
+and DFSI.
+
+Section 3 — System Architecture: Defines the functional element hierarchy: WACN →
+Wide Area System → System → RFSS → RF Site → RF Channel. Describes all twelve
+standardized open interfaces with a representative functional model (Figure 3-1):
+  - Um: FDMA Common Air Interface (subscriber to infrastructure or direct mode)
+  - Um2: Two-Slot TDMA Common Air Interface
+  - G: Inter-RF Subsystem Interface (ISSI) — interconnects RFSSs
+  - Ec: Console Subsystem Interface (CSSI)
+  - Ef: Fixed Station Subsystem Interface (FSSI / AFSI / DFSI)
+  - Et: Telephone Interconnect Interface (to PSTN)
+  - Ed: Data Host Network Interface
+  - En: Network Management Interface
+  - A: Mobile Data Peripheral Interface
+  - KFD-MR: Key Fill Device to Mobile Radio Interface
+  - IKI: Inter-Key Management Facility Interface
+
+Section 4 — Document Catalog: Explains the naming convention (***-102.A___ for
+Service/Overview, ***-102.B___ for System, ***-102.C___ for Test; letter suffixes for
+revisions, number suffixes for addenda) and provides summary descriptions of every
+document in the suite. Tables 4-1 through 4-7 list all designations across: the suite overview
+itself, Overview documents, Service documents, System documents, and Test documents
+(including conformance, measurement, performance, interoperability, and compliance
+assessment). Related TIA series are also cataloged: TSB-88 (LMR performance in noise),
+TSB-133/150/159 (RF exposure), TIA-4950 (hazardous locations), and TSB-4973
+(broadband mission-critical PTT).
+
+Annex A — Pending Work: Documents work in progress at time of publication: three
+additional Key Fill Device interfaces (KFD-KMF, KFD-AF, KFD-KFD), Link Layer
+Encryption (LLE), Dynamic Regrouping over the ISSI, and End-to-End Data Encryption.
+
+Annex B — Glossary: Comprehensive definitions for ~70 terms and acronyms used across
+the TIA-102 series.
+
+
+KEY PARAMETERS AND REQUIREMENTS
+
+The document itself is informative, so it does not specify bit-level parameters. Key
+architectural facts documented:
+  - Modulations: FDMA uses C4FM or CQPSK; TDMA uses H-CPM (SU transmit) and
+    H-DQPSK (base station transmit).
+  - Addressing hierarchy: WACN ID, System ID, RFSS ID, Site ID.
+  - SUID: 56-bit Subscriber Unit Identification number.
+  - Registration types: Full (system-level) and Location (site-level within an LRA).
+  - Encryption applies to all bearer services; OTAR distributes keys via the air interface.
+  - Authentication is challenge/response between SU and FNE; FNE-initiated at registration.
+  - The TDMA (Phase 2) air interface adds the Um2 interface and enables Transmitting
+    Subscriber Forced Preemption — a capability not available on FDMA.
+
+
+RELATIONSHIPS TO OTHER DOCUMENTS
+
+TSB-102-D is the root of the entire TIA-102 tree. It cross-references every other document
+in the suite. The most closely related documents are:
+  - TIA-102.BAAA (FDMA CAI — the core air interface spec)
+  - TIA-102.BBAB/BBAC/BBAD/BBAE (Phase 2 TDMA physical, MAC, messages, procedures)
+  - TIA-102.BACA (ISSI voice and mobility)
+  - TIA-102.AAAD (Block Encryption Protocol)
+  - TIA-102.AACA (OTAR messages and procedures)
+  - TSB-102.BBAA (Two-Slot TDMA overview — companion overview to this document)
+
+Earlier revisions of this document (TSB-102, TSB-102-A, TSB-102-B, TSB-102-C) covered
+the same scope but reflect the state of the suite at the time of each revision. TSB-102-D
+reflects the suite as of March 2020.
+
+
+LIMITATIONS
+
+As an informative TSB, this document:
+  - Does not define any normative requirements — all normative content is in the TIA-102.XXXX
+    standards it catalogs.
+  - Does not specify timing, bit-level formats, or protocol sequences.
+  - The catalog of documents and their status is accurate only as of publication date (March 2020);
+    new documents and revisions may have been added after this publication.
+  - Annex A efforts (LLE, KFD interfaces, Dynamic Regrouping over ISSI, End-to-End Data
+    Encryption) were incomplete or not started at publication time; status unknown without
+    consulting the current TIA catalog.
+  - Voting and simulcast configurations are explicitly noted as not standardized in the TIA-102
+    series.

@@ -1,0 +1,155 @@
+TIA-102.BAEB-C: Project 25 IP Data Bearer Service Specification
+ANSI/TIA-102.BAEB-C-2019 | Approved December 16, 2019
+Revision C of TIA-102.BAEB-B | 104 pages
+
+=== WHAT THIS DOCUMENT SPECIFIES ===
+
+This document specifies the IP Data Bearer Service for TIA-102 (Project 25) packet
+data systems. Specifically, it defines two IP convergence protocols — the Simple
+CAI Encapsulation Protocol (SCEP) and the Subnetwork Dependent Convergence
+Protocol (SNDCP) — that enable IPv4 datagrams to be carried over P25 radio
+channels. This document covers four data configurations: Direct Data (SU-to-SU),
+Repeated Data (SU-to-SU via repeater), Conventional FNE Data (SU via conventional
+base station), and Trunked FNE Data (SU via trunked system). SCEP applies to all
+configurations except Trunked FNE Data; SNDCP applies to Conventional and
+Trunked FNE Data only.
+
+=== WHY IT EXISTS ===
+
+The P25 standard requires a well-defined mechanism for carrying IP traffic over
+its narrowband digital radio air interface. Before SNDCP (and the simpler SCEP),
+data transport over P25 was proprietary or informal. This document formalizes
+the IP convergence layer that sits immediately above the P25 Packet Data Logical
+Link Control (LLC) layer (defined in TIA-102.BAED) and immediately below
+application-layer IP protocols. It is the primary reference for any P25 equipment
+developer implementing data services, and is mandatory for trunked packet data
+interoperability. Revision C (2019) is an errata-only update to Revision B (2014),
+which was the major revision that added SNDCP Version 3 and removed the legacy
+A/Ed interface specifications.
+
+=== KEY PROTOCOLS DEFINED ===
+
+SCEP (Simple CAI Encapsulation Protocol):
+A connectionless protocol that wraps IP datagrams directly in CAI data packets with
+no negotiation or setup. It uses the P25 Address Resolution Protocol (a variant of
+Ethernet ARP with Hardware Address Type = ARP-TYPE_CAI = 33) for dynamic
+IP-to-LLID binding. There is no PDU wrapper beyond the LLC layer — the raw IP
+datagram IS the logical message. SCEP is used for Direct Data (SU-SU) and
+Repeated Data configurations, and optionally for Conventional FNE Data. SAP
+value is set to Packet Data (from TIA-102.BAAC), Data Header Offset = 0.
+
+SNDCP (Subnetwork Dependent Convergence Protocol):
+A connection-oriented protocol with full context management. It supports up to 14
+concurrent NSAPIs (logical connections) per SU, each identified by a Network
+Service Access Point Identifier (NSAPI 1-14). NSAPI 0 is reserved for control
+signaling. Three protocol versions are defined:
+
+  - Version 1: Basic context management, static/dynamic IPv4 addressing,
+    Van Jacobsen TCP/IP header compression (RFC 1144), confirmed and
+    unconfirmed datagram conveyance.
+
+  - Version 2: Adds PPP CHAP authentication (RFC 1994, via PCO field),
+    FNE-initiated context activation (SN-Context Activation Command PDU),
+    Access Point Name (APN) for data host network selection.
+
+  - Version 3: Adds RFC 2507 header compression (TCP+non-TCP), expanded
+    PCOMP field for unconfirmed datagrams, expanded header compression
+    negotiation fields (VJ_TCP_CSS, TCP_CSS, NON_TCP_CSS, MAX_INT_FHD,
+    MAX_TME_FHD, MAX_HDR_SZE), Manufacturer Specific Options (MSO),
+    Version Supported field in reject PDU, dynamic DAC update via unsolicited
+    accept PDU.
+
+=== STATE MACHINES ===
+
+SNDCP defines separate state machines for Trunked Data Service (TDS) and
+Conventional Data Service (CDS). Both operate as parallel SU and FNE state
+machines.
+
+TDS states (6): Closed, Idle, Ready*, Standby, Ready, Ready Roaming.
+CDS states (5): Closed, Idle, Ready*, Standby, Ready (no Ready Roaming).
+
+Key timers negotiated during context activation:
+  - Ready Timer: 1 sec to Always-in-Ready (15 values, coded 0-15)
+  - Standby Timer: 10 sec to Always-in-Standby (15 values, coded 0-15)
+  - Activation Wait Timer: local policy
+
+The Ready* state is a transient state while the first context is being activated.
+The Ready Roaming state (TDS only) handles site handoff for confirmed datagrams —
+the SU pauses delivery, re-registers, and reconnects via SN-REC_REQ.
+
+=== PDU TYPES ===
+
+There are 7 SNDCP PDU types (4-bit PDU Type field):
+  0: SN-Context Activation Request    (SU → FNE)
+  1: SN-Context Activation Accept     (FNE → SU)
+  2: SN-Context Activation Reject     (FNE → SU)
+  3: SN-Context Deactivation Request  (SU ↔ FNE)
+  4: SN-Data                          (SU ↔ FNE, confirmed)
+  5: SN-UData                         (SU ↔ FNE, unconfirmed)
+  6: SN-Context Activation Command    (FNE → SU, V2+)
+
+The SN-Data and SN-UData PDUs carry a 2-octet SNDCP header (PDU Type + NSAPI,
+PCOMP + DCOMP) followed by the raw network-layer PDU. Data Header Offset is
+set to 2 (%010) to indicate the 2-byte SNDCP header. Context management PDUs
+use Data Header Offset = 0 and the SNDCP Packet Data Control SAP.
+
+=== KEY PARAMETERS AND CONSTANTS ===
+
+  ARP-TYPE_CAI = 33  (Hardware Address Type for SCEP ARP)
+  NSAPI range = 1-14 (0 = control, 15 = reserved)
+  Max concurrent NSAPIs per SU = 14
+  MTU values: 296, 510, 1020, 1500 bytes
+  Max unconfirmed datagram = min(510, negotiated MTU) octets
+  Reject codes: 24 defined for V3 (0-23), including version negotiation (code 23)
+  DSUT: 6 subscriber unit types defined (0-5)
+  PDUPM priority: 16 levels (0=lowest, 14=highest, 15=emergency)
+  DAC: 16-bit field, bit-mapped PDCH access groups (TDS only, V3 updatable)
+
+=== TRUNKED PDCH ACCESS METHODS ===
+
+For TDS, PDCH access uses two modes:
+  - Requested Access (RA): SU sends SN-DATA_CHN_REQ on control channel;
+    FNE grants via SN-DATA_CHN_GNT, queues via QUE_RSP, or denies via DENY_RSP.
+  - Autonomous Access (AA): SU occupies available PDCH without requesting;
+    DAC bits in SN-Context Activation Accept control which SUs may use AA in V3+.
+
+FNE-to-SU data: FNE pages SU via SN-DATA_PAGE_REQ; SU responds with
+SN-DATA_PAGE_RES or SN-DATA_CHN_REQ.
+
+=== RELATIONSHIPS TO OTHER DOCUMENTS ===
+
+  - TIA-102.BAEA-C (Data Overview): Parent document; defines configurations,
+    endpoint models, confirmed/unconfirmed delivery service, SAP values.
+  - TIA-102.BAED-A (LLC Procedures): The layer below SCEP/SNDCP; defines
+    fragmentation, reassembly, and the confirmed/unconfirmed delivery mechanisms.
+  - TIA-102.BAAC-D (Reserved Values): SAP values, LLID broadcast address,
+    ARP SAP, Packet Data SAP.
+  - TIA-102.AABC-E (Trunking CCM): Control channel messages used by TDS
+    (SN-DATA_CHN_REQ, SN-DATA_CHN_GNT, SN-DATA_PAGE_REQ, etc.).
+  - TIA-102.AABF-D (Link Control Words): LC_CALL_TRM_CAN used for TDS teardown.
+  - TIA-102.BAEJ-A (Conventional Management Service): CMS Scan Mode used
+    by SCEP and CDS for conventional channel scanning.
+  - TIA-902.BAEB-A (WAI Packet Data): Informative reference; WAI is the P25
+    Phase 2 wideband air interface that also uses SNDCP via the same protocol
+    versioning mechanism. WAI version numbers share the SNDCP Version field
+    space (values 8+ indicate WAI versions, per the Version Supported field).
+
+=== LIMITATIONS ACKNOWLEDGED ===
+
+  - UDP/IP header compression was anticipated for V1/V2 but was never defined;
+    the UDPSS field is reserved/obsolete.
+  - No payload (data) compression algorithms are defined; DCOMP field is reserved.
+  - PAP authentication was included in V2 PCO but is deprecated.
+  - LCP and IPCP in V2 PCO are deprecated.
+  - MTU negotiation applies only to confirmed delivery; unconfirmed is hard-limited
+    to 510 octets regardless of negotiated MTU.
+  - Ready Roaming is defined for TDS only; CDS has no equivalent.
+  - Data Host Network Selection (APN) procedures within the FNE are local policy;
+    only the signaling mechanism is standardized.
+  - Reordering of streams option from RFC 2507 is explicitly NOT supported.
+
+=== DOCUMENT STATUS ===
+
+Active as of publication date (December 2019). Revision C replaces Revision B
+(2014). Adopted by the Project 25 Steering Committee on October 10, 2019 as part
+of the Project 25 Standard. No superseding document has been identified.

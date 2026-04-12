@@ -1,0 +1,121 @@
+TIA-102.BAAD-B: Project 25 Conventional Procedures
+ANSI/TIA-102.BAAD-B-2015 | Approved July 28, 2015 | Published August 2015
+Revision of TIA-102.BAAD-A | Developed by TR-8.15 Common Air Interface Subcommittee
+
+WHAT THIS DOCUMENT SPECIFIES
+
+This document specifies the procedures for conventional (non-trunked) Land Mobile Radio (LMR) systems that operate over the Project 25 FDMA Common Air Interface. It defines how subscriber units (SUs) and Fixed Network Equipment (FNEs) initiate, maintain, and terminate transmissions of digital voice, packet data, and supplementary data messages. It also defines procedures for interconnect calls to the Public Switched Telephone Network (PSTN). The specification applies to OSI layers 1 and 2 only; vocoder, encryption, and user data application layer behaviors are out of scope.
+
+WHY IT EXISTS
+
+Project 25 conventional LMR systems are widely deployed by public safety agencies (police, fire, emergency medical services) and other users. Without standardized procedures, subscriber units and infrastructure from different vendors could not interoperate on the same channel. This document provides the normative behavioral rules that enable this interoperability. It was created at the direction of the Project 25 Steering Committee under a 1992 Memorandum of Understanding with TIA.
+
+Revision B (2015) is the third edition of this document. It was prompted by the need to align packet data procedures with the newly separated TIA-102.BAED (Packet Data LLC Procedures) document and to update telephone interconnect procedures. The Packet Data LLC section was removed from this document and is now maintained independently in TIA-102.BAED.
+
+KEY DEFINITIONS AND ADDRESSING
+
+A conventional LMR system does not assign channels through a control channel. Subscriber units either communicate directly (direct mode) or through a fixed station repeater (repeated mode). The document defines:
+
+- Conventional Unit ID (UID): 24-bit address for SUs, valid range 1–9,999,999
+- Conventional Talk Group ID (GID): 16-bit group address, $0001–$FFFF
+- General FNE Address: UID $FFFFFC, used as a generic FNE source/destination for supplementary data
+- All Call: Talk group $FFFF; every SU is a member; typically FNE-initiated
+- 24-bit talk group mapping: 16-bit TGIDs map to 24-bit addresses in range $FEF001–$FFEFFF
+
+Network Access Code (NAC) is a 12-bit field that provides co-channel interference protection. Three reserved NAC values are defined:
+- $293: default NAC
+- $F7E: receiver open on any NAC (used only on receivers, not for transmission)
+- $F7F: repeater passes through the received NAC unchanged
+
+CHANNEL OPERATION
+
+Repeaters operate in either Simple configuration (transparent relay) or Fixed Network configuration (connected to FNE infrastructure including consoles). In Fixed Network mode, voice is simultaneously repeated to the air and routed to the FNE; data packets are routed asymmetrically through the FNE or symmetrically back out the air.
+
+Status symbols embedded in transmissions signal the inbound channel state: Busy, Idle, Unknown (SU in repeater mode), and Unknown/Direct (SU in direct mode). Repeaters assert Busy or Idle on slot boundaries (every N×7.5ms microslots); SUs always assert Unknown. Automatic Frequency Control (AFC) allows SUs to calibrate their reference oscillator by comparing it to the repeater's carrier.
+
+CHANNEL ACCESS PROCEDURES
+
+All transmissions follow either polite or impolite access:
+- Voice: polite by default; impolite for emergency and direct mode
+- Supplementary data (TSBK): polite for non-emergency requests and acknowledgements; combined impolite+polite for Emergency Alarm (e.g., 5 impolite followed by 15 polite retries)
+- Packet data: always polite, using a state-machine-based CSMA procedure
+
+The TSBK polite access state machine uses timers TAck (default 200ms, min 150ms, max 300ms), TNextAttempt (same), and THoldoff (random 50–1000ms, formula: 50ms×(1+M%N) where N defaults to 4). Maximum polite retries NPRetry defaults to 5 (max 15). Maximum impolite retries NIRetry defaults to 0 (max 5).
+
+The packet data channel access procedure is a six-state machine (RECEIVE IDLE, RECEIVE FS AND NAC, FS AND NAC SEEK, WAIT RANDOM TIME T_SHORT, WAIT FOR END OF MICRO-SLOT, RANDOM BACKOFF DELAY, TRANSMIT PACKET). Key timing parameters: FSSP=728ms, T_ACK=250ms, T_LONG=500ms, T_SHORT=50ms.
+
+VOICE CALL PROCEDURES
+
+Four voice call types are defined:
+
+1. Group Call: SU transmits with LC_GRP_V_CH_USR Link Control. FNE may repeat transparently. Emergency group call sets the "E" bit in the Service Options field. Talk group $FFFF is the All Call.
+
+2. Unit-to-Unit Call: SU transmits with LC_UU_V_CH_USR Link Control. Header Word Talk Group set to 0 (null). There is no conventional emergency unit-to-unit call type.
+
+3. PSTN-to-Radio / Radio-to-PSTN Call: Uses TELE_INT_DIAL_REQ/TELE_INT_PSTN_REQ for SU-originated calls; TELE_INTER_ANS_REQ availability check for PSTN-originated unit calls. LC_TELE_INT_V_CH_USR used during the call.
+
+4. All Call: Group voice with TGID=$FFFF. All SUs must unmute if NAC matches.
+
+Three squelch modes are defined for receivers: Monitor (unmute on any signal), Normal Squelch (unmute on correct NAC), and Selective Squelch (unmute on correct NAC plus matching TGID/UID). Encryption conditions for voice: simultaneous encryption of Voice+LSD+LC is allowed; mixing encrypted and clear fields is prohibited (see Table 2 in the document for all allowed combinations).
+
+Call termination uses Simple TDU (inbound) or ETDU/CTC (outbound); FNE may convert Simple TDU to Expanded TDU on the repeat path.
+
+SUPPLEMENTARY DATA PROCEDURES
+
+Ten supplementary data services are defined, all using TSBK-format messages as defined in TIA-102.AABG:
+
+- Emergency Alarm: EMRG_ALRM_REQ with impolite+polite retry; three operational modes (Alarm only, Call only, Alarm+Call); cancellation via CAN_SRV_REQ with specific field encoding
+- Call Alert: CALL_ALRT_REQ/CALL_ALRT; point-to-point alerting with ACK_RSP_FNE response
+- Radio Check: EXT_FNCT_CMD; verifies unit presence; one-shot response
+- Radio Inhibit: EXT_FNCT_CMD; inhibited SU behaves as if powered off; state persists through power cycling; only OTAR and EXT_FNCT_CMD messages are still processed
+- Radio Uninhibit: EXT_FNCT_CMD; reverses inhibit; SU must ack even if not currently inhibited
+- Message Update: MSG_UPDT_REQ/MSG_UPDT; short coded messages; group or unit destination
+- Status Update: STS_UPDT_REQ/STS_UPDT; user/unit status reporting; FNE-to-FNE forwarding supported
+- Status Query: STS_Q_REQ/STS_Q / STS_Q_RSP; FNE or SU queries target SU's status; consoles cannot be queried
+- Radio Unit Monitor: RAD_MON_CMD with Transmit Multiplier; causes target SU to transmit for a computed duration
+- Alert Tones: Defined as future work
+
+PROTECTION
+
+Payload encryption references TIA-102.AAAD-A. Link layer encryption is described as future work.
+
+KEY PARAMETERS SUMMARY
+
+| Parameter | Default | Min | Max |
+|-----------|---------|-----|-----|
+| FSSP | 728 ms | 0 | unspecified |
+| NPRetry | 5 | 1 | 15 |
+| NIRetry | 0 | 0 | 5 |
+| NMax | 5 | 1 | 20 |
+| NTrafficLC | 3 | 1 | 3 |
+| TAck | 200 ms | 150 ms | 300 ms |
+| TNextAttempt | 200 ms | 150 ms | 300 ms |
+| THoldoff | random, N=4 | 50 ms | 1000 ms |
+| TNoAct | 3 s | 0 s | unspecified |
+| T_ACK (data) | 250 ms | — | — |
+| T_LONG (data) | 500 ms | — | — |
+| T_SHORT (data) | 50 ms | — | — |
+
+RELATIONSHIPS TO OTHER DOCUMENTS
+
+This document is closely paired with:
+- TIA-102.BAAA-A: FDMA Common Air Interface (physical/link layer formats)
+- TIA-102.AABF-D: Link Control Word formats (LC field definitions)
+- TIA-102.AABG: Conventional Control Messages (TSBK message formats)
+- TIA-102.BAAC-C: Reserved Values (NAC, UID, TGID ranges)
+- TIA-102.BABA-A: Vocoder description
+- TIA-102.BAEA-B: Data Overview and Specification
+- TIA-102.BAED: Packet Data LLC Procedures (separated from BAAD in Revision B)
+- TSB-102.BADA-A: Telephone Interconnect Overview
+
+LIMITATIONS
+
+- Registration procedures (Section 5) are a placeholder; the normative content was not developed in this edition.
+- Alert tone procedures (Section 8.10) are future work.
+- Link layer encryption is future work.
+- The document does not address trunked system operation; for trunking procedures, see TIA-102.AABD-B.
+- Direct mode packet data does not support Idle status symbols; polite access relies solely on no-carrier detection in that configuration.
+
+DOCUMENT STATUS
+
+This document is the current active standard for P25 conventional procedures as of its 2015 publication date. It cancels and replaces TIA-102.BAAD-A. No superseding document for this standard number has been identified as of the extraction date.

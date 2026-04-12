@@ -1,0 +1,137 @@
+TIA-102.AACA-B: Digital Radio Over-The-Air-Rekeying (OTAR) Messages and Procedures
+Summary
+Published: September 8, 2021 | Status: Active | Supersedes: ANSI/TIA-102.AACA-A
+
+OVERVIEW
+
+This document specifies the Over-The-Air-Rekeying (OTAR) messages and procedures used
+in Project 25 (P25) digital land mobile radio systems. OTAR is the mechanism by which a
+Key Management Facility (KMF) remotely manages cryptographic keys stored on Subscriber
+Units (SUs) over the P25 Common Air Interface (CAI). Without OTAR, keys must be
+physically loaded using a keyloader device — a time-consuming and operationally inflexible
+process. This document enables a KMF to push new keys, modify existing keys, query key
+inventory, zeroize a radio, and perform other key management operations remotely, over the
+air, while the radio is in the field.
+
+The specification covers all three major P25 encryption algorithms: the legacy Data Encryption
+Standard (DES), the Triple Data Encryption Algorithm (TDEA/Triple DES), and the Advanced
+Encryption Standard (AES-256). DES support is provided for backward compatibility only;
+the FPIC (Federal Partnership for Interoperable Communications) has recommended against
+its use in new deployments.
+
+PURPOSE AND APPLICABILITY
+
+OTAR addresses a fundamental operational challenge: cryptographic keys have finite
+lifetimes and must be changed regularly to maintain communication security. In large
+deployments with hundreds or thousands of radios, manual re-keying is impractical. This
+document defines the standardized protocol by which a KMF can manage keys for P25 SUs
+in both trunked and conventional system configurations.
+
+The protocol applies to two transport modes: Data Link Dependent (DLD) OTAR, in which the
+CAI handles encryption of the Key Management Message (KMM) and the message is carried
+as a normal CAI data packet; and Data Link Independent (DLI) OTAR, in which the KMM is
+encrypted at the application layer and tunneled through SNDCP/IP/UDP over the CAI,
+supporting radios connected via IP data bearer services.
+
+KEY MANAGEMENT ARCHITECTURE
+
+The document defines a hierarchical key structure. Traffic Encryption Keys (TEKs) are used
+to encrypt voice and data communications. TEKs are themselves encrypted for over-the-air
+transport using Key Encryption Keys (KEKs). Two special KEK types are defined: the Unique
+KEK (UKEK), which is individual to each SU, and the Common KEK (CKEK), which is shared
+among a group of SUs.
+
+Keys are organized into Keysets, each identified by a Keyset ID (1–255). A keyset groups
+keys of the same algorithm type. Each key within a keyset is addressed by its Storage
+Location Number (SLN), a 2-byte field composed of a 4-bit Crypto Group (0–15) and a
+12-bit Key Selector (0–4095), allowing up to 65,536 unique key slots across 16 crypto groups.
+
+Each SU is identified by a Radio Subscriber Identifier (RSI), a 3-byte address that functions
+like a radio's "phone number" for key management purposes. The KMF maintains per-RSI
+message number (MN) counters and tracks key inventory per SU.
+
+PROCEDURES
+
+The document defines 17 core OTAR procedures between KMF and SU:
+
+1. Capabilities: SU reports supported optional services (MAC algorithms, key name support,
+   inventory types, key assignment types, etc.) to the KMF.
+2. Change-RSI: KMF changes the RSI programmed in an SU, resetting message numbers.
+3. Changeover: KMF activates a new keyset at a specified date and time.
+4. Delete-Key: KMF deletes one or more specific keys from an SU.
+5. Delete-Keyset: KMF deletes an entire keyset (and all its keys) from an SU.
+6. Deregistration: SU notifies KMF it is leaving OTAR service.
+7. Hello: SU announces its presence, optionally requesting a rekey.
+8. Inventory: KMF queries the SU for its current key inventory (keyset IDs, key IDs,
+   key assignments, RSI list, etc.).
+9. Key-Assignment: KMF assigns SLN-to-CSS (Channel Selector Switch), SLN-to-TG
+   (Talk Group), or SLN-to-LLID (Logical Link ID) associations.
+10. Modify-Key: KMF adds or modifies individual keys within a specific keyset.
+11. Modify-Keyset-Attributes: KMF changes keyset metadata (name, date/time) without
+    changing the keys themselves.
+12. Registration: SU establishes an OTAR session with the KMF, optionally providing a
+    unique TEK (the Reverse Warm Start key) to bootstrap the session.
+13. Rekey: KMF transfers TEKs across one or more keysets in a single KMM, optionally
+    also updating keyset attributes. This is the primary key distribution mechanism.
+14. Set-Date-Time: KMF synchronizes the SU clock.
+15. Unable-to-Decrypt: SU notifies the KMF that it received a KMM it could not decrypt,
+    providing reverse warm start key material to restore communication.
+16. Warm-Start: KMF provides TEKs to an SU that has a valid KEK but no current TEKs.
+17. Zeroize: KMF remotely erases all keys (TEKs, KEKs, temporary keys) from the SU.
+
+An additional set of extended procedures (Section 9) handles edge cases including the
+New-Unit procedure, which bootstraps OTAR service for an SU that shares no common
+KEK with the KMF.
+
+MESSAGE FORMATS
+
+The document defines 32 KMM message types (Section 10), each with byte-level format
+diagrams. The KMM header is common to all messages and includes: Message ID (1 octet),
+Message Length (2 octets, range $0007–$FFFF), Message Format (1 octet encoding response
+kind, message number presence, MAC type, and done bit), Destination RSI (3 octets),
+Source RSI (3 octets), optional Message Number (2 octets), and optional MAC block.
+
+SECURITY REQUIREMENTS
+
+All KMMs must be authenticated using a Message Authentication Code (MAC). Two MAC
+modes are defined: a legacy DES CBC-MAC producing a 32-bit truncated result, and an
+Enhanced CBC-MAC (using any supported block algorithm) that derives the MAC key from a
+TEK using the NIST SP 800-38F key wrap algorithm, producing 32-bit (DES/TDEA) or
+64-bit (AES) MACs.
+
+Key encryption uses either DES ECB (legacy, single encryption of 64-bit key) or the NIST
+SP 800-38F KW-AE key wrap algorithm (for TDEA and AES). The enhanced key wrap uses
+an IV of the binary pattern 0xA6 repeated, processes the key in n/2-bit blocks through six
+rounds, and produces a wrapped key L octets long (L = (x+1)*n/2).
+
+Anti-replay protection uses the Message Number (MN), a 16-bit modulo-2^16 counter
+maintained per RSI. The KMF validates inbound MNs against a window defined by MNP
+(Message Number Period), using two rules depending on whether the message is an initial
+transmission (RULE 1) or a retry (RULE 2).
+
+ALGORITHM PARAMETERS
+
+DES (ALGID $81): n=64, k=64, MAC truncated to t=32 bits.
+TDEA (ALGID $83): n=64, k=192, L=24 octets, MAC truncated to t=32 bits (n/2).
+AES-256 (ALGID $84): n=128, k=256, L=40 octets, MAC truncated to t=64 bits (n/2).
+
+Test vectors are provided for all three algorithms, including complete Rekey-Command
+message examples with plaintext, encrypted, and MAC-appended hex data blocks.
+
+DOCUMENT RELATIONSHIPS
+
+This document sits within a family of TIA-102 OTAR standards. TIA-102.AACA-B provides
+the core OTAR messages and procedures. TIA-102.AACD covers SU programming and
+management parameters. TIA-102.AACB defines the KMF interface. TIA-102.AACE provides
+OTAR conformance test specifications. Algorithm IDs reference TIA-102.AAAA.
+The document references NIST FIPS 46-3 (DES), NIST FIPS 197 (AES), NIST SP 800-38F
+(key wrapping), and ANSI X9.52 (TDEA).
+
+CHANGES FROM REVISION A
+
+Revision B incorporates: general editorial corrections; DES sections footnote-annotated per
+FPIC recommendation to deprecate DES; clarifications to KMM protection rules (inner layer,
+outer layer, and MAC based on transported key type and algorithm strength); and
+incorporation of addendum AACA-A-1, which clarifies single-key vs. multi-key subscriber
+interoperability. Compliance with AACA-B does not void compliance with prior versions;
+interoperability between AACA-A and AACA-B implementations is maintained.

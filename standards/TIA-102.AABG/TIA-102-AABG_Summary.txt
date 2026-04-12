@@ -1,0 +1,67 @@
+TIA-102.AABG — Project 25 Conventional Control Messages
+Summary
+Published: April 2009 | TIA TR-8.10 Subcommittee on Trunking and Convention Control
+
+WHAT THIS DOCUMENT SPECIFIES
+
+This document defines the message formats used for supplementary data functions in APCO Project 25 conventional (non-trunked) radio systems. Specifically, it identifies which Trunked Signaling Block (TSBK) messages — originally standardized for P25 trunked systems in TIA-102.AABC-B — are applicable to conventional systems and documents the addressing conventions that apply in the conventional context.
+
+The document does not define new wire formats. All message formats remain exactly as defined in TIA-102.AABC-B (Trunking Control Channel Messages). The contribution of this document is the mapping from trunking message nomenclature to conventional aliases, the identification of which messages are applicable (and which are not), the clarification of how the ISP/OSP (inbound/outbound) distinction does not apply in conventional systems, and a complete addressing table specifying source and target octet fields for each conventional control transaction.
+
+WHY THIS DOCUMENT EXISTS
+
+APCO Project 25 was designed to serve both conventional and trunked Land Mobile Radio systems under a unified standard. Trunked systems use a centralized controller to assign channels on demand; conventional systems do not. A large set of supplementary data functions — Emergency Alarm, Call Alert, Radio Check, Inhibit/Uninhibit, Status Update and Request, Short Message, Telephone Interconnect Dialing, and Radio Unit Monitor — were originally defined for trunked systems in TIA-102.AABC-B.
+
+This document addresses a practical gap: conventional system operators and equipment manufacturers needed a normative reference stating which of these trunking control messages could be used in conventional systems, and how addressing should work in the absence of a trunking controller. Interoperability of conventional radio units across manufacturers required a common definition of these supplementary functions.
+
+The document evolved from TSB-102.AABG-1 (an earlier informative Technical Service Bulletin) and was elevated to normative TIA standard status in July 2007 as part of TIA's Compliance Assessment program.
+
+KEY TECHNICAL CONTENT
+
+Conventional supplementary data messages use the TSBK (Trunked Signaling Block) frame format verbatim. Because conventional systems operate in "talk around" (direct mode) as well as repeat mode, the ISP/OSP distinction used in TIA-102.AABC-B does not apply: a request message transmitted by one mobile subscriber can be received directly by another mobile subscriber without any intermediate conversion by the RFSS.
+
+A key consequence of the talk-around model is that several messages have identical non-extended CAI formats regardless of whether they originated from a mobile device or from the Fixed Network Equipment (FNE). The document identifies these pairs:
+  - CALL_ALRT_REQ (mobile-originated) = CALL_ALRT (FNE-originated)
+  - STS_Q_REQ (mobile-originated) = STS_Q (FNE-originated)
+  - MSG_UPDT_REQ (mobile-originated) = MSG_UPDT (FNE-originated)
+  - STS_UPDT_REQ (mobile-originated) = STS_UPDT (FNE-originated)
+
+The naming distinction is preserved for extended P25 formats, where the FNE-sourced and mobile-sourced extended formats do differ.
+
+TABLE 2-1: CONVENTIONAL SUPPLEMENTARY DATA FEATURES (summary)
+
+Emergency Alarm: Uses EMRG_ALRM_REQ (§6.1.6 of AABC-B), ACK_RSP_FNE (§6.2.1), CAN_SRV_REQ (§6.1.5). Not specifically mentioned in [102A] as an optional feature.
+
+Call Alert: Mobile-originated uses CALL_ALRT_REQ (§6.1.4 / §6.2.1). FNE-originated uses CALL_ALRT (§6.2.4 / §6.2.1). Listed as a Standard Option.
+
+Radio Check and Radio Inhibit/Uninhibit: Both use EXT_FNCT_CMD (§6.2.6), which encodes the specific function (Check, Inhibit, Uninhibit) and its ACK within the extended function field.
+
+Status Update and Status Request: Mobile-originated updates use STS_UPDT_REQ (§6.1.15); RFSS-relayed updates use STS_UPDT (§6.2.18). Mobile-originated queries use STS_Q_REQ (§6.1.13); FNE-originated queries use STS_Q (§6.2.17). Response is always STS_Q_RSP (§6.1.14).
+
+Short Message: Mobile-sourced uses MSG_UPDT_REQ (§6.1.11); FNE-sourced uses MSG_UPDT (§6.2.10). Both acknowledge via ACK_RSP_FNE.
+
+Telephone Interconnect Dialing: TELE_INT_DIAL_REQ (§4.1.4) for explicit digit dialing; TELE_INT_PSTN_REQ (§4.1.5) for implicit/predefined dialing. Responses include ACK_RSP_FNE, QUE_RSP, and DENY_RSP.
+
+Incoming Telephone Call: TEL_INT_ANS_REQ (§4.2.7) / TEL_INT_ANS_RSP (§4.1.6).
+
+Telephone Call Clear Down: CAN_SRV_REQ (§6.1.5) and LC_CALL_TERM_CAN in the Expanded TDU/CTC format (§7.3.8 of TIA-102.BAAC-A).
+
+Radio Unit Monitor: RAD_MON_CMD (§6.2.24 of AABC-B) with ACK_RSP_FNE. May be sourced by the FNE or by a mobile console device.
+
+TABLE 2-2: ADDRESSING
+
+For ACK_RSP_FNE messages, the Additional Information Valid (AIV) flag SHALL be set and the Extension (EX) flag SHALL be cleared to allow symmetric addressing with both source and target address fields populated. Address fields are identified by TSBK octet numbers; for example, originator addresses occupy octets 7-9 and destination addresses occupy octets 4-6 in most messages.
+
+CONSTRAINTS AND LIMITATIONS
+
+Radio Detach, defined in TIA-102.AABC-B and TIA-102.AABD-A, is explicitly excluded from this document — it is not a conventional feature. Wireline console devices are restricted: they may not send Status Update or Emergency Alarm messages, and may not respond to Radio Unit Monitor or Status Request messages. The ACK_RSP_U message (subscriber-sourced ACK) is not defined for conventional use.
+
+RELATIONSHIPS TO OTHER DOCUMENTS
+
+This document sits at the intersection of the conventional and trunking branches of the TIA-102 suite. It has a normative dependency on TIA-102.AABC-B (Trunking Control Channel Messages) for all wire formats, TIA-102.BAAA-A (Recommended Common Air Interface) for the physical/link layer, TIA-102.BAAD (Conventional CAI Operational Description) for conventional channel behavior, TIA-102.BADA/-BADA-1 for telephone interconnect requirements, TIA-102.BAAC-A for Link Control Word formats (LC_CALL_TERM_CAN), and TIA-102.AABD-A for trunking procedures context.
+
+The informative reference TSB-102.A (Project 25 System and Standards Definition, 1995) provides the overall system context and is the source of the "Standard Option" designations for conventional features.
+
+DOCUMENT STATUS
+
+Active as of April 2009. The content of the predecessor informative bulletin TSB-102.AABG-1 was incorporated in the July 2007 revision that elevated this document to normative status. No successor document has been identified.

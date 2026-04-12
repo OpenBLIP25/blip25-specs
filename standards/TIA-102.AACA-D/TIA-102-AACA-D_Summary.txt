@@ -1,0 +1,137 @@
+TIA-102.AACA-D: Project 25 Digital Radio Over-The-Air-Rekeying (OTAR) Messages and Procedures
+Summary
+Published: April 2025 (Revision 1: 2025-05-16)
+Supersedes: TIA-102.AACA-C
+Approximately 214 pages; 89 tables; 46 figures
+
+OVERVIEW
+
+This document specifies the messages, procedures, and cryptographic security requirements for
+Over-The-Air-Rekeying (OTAR) in Project 25 (P25) digital land mobile radio systems. OTAR
+enables a Key Management Facility (KMF) to remotely provision, update, and delete cryptographic
+keys in Subscriber Units (SUs) over the P25 Common Air Interface (CAI) without requiring physical
+access to each radio. This revision is the fourth generation of the OTAR standard (A, B, C, D) and
+introduces no new message types relative to -C but refines CMAC key derivation context
+definitions and corrects interoperability guidance.
+
+PURPOSE AND SCOPE
+
+The standard exists because real-world P25 deployments -- public safety, federal, and military --
+require periodic re-keying of Traffic Encryption Keys (TEKs) to limit the exposure window if a
+key is compromised. Manual re-keying (direct connect or Over-The-Air) at scale is operationally
+impractical. OTAR automates this by defining a standardized application-layer Key Management
+Message (KMM) protocol that operates over the existing P25 radio infrastructure.
+
+The document defines:
+- 32 message types (Key Management Messages, KMMs) used between KMF and SU
+- 17 standard OTAR procedures (Rekey, Capabilities Exchange, Changeover, Zeroize, etc.)
+- 7 extended key management procedures (New Unit, Registration/Deregistration, Key Assignment,
+  extended Inventory, Modify Keyset, RSI Items)
+- Complete primitive field definitions for all message elements
+- Two transport modes: Data Link Dependent (DLD) OTAR and Data Link Independent (DLI) OTAR
+- Block cipher requirements for message encryption (OFB outer layer), key wrapping (ECB / KW-AE
+  per SP 800-38F), and message authentication (DES CBC-MAC legacy; enhanced CBC-MAC; CMAC
+  recommended, per SP 800-38B with KDF per SP 800-108)
+- Algorithm-specific parameters and test vectors for DES (ALGID $81), Triple DES (ALGID $83),
+  and AES-256 (ALGID $84)
+
+KEY MANAGEMENT ARCHITECTURE
+
+Three entities participate in OTAR:
+- Key Management Facility (KMF): the authoritative key distribution server
+- Subscriber Unit (SU): the radio being rekeyed
+- Fixed Network Equipment (FNE): routes KMMs between KMF and SU over the trunked or
+  conventional network
+
+Keys are organized into Keysets (Keyset IDs 1-255, 0 reserved). Each keyset holds keys of a
+single algorithm type. Storage Location Numbers (SLNs) identify key slots: 16 Crypto Groups
+(4 bits) x 4096 Key Selectors (12 bits) = 65,536 possible storage locations. Key Encryption
+Keys (KEKs) are stored in Crypto Group 15; KEK Keyset IDs occupy 241-255. Two reserved KEK
+slots exist for legacy interoperability: UKEK at Key ID $F5A0, CKEK at Key ID $F5A1.
+
+THE 32 KMM MESSAGE TYPES (Table 78, Section 11)
+
+Each KMM has a 1-octet Message ID. The full assignment table:
+  $00 Null              $01 Capabilities-Command      $02 Capabilities-Response
+  $03 Change-RSI-Cmd    $04 Change-RSI-Response       $05 Changeover-Command
+  $06 Changeover-Resp   $07 Delayed-Acknowledgment    $08 Delete-Key-Command
+  $09 Delete-Key-Resp   $0A Delete-Keyset-Command     $0B Delete-Keyset-Response
+  $0C Hello             $0D Inventory-Command          $0E Inventory-Response
+  $0F Key-Assign-Cmd    $10 Key-Assignment-Response   $11-$12 Reserved
+  $13 Modify-Key-Cmd    $14 Mod-Keyset-Attr-Cmd       $15 Mod-Keyset-Attr-Resp
+  $16 Negative-ACK      $17 No-Service                $18-$1C Reserved
+  $1D Rekey-Acknowledgment  $1E Rekey-Command         $1F Set-Date-Time
+  $20 Warm-Start-Cmd    $21 Zeroize-Command           $22 Zeroize-Response
+  $23 Deregistration-Cmd  $24 Deregistration-Response
+  $25 Registration-Cmd  $26 Registration-Response     $27 Unable-to-Decrypt-Response
+
+KMM HEADER
+
+Every KMM begins with a fixed header:
+  Octet 0:   Message ID (1 octet)
+  Octet 1-2: Message Length (2 octets; value = total octets following the length field)
+  Octet 3:   Message Format (RK[7:6] | MN[5:4] | MAC[3:2] | 0 | D[0])
+  Octets 4-6: Destination RSI
+  Octets 7-9: Source RSI
+  [Octets 10-11: Message Number, if MN bits != 00]
+  [Message body follows]
+  [MAC block appended at end]
+
+Response Kind (RK): 00=None, 01=Delayed, 11=Immediate. MAC bits: 10=Enhanced CBC-MAC,
+11=DES MAC (legacy). D bit: 1=Done (last in a sequence).
+
+TRANSPORT MECHANISMS (Section 12)
+
+DLD OTAR: KMM encapsulated directly in CAI data packets. Max KMM = 509 octets.
+DLI OTAR: KMM tunneled over UDP/IP via SNDCP using P25 IP Data Bearer Service. A 13-octet
+KMM Preamble (MFID, Algorithm ID, Key ID, Message Indicator) prepends the KMM. Max KMM
+body = 462 octets. The P25 OTAR port number (per reference [9]) is the standard UDP port.
+
+SECURITY REQUIREMENTS (Section 13)
+
+Encryption: Outer-layer KMM encryption uses Output Feedback (OFB) mode (ALGID $84 typical).
+Key Wrapping: DES keys use single-pass ECB. All other algorithms use KW-AE (SP 800-38F): the
+key is padded to an even multiple of n/2-bit blocks, an IV of 10100110 repeated fills n/2 bits,
+and the Feistel-based wrap algorithm runs 6 rounds.
+Message Authentication: Three modes in ascending security:
+  1. DES CBC-MAC (legacy, 32-bit MAC) -- backward compatibility only
+  2. Enhanced CBC-MAC (key derived from TEK via key wrap; 32-bit for TDES, 64-bit for AES)
+  3. CMAC/AES-256 (recommended): MAC key derived via KDF in Counter mode (SP800-108),
+     HMAC-SHA-256 PRF, Label="OTAR MAC", separator=0x00, context=KMM header fields, L=256.
+Message Number (MN): 16-bit anti-replay sequence number, modulo 2^16. Validated by Rule 1
+(strict window, >MNL) for RK1/RK3 non-retry, Rule 2 (inclusive window, >=MNL) for RK2/retry.
+
+ALGORITHM PARAMETERS
+
+DES (ALGID $81): n=64, k=64, r=0. MAC: t=32 (DES CBC-MAC).
+  Test vector: KEK=TEK=$1313 1313 1313 1313; E(TEK)=$2911 CF5E 94D3 3FE1; MAC=$B744 24C7
+
+Triple DES (ALGID $83): n=64, k=192, r=0, L=24, M=8.
+  Output = E_K3(D_K2(E_K1(Input))). MAC: t=32 (Enhanced CBC-MAC, derived key).
+  Test vector: TEK1=$2A19 38CD 0B6B 6BD0, TEK2=$A43D 5145 C4AB 3E1C, TEK3=$641A 8932 1A1C DA37
+  KEK1=$4940 02BF 1631 32A4, KEK2=$1FA2 8092 4C43 FBFD, KEK3=$86EA 8ACD 436B AE13
+  E(TEK)=$56E0 871C / $6104 1C93 428E 962F / $227D 96CA 9419 395A / $61D3 BE3C 78FD D354
+
+AES-256 (ALGID $84): n=128, k=256, r=0, L=40, M=16. CBC-MAC: t=64. CMAC: t=64.
+  Key wrap IV: pattern 10100110 repeated = 0xA6A6...A6 (16 octets for AES).
+  CBC-MAC test: TEK=2A19 38CD 0B6B 6BD0 B774 5692 FE19 14F0 3876 612F C29D 5777 89A6 2F65 FA05 EF83
+  KEK=4940 02BF 1631 32A4 21FB EF11 7F98 5A0C AADD C250 A4C2 1947 D593 E6C0 67DE 402C
+  E(TEK)=8028 9CF6 35FB 68D3 45D3 4F62 EF06 3BA4 E05C AE47 56E7 D304 46D1 F07C 6EB4 E9E0 8409 4537 2372 FB80
+
+CHANGES FROM PRIOR REVISIONS
+
+AACA-A to AACA-B: DES footnote per FPIC memo; AACA-A-1 addendum for single/multi-key
+  interoperability; clarified inner/outer layer protection rules.
+AACA-B to AACA-C: Added CMAC authentication method. Deprecated D (Derived Key) bit in
+  Enhanced MAC frame.
+AACA-C to AACA-D: Refined CMAC key derivation context definitions; clarified MN handling
+  for specific message types; editorial corrections.
+
+RELATED STANDARDS
+
+TIA-102.AACA-D depends on and interoperates with:
+- TIA-102.AAAB-B (Common Air Interface, CAI physical/MAC layer)
+- TIA-102.BAEB (IP Data Bearer for DLI transport)
+- TIA-102.AAAD (Encryption and Authentication, ALGID definitions)
+- FIPS 197 (AES), SP 800-38B (CMAC), SP 800-38F (KW-AE), SP 800-108 (KDF), RFC 4634 (HMAC-SHA)
+- Conformance testing is addressed by the companion OTAR conformance test document [AACD].

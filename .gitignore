@@ -1,0 +1,33 @@
+# =============================================================================
+# TIA-P25 Standards Repository — .gitignore
+# =============================================================================
+# Original TIA documents are copyrighted. Only derived/transformative works
+# (summaries, implementation specs, opcode tables, context docs) are committed.
+# The download script lets anyone fetch the originals from TIA's public library.
+# =============================================================================
+
+# ---- Copyrighted originals: never commit ----
+*.pdf
+*.zip
+*.wav
+*.pcm
+*.dat
+
+# ---- Full-text extractions: near-verbatim reproductions ----
+*_Full_Text.md
+*_full_text.md
+
+# ---- Download script data files (large, regenerable) ----
+tia_library_raw.json
+tia_library_parsed.json
+tia_library_entries.txt
+_download_tia.log
+
+# ---- Working/temp files ----
+*.tmp
+*.swp
+*~
+
+# ---- OS junk ----
+.DS_Store
+Thumbs.db

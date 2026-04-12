@@ -1,0 +1,73 @@
+TIA-102.AACE: Project 25 Digital Land Mobile Radio – Link Layer Authentication
+Summary
+December 2005 | 50 pages | TR8.3 Encryption Subcommittee
+
+WHAT IT SPECIFIES
+
+This document specifies the Challenge and Response Authentication mechanism for Project 25 (P25) digital land mobile radio systems. It defines how a Subscriber Unit (SU) proves its identity to the Fixed Network Equipment (FNE) operating the trunked radio system, and optionally how the FNE simultaneously proves its identity back to the SU (mutual authentication). The standard operates across the U_m air interface and applies to both FDMA and TDMA trunking systems that use an FDMA trunking control channel.
+
+WHY IT EXISTS
+
+Public safety radio networks carry sensitive voice and data traffic. An adversary SU — a device not legitimately authorized to access the system — could eavesdrop on channels, displace valid subscribers from the system, or exploit radio capacity. Authentication provides a cryptographic proof of identity tied to a per-subscriber secret key (K), preventing such abuse without requiring K to be transmitted over the air during normal operation. The standard also addresses the reverse threat: a rogue base station (adversary FNE) that could trap SUs or intercept traffic. Mutual authentication defeats this attack class.
+
+WHAT IT DEFINES
+
+The document defines:
+
+1. Challenge and Response Authentication: The FNE challenges the SU with a random nonce (RAND1) and the SU responds with a cryptographically derived value (RES1). The FNE compares RES1 to its independently computed expected response (XRES1); a match proves the SU holds the correct K.
+
+2. Mutual Authentication: An extension where the SU simultaneously challenges the FNE with a second nonce (RAND2). The FNE returns RES2 derived from a separate session key (KS'), which the SU verifies against its own XRES2. Both parties must pass before the exchange is considered successful.
+
+3. Four Authentication Mechanisms (AM1–AM4), each a distinct instantiation of AES-128 in Electronic Codebook (ECB) mode:
+   - AM1(K, RS, KS): Derives Session Authentication Key KS from the Authentication Key K and a Random Seed RS. RS (80 bits) is zero-padded to 128 bits before encryption.
+   - AM2(KS, RAND1, RES1): Derives the response RES1 (or expected response XRES1) from KS and RAND1. RAND1 (40 bits) is zero-padded to 128 bits; the 128-bit AES output is truncated to the 32 most significant bits.
+   - AM3(K, RS, KS'): Derives the Mutual Session Authentication Key KS' from K and RS. Identical to AM1 except the zero-padded RS is bitwise complemented before encryption, ensuring KS ≠ KS'.
+   - AM4(KS', RAND2, RES2): Derives RES2 (or XRES2) from KS' and RAND2. Structurally identical to AM2 but uses KS' and RAND2.
+
+4. Protocol state machines for both the RFSS and SU perspectives, including states: Idle, Want to Authenticate, Authentication Procedure in Progress, Authenticated SU, Authenticated FNE, and Change Site.
+
+5. Authentication rules (11 general rules) and Mutual Authentication rules (7 general rules), plus message-transaction-based rules specifying precisely which signaling packet each entity sends in each outcome scenario.
+
+6. Message Sequence Charts (MSCs) for 11 scenarios covering standalone authentication, mutual authentication, and authentication embedded in unit registration — including pass, SU fail, and RFSS fail cases, plus the SU-demanded authentication flow.
+
+7. The six control channel messages used to carry out authentication: Authentication Demand OSP, Authentication Response ISP, Authentication Response Mutual ISP, Authentication FNE Response OSP, Authentication FNE Result ISP, and Authentication SU Demand ISP. Message formats are defined in TIA/EIA-102.AABC [1].
+
+8. Key management guidelines and an informative provisioning description covering the Key Fill Device path and the OTAR path for delivering K to SUs and the Authentication Facility.
+
+KEY PARAMETERS
+
+Parameter   | Size (bits) | Role
+------------|-------------|-------------------------------------
+K           | 128         | Long-term secret per SUID; never sent over-the-air
+RS          | 80          | Random Seed; refreshed periodically by AF to limit KS lifetime
+KS          | 128         | Session key for SU authentication; derived from K+RS via AM1
+KS'         | 128         | Session key for FNE authentication; derived from K+RS via AM3
+RAND1       | 40          | Random challenge to SU; chosen fresh per authentication attempt
+RAND2       | 40          | Random challenge to FNE; chosen by SU during mutual auth
+RES1/XRES1  | 32          | SU response and expected response; compared at RFSS
+RES2/XRES2  | 32          | FNE response and expected response; compared at SU
+Timer       | —           | Default 30-second Authentication Timer at both SU and RFSS
+
+ARCHITECTURE AND KEY DESIGN DECISIONS
+
+The design deliberately isolates K from the RFSS. The Authentication Facility (AF) — a logical component of the FNE — computes KS and KS' and distributes them to the RFSS rather than distributing K itself. This means the RFSS never sees K, limiting exposure in the event the RFSS is compromised. Multiple authentication challenges can be run by the same RFSS against the same SU using the same RS/KS but different RAND1 values, amortizing the cost of the AF interaction.
+
+The bitwise complement in AM3 vs. AM1 is the sole structural distinction separating KS from KS', ensuring the two session keys are cryptographically independent even though both are derived from the same K and RS inputs.
+
+RELATIONSHIPS TO OTHER DOCUMENTS
+
+This document depends on TIA/EIA-102.AABC (Trunking Control Channel Messages) for the wire format of all six authentication messages — AACE defines the protocol and algorithms while AABC carries the actual opcode and field definitions. Key provisioning paths are covered by TIA-102.AACD (Key Fill Device Interface Protocol) and TIA-102.AACA (OTAR Protocol). The document was developed under TIA TR-8.3 (Encryption Subcommittee) and fits within the broader TIA-102 security architecture alongside TIA-102.AACB (Key Management) and TIA-102.AACC (End-to-End Encryption).
+
+LIMITATIONS AND SCOPE NOTES
+
+- The standard applies only to systems with an FDMA trunking control channel; systems with TDMA control channels are not addressed.
+- Section 5.2 (Provisioning) is explicitly informative, not normative — provisioning implementations may vary.
+- If the authentication standard is implemented only in the SU, mutual authentication is optional; if implemented in the FNE, both unit and mutual authentication are mandatory.
+- The document does not specify how the SUID is programmed into the SU or FNE — this is manufacturer-specific.
+- The document does not currently describe OTAR provisioning for authentication (noted as a gap; TIA-102.AACA was to be updated).
+- Use of ECB mode is appropriate here because each AES invocation encrypts a single 128-bit block of pseudo-random data; ECB mode is not a security concern in this one-block-per-invocation context.
+- The 32-bit response size (RES1, RES2) is an air interface limitation. This gives 1-in-2^32 probability of an adversary guessing the correct response by chance per attempt, which is considered acceptable given the control channel overhead of repeated attempts.
+
+STATUS
+
+Released for publication September 9, 2005. Published December 2005. Active as of knowledge cutoff. This document is part of the Project 25 security suite under ongoing TIA TR-8 maintenance.

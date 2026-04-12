@@ -1,0 +1,114 @@
+TIA-102.AACD-1 Summary
+Project 25 Key Fill Device (KFD) Interface Protocol Addendum 1 —
+Key Fill for Link Layer Authentication
+Published: April 2011 | Status: Active addendum to TIA-102.AACD
+
+WHAT THIS DOCUMENT SPECIFIES
+
+This document is Addendum 1 to the base Key Fill Device (KFD) Interface Protocol standard
+(TIA-102.AACD). Its sole purpose is to define how a Key Fill Device provisions authentication
+keys (K) into Project 25 Subscriber Units (SUs) to support Link Layer Authentication (LLA). Link
+Layer Authentication is a mechanism by which P25 infrastructure can challenge subscriber units
+to prove their identity using a shared symmetric secret before granting access to the channel.
+This addendum defines the specific Key Management Messages (KMMs) and procedural
+sequences the KFD must use when loading, deleting, and inventorying authentication keys —
+operations that are distinct from the traffic encryption key loading specified in the base AACD
+standard.
+
+WHY IT EXISTS
+
+Link Layer Authentication was introduced into the P25 suite via TIA-102.AACE (December 2005).
+That standard defines the radio-to-infrastructure authentication protocol: the challenge-response
+handshake, the role of the Authentication Key (K), and the SUID (Subscriber Unit Identity) that
+scopes each key to a specific subscriber. However, AACE does not define how the KFD
+physically loads the K into the SU — that gap is filled by this addendum. Without a standardized
+KFD provisioning protocol, equipment from different manufacturers could not interoperate during
+the key loading phase of LLA deployment.
+
+The addendum is structured as an extension to TIA-102.AACD, reusing its KFD-P25 transport
+layer (Ready handshake, Transfer Done, Disconnect/Disconnect Ack) and KMM framing
+conventions from TIA-102.AACA, while defining four new message types and two new inventory
+types specific to authentication key management.
+
+KEY CONCEPTS AND IDENTIFIERS
+
+The Authentication Key (K) is a secret symmetric key used to prove authenticity between an SU
+and the network. This document exclusively addresses AES-128 (Algorithm ID = $85) as the
+authentication algorithm, though the document notes this ID was still under proposal in TR8.3
+at time of publication. The K is loaded in plaintext (unencrypted, Algorithm ID = $80 for the
+Decryption Instruction Block), meaning the KFD-to-SU physical connection must be a trusted,
+secure, direct interface.
+
+The Subscriber Unit Identity (SUID) is a 56-bit compound identifier: WACN ID (20 bits),
+System ID (12 bits), and Subscriber ID (24 bits). The SUID scopes each authentication key to a
+specific SU on a specific P25 system. A SU can hold multiple K values keyed to different SUIDs,
+though only one is "currently active" at any time. The SUID field encoding is consistent across
+all messages: bits 55-48 hold WACN ID bits 19-12, bits 47-40 hold WACN ID bits 11-4, bits
+39-36 hold WACN ID bits 3-0, bits 35-32 hold System ID bits 11-8, bits 31-24 hold System ID
+bits 7-0, and bits 23-0 hold the 24-bit Subscriber ID.
+
+PROCEDURES
+
+Four operational procedures are defined, two mandatory and two optional:
+
+Load Authentication Key (mandatory): The KFD initiates a standard KFD-P25 session and sends
+a Load Authentication Key-Command KMM. The SU immediately activates the received key
+(no changeover procedure exists for authentication keys) and responds with a
+Load Authentication Key-Response KMM confirming the SUID the key was loaded under.
+Each session loads exactly one key; multiple keys require multiple sessions.
+
+View Active SUID Info (mandatory): The KFD queries the SU for its currently active SUID and
+whether a K is already assigned to it. This is commonly combined with an optional Load
+Authentication Key step in the same session — allowing the KFD to first learn the active SUID
+before provisioning its key.
+
+Delete Authentication Key (optional): The KFD can erase either a specific SUID's authentication
+key or all authentication keys in the SU. The command's Authentication Instruction Format byte
+controls the scope: if B0=0 and B1=0, the currently active SUID's key is erased; if B0=0 and
+B1=1, all keys are erased. If B0=1, the SUID field identifies the specific SU record to erase.
+The response reports the count of keys actually deleted (0–65535) along with a status code.
+
+View SUID Info (optional): The KFD retrieves the complete list of SUIDs stored in the SU along
+with K-assignment status for each. Because 512 octets is the maximum KMM size and each
+SUID K Status entry is 8 octets (7 bytes SUID + 1 byte K Status), a maximum of 61 entries fit
+per KMM. The Inventory Marker field in the command and response implements a continuation
+token: the SU sets it to a non-zero value (opaque to the KFD, meaningful only to the SU) when
+more entries remain, and the KFD echoes this value in the next command to resume from that
+position.
+
+MESSAGE FORMATS
+
+Eight KMMs are defined:
+
+- Message $28: Load Authentication Key-Command — variable length (Decryption Instruction
+  Block + Authentication Block containing SUID, Algorithm ID, Key Length, and Key material)
+- Message $29: Load Authentication Key-Response — 9 octets fixed
+- Message $2A: Delete Authentication Key-Command — 8 octets fixed
+- Message $2B: Delete Authentication Key-Response — 10 octets fixed
+- Message $0D / Inventory Type $F8: Inventory-Command (List SUID Items) — 6 octets
+- Message $0E / Inventory Type $F8: Inventory-Response (List SUID Items) — variable, 5-octet
+  header + 8 octets per SUID item
+- Message $0D / Inventory Type $F7: Inventory-Command (List Active SUID) — 1 octet
+- Message $0E / Inventory Type $F7: Inventory-Response (List Active SUID) — 10 octets fixed
+
+All messages share the status code table from TIA-102.AACA (Table 4). The relevant error
+codes for LLA key fill are: $00 success, $01 unspecified failure, $05 out of memory, $09 invalid
+algorithm ID, $0B module failure, $0E invalid WACN or System ID, $0F invalid Subscriber ID.
+
+RELATIONSHIPS TO OTHER DOCUMENTS
+
+This addendum depends on:
+- TIA-102.AACE — defines the LLA protocol this addendum supports
+- TIA-102.AACD — defines the base KFD interface protocol and transport framing
+- TIA-102.AACA — defines KMM framing, primitive field definitions (Algorithm ID, Key ID,
+  Inventory Type), the status code table, and maximum KMM size (512 octets)
+- FIPS 197 — defines AES, the algorithm used for authentication keys
+
+LIMITATIONS AND NOTES
+
+The document acknowledges that Algorithm ID $85 for AES-128 authentication was still under
+proposal in TR8.3 at time of publication. Implementors should verify current algorithm ID
+assignments with the latest AACE and AACA editions. The Inventory Marker is explicitly noted as
+radio-manufacturer-specific and opaque to the KFD — implementations must treat it as an
+arbitrary continuation token. The standard provides no error handling for transport-layer failures;
+those are handled by the base KFD-P25 protocol. No test vectors are provided.

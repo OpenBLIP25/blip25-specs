@@ -1,0 +1,193 @@
+TIA-102.BAKA-A: Project 25 KMF to KMF Interface
+Summary
+================================================================================
+
+DOCUMENT METADATA
+Document Number:  TIA-102.BAKA-A
+Title:            Project 25 Standards for Public Safety Communications —
+                  KMF to KMF Interface
+Published:        July 26, 2024
+Supersedes:       TIA-102.BAKA (original edition)
+Pages:            170
+Status:           Final Published Standard (TIA Member Copy)
+Organization:     Telecommunications Industry Association (TIA)
+
+CLASSIFICATION
+Type:             Protocol Specification + Message Format + Security Architecture
+Layer:            Application (KMF-to-KMF interface, above IP transport)
+Primary subject:  XML-based inter-KMF key management protocol (IKMF) with
+                  S/MIME cryptographic protection and PKI requirements
+
+
+WHAT THIS DOCUMENT SPECIFIES
+
+TIA-102.BAKA-A defines the interface between two P25 Key Management Facilities
+(KMFs). A KMF is the system entity responsible for generating, storing, and
+distributing encryption key material to P25 radios. When two P25 systems need
+to share keys (for interoperability or redundancy), their KMFs communicate over
+this interface using the Inter-KMF Message Format (IKMF) — an XML application
+protocol transported over TCP.
+
+The interface supports three operational scenarios (CONOPS):
+  1. Key Dissemination: A master KMF pushes keys to a peer KMF for that peer
+     to load into its radios.
+  2. Interoperability Key Management: Two KMFs exchange keys and manage
+     encryption objects to enable cross-system talkgroup interoperability.
+  3. Peer-to-Peer Key Sharing: One KMF requests specific key material from
+     another.
+
+
+MESSAGE PROTOCOL (IKMF)
+
+Each IKMF message is an XML document validated against ikischema.xsd (W3C XML
+Schema 1.0). A PDU wrapping one message uses MIME Content-Type
+application/xml; a PDU with multiple messages uses multipart/mixed with
+boundary "P25_IKMF_BODY".
+
+Every message has an <ikmf-header> and an <ikmf-content>. The header carries:
+- mf-ID (1 byte hex, message format)
+- protocol-version (currently: 1)
+- source-RSI and destination-RSI (3-byte hex Radio System Identifiers)
+- msg-ID (enumerated: KeyAct, KeyActReq, KeyDel, KeyDis, KeyProg, KeyReq,
+  ObjCre, ObjDel, RetReceipt)
+- ctag (correlation tag: source name + 1-2 byte hex sequence number)
+- time (xs:dateTime)
+
+The content carries exactly one of nine message types as an xs:choice.
+
+Nine message types:
+  Key-Dissemination (KeyDis): Push an encrypted key to a peer KMF. The key
+    value is a hex blob of RSA-OAEP-encrypted key material. Optional fields
+    include an encryption object reference, key-ID, activation timestamp, and
+    expiration timestamp. Key classes: KEK, TEK, AUTHK. Algorithms: AES, DES,
+    TDEA, or custom 1-5 char name.
+
+  Key-Request (KeyReq): Request key material by name, class, algorithm, and
+    length. The peer responds with Key-Dissemination or Return-Receipt failure.
+
+  Key-Delete (KeyDel): Delete a named key and remove it from affected radios.
+    Reason values: NoReason, KeyCompromised, KeyLost, KeyExpired.
+
+  Key-Activation (KeyAct): Activate a previously distributed inactive key.
+
+  Key-Activity-Progress (KeyProg): Long-running operation status update.
+    Carries percentage-complete (0-100), total-units, readiness (GO/NO-GO),
+    and reason-code. NO-GO means still in progress; GO or reason-code 0 means
+    complete.
+
+  Key-Activity-Request (KeyActReq): Originating KMF polls for a status update
+    on a long-running operation.
+
+  Object-Create (ObjCre): Create a named encryption object on the peer KMF,
+    associated with zero or more talkgroups (WACN+System+Group IDs).
+
+  Object-Delete (ObjDel): Delete a named encryption object.
+
+  Return-Receipt (RetReceipt): Final response to any command, carrying a
+    numeric reason-code from -2000 to 2000. Key codes: 0=S_SUCCESS,
+    4=S_PROGRESSING, -1=F_FAILURE, -19=F_NOT_READY, -20=F_NOT_SUPPORTED.
+
+
+PROCEDURE FLOWS
+
+Simple (uncoordinated) procedures complete in one round trip:
+  Create Object:  ObjCre → RetReceipt
+  Delete Object:  ObjDel → RetReceipt
+  Push Key:       KeyDis → RetReceipt
+  Delete Key (simple):  KeyDel → RetReceipt
+
+Long-running (coordinated) procedures allow the terminating KMF to send
+optional progress updates while it propagates key changes to many radios:
+  Activate Key:   KeyAct → [KeyProg*] → [KeyActReq → KeyProg]* → RetReceipt
+  Delete Key:     KeyDel → [KeyProg*] → RetReceipt
+  Distribute Key: KeyDis → [KeyProg*] → RetReceipt
+
+Automatic activation: Key-Dissemination includes an <activation> timestamp.
+KMF2 returns S_SUCCESS immediately, then initiates the activation at the
+specified time, sending KeyProg (ack-msg-ID=KeyAct) and final RetReceipt.
+
+Automatic expiration failure: Key-Dissemination includes an <expiration>
+timestamp. If KMF2 cannot finish distributing before expiration, it sends
+RetReceipt with F_NOT_READY (ack-msg-ID=KeyDel), continues distribution,
+then sends a second S_SUCCESS. KMF1 must then manually issue a Key-Delete.
+
+
+CRYPTOGRAPHIC PROTECTION
+
+All PDUs are wrapped in an S/MIME outer layer using sign-then-encrypt:
+
+  Signing (required): RSASSA-PSS with SHA-384, RSA 3072-bit minimum.
+    openssl cms -sign ... -keyopt rsa_padding_mode:pss -md sha384
+
+  Encryption (required): RSAES-OAEP (SHA-384 OAEP hash) + AES-256-CBC content
+    encryption, using the recipient KMF's RSA encryption certificate.
+    openssl cms -encrypt ... -aes-256-CBC -keyopt rsa_padding_mode:oaep
+                             -keyopt rsa_oaep_md:sha384
+
+  Legacy (deprecated, Annex A): RSA-PKCS#1-v1.5 with SHA-256 may be used
+    strictly for interoperability with equipment predating this edition.
+    New implementations MUST support RSAES-OAEP and RSASSA-PSS.
+
+  Optional transport layer: TLS 1.2 with
+    TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384, RSA 3072-bit minimum.
+
+  Transport port: TCP 49199 (per TIA-102.BAJD), real-time framing:
+    STX (02h) start / ETX (03h) end / ACK (06h) / NAK (15h).
+
+
+PKI REQUIREMENTS
+
+Each KMF requires two X.509 certificates (RFC5280):
+  - A signing certificate (keyUsage: nonRepudiation, digitalSignature)
+  - An encryption certificate (keyUsage: nonRepudiation, digitalSignature,
+    keyEncipherment)
+
+RSA minimum key size: 3072-bit. Certificate validity: 700 days. CRL: 300 days.
+CAs are system-specific; CA certificates are exchanged out-of-band.
+The normative OpenSSL configuration (Section 8) specifies digest sha384,
+organizationName "Project 25", and the required certificate extensions.
+
+
+NORMATIVE SCHEMA
+
+Section 7 provides the complete normative ikischema.xsd. Key elementary types:
+  RSI: hexBinary length=3 (KMF address)
+  mfID: hexBinary length=1
+  ctagTag: hexBinary 1-2 bytes
+  keyID: hexBinary length=2
+  GroupId/SystemId/WacnId: hexBinary 2/2/3 bytes (talkgroup addressing)
+  Key: hexBinary minLength=1 (the encrypted key material blob)
+  nameSource: 3-20 chars (naming authority name)
+  specificKeyName/specificObjectName: 1-40 chars
+  protocolVersion: integer, only value=1
+  msgID: enumeration of 9 message type codes
+  reasonCode: integer -2000 to 2000
+  percentageComplete: integer 0-100
+  Readiness: enum GO | NO-GO
+  Reason: enum NoReason | KeyCompromised | KeyLost | KeyExpired
+
+
+RELATIONSHIP TO OTHER P25 STANDARDS
+
+  TIA-102.BAJD:  Defines the TCP transport layer used by this interface
+  TIA-102.AACA:  OTAR (Over-The-Air Rekeying) — KMF-to-radio key distribution
+  TIA-102.AACE:  P25 Key Management — overall key management framework
+  TIA-102.AABC:  TDMA Common Air Interface — talkgroup ID definitions (WACN,
+                 System, Group) used in ObjectCreate
+  TIA-102.BAKA:  Predecessor document superseded by this edition
+
+
+IMPLEMENTATION NOTES
+
+- The IKMF protocol is XML-based and human-readable; all field values are
+  encoded as either UTF-8 text strings or hexBinary.
+- Key material is always RSA-OAEP encrypted in transit; the plaintext key never
+  appears in the wire format.
+- The ctag (correlation tag) is the primary mechanism for matching responses to
+  requests in long-running procedures. The ctag-source identifies the KMF that
+  assigned the tag; ctag-tag is a 1-2 byte sequence counter.
+- An ack-ctag in Key-Dissemination requests that the initiating KMF receive
+  an explicit Return-Receipt (optional for push dissemination).
+- The man-con extension element (0..unbounded in ikmfAppMsg) allows
+  manufacturer-specific data to be appended to any message without
+  breaking schema validation.

@@ -1,0 +1,179 @@
+TIA-102.BAJB-B: Project 25 Tier 1 Location Services Specification
+ANSI/TIA-102.BAJB-B-2019 | Approved December 9, 2019
+Revision B of TIA-102.BAJB-A | Developed by TIA TR-8.5
+
+OVERVIEW
+
+This document fully specifies the Tier 1 Location Service for Project 25 (P25) Land
+Mobile Radio (LMR) systems. It defines how GPS-derived location data is transported
+across the P25 Common Air Interface (CAI) Data Bearer Service using the NMEA 0183
+protocol as the application layer. Tier 1 is the simpler of two P25 location tiers, designed
+for direct SU-to-SU field use without requiring IP addressing, fixed host routing, or
+network-side infrastructure for triggering and reporting. It is suitable for real-time field
+incident scenarios where the location display application runs on a portable device
+co-located with a subscriber radio.
+
+WHY IT EXISTS
+
+LMR Location Services were formally partitioned into two tiers in the companion
+Location Services Overview document (TIA/TSB-102.BAJA-B). Tier 1 was created to
+address the simplest deployment scenario: a radio with an embedded or attached GPS
+receiver that periodically broadcasts its position to nearby radios without requiring any
+server infrastructure. Tier 2 (defined in separate documents) adds IP addressing, trunked
+FNE delivery, and network-side triggering. Tier 1 deliberately excludes those features to
+keep the implementation footprint minimal and to support conventional and direct-mode
+operations.
+
+WHAT IT DEFINES
+
+System Architecture
+
+Three entities participate in Tier 1 Location Services:
+
+  - Location Information System (LIS): provides GPS/LORAN/other position data to
+    the SU. The LIS may be an external GPS unit or an embedded GPSR chipset. The
+    LIS-to-SU interface is intentionally not standardized (implementation-defined).
+
+  - LMR System: the radio network itself. For Tier 1, this means the CAI Data Bearer
+    Service in Direct Data or Repeated Data configuration. Conventional FNE Data and
+    Trunked FNE Data configurations are explicitly not supported.
+
+  - Location Service Host System (LSHS): consumes the location data, e.g., a mapping
+    display application. The LSHS is typically a COTS product. The SU-to-LSHS
+    interface is also not standardized (implementation-defined).
+
+Two Deployment Configurations
+
+  - Direct Data Configuration: The transmitting SU sends location data packets
+    directly to another SU over the U_m interface. The receiving SU delivers the
+    data to the LSHS.
+
+  - Repeated Data Configuration: The transmitting SU sends to a Fixed Station
+    Repeater (FSR), which retransmits the packet to the receiving SU. The FSR
+    behavior is identical to any other CAI Data Bearer Service use — no special
+    location-aware logic is required in the FSR.
+
+Transport Layer
+
+The Tier 1 Location Service uses the CAI Data Bearer Service with Unconfirmed Data
+Packet Delivery over the U_m interface, as defined in TIA-102.BAEA-C. Key transport
+parameters:
+  - SAP Identifier: set to the Location Service value from TIA-102.BAAC-D
+  - Data Header Offset: 0
+  - Maximum application message size: 128 octets
+  - No acknowledgement or retry (unconfirmed delivery)
+
+Application Protocol: NMEA 0183
+
+The application protocol is NMEA 0183 Version 3.01, the industry-standard GPS
+sentence format originally designed for marine electronics. Key characteristics:
+  - Sentences are printable ASCII, delimited by commas, terminated by <CR><LF>
+  - Each sentence carries a checksum (XOR of characters between '$' and '*')
+  - Nominal baud rate: 4800 bps; some units support 9600, 19200, 38400 bps
+  - No handshake, ACK, or retransmission mechanism in NMEA itself
+
+NMEA Sentences Defined for Tier 1
+
+The following NMEA 0183 sentences are defined for Tier 1 Location Service use:
+
+  Sentence | Description                                  | TX (Transmit SU) | RX (Receive SU)
+  ---------|----------------------------------------------|-----------------|----------------
+  GGA      | GPS Fix Data (position, time, altitude)      | Mandatory        | Mandatory
+  GLL      | Geographic position (lat/lon)                | Optional         | Mandatory
+  GSA      | Dilution of precision, active satellites     | Optional         | Mandatory
+  GSV      | Satellites in view                           | Optional         | Mandatory
+  RMA      | Recommended Minimum Loran-C Data             | Optional         | Mandatory
+  RMC      | Recommended Minimum GPS/TRANSIT Data         | Optional         | Mandatory
+  VTG      | Track made good, speed over ground           | Optional         | Mandatory
+
+The GGA sentence is mandatory for transmitting SUs. The minimum acceptable GGA
+format for Tier 1 is:
+  $GPGGA,hhmmss.sss,ddmm.mmmm,N/S,dddmm.mmmm,E/W,Q,,,a.a,M,,,*HH<CR><LF>
+
+Receiving SUs shall support all GGA fields.
+
+Optional Proprietary Extension
+
+An optional additional data block may follow the NMEA sentence in the same 128-octet
+packet, using the NMEA proprietary sentence format:
+  $PP25,UID,u...u*HH<CR><LF>
+
+Where UID is the SUID (or a user-defined alphanumeric string up to 8 characters) and
+u...u is optional free-form user data. The maximum combined size of the NMEA sentence
+plus this optional block is 128 octets. The optional data may originate from the GPS unit
+or be programmed into the SU.
+
+Triggering
+
+Triggering conditions (when the SU sends a location update) are locally configured in
+each SU. Common triggers include PTT events, timer expiry, and emergency activation.
+The standard does not mandate specific trigger types for Tier 1, leaving this to SU
+implementation. All SU triggering conditions and the LSHS destination address shall be
+configured in the SU prior to use.
+
+Reporting Requirements
+
+  - Batch Reporting: SUs may buffer multiple location messages and send them together
+    on user request, supporting path-tracking use cases where the radio was temporarily
+    unable to transmit.
+
+  - Freshness: Before retransmitting on a trigger, the SU should verify that position data
+    has changed. Stale data may be retransmitted up to 4 times. Data may always be
+    retransmitted in response to an explicit query regardless of freshness.
+
+PROTOCOL PERFORMANCE
+
+Packet sizes and transmission times (headers and CRC included):
+
+  Data Type                    | Size     | Unencrypted | Encrypted
+  -----------------------------|----------|-------------|----------
+  Minimum GPS update           | 24 bytes | 175 ms      | 200 ms
+  Typical Magellan GPS 315     | 71 bytes | 300 ms      | 325 ms
+  Maximum standard NMEA 0183   | 83 bytes | 325 ms      | 350 ms
+  NMEA 0183 + user data        | 128 bytes| 385 ms      | 425 ms
+  Full 512-byte packet         | 512 bytes| 1540 ms     | 1700 ms
+
+The 128-octet cap was chosen to avoid the ~1540 ms transmission time of a full 512-byte
+packet, which would be unacceptable for periodic automatic updates.
+
+Reliability degrades as more users transmit at the same update interval. At 10-second
+intervals with 10 users, delivery reliability is approximately 58%. To sustain 80%
+reliability, intervals and user counts must be constrained:
+  - 3 sec interval: max 2 users
+  - 10 sec interval: max 5 users
+  - 50 sec interval: max 18 users
+  - 100 sec interval: max 34 users
+  - 200 sec interval: max 100 users
+
+A recommended mitigation is to use status symbols to queue transmission at the timer
+trigger and transmit only when the channel is clear.
+
+RELATIONSHIP TO OTHER DOCUMENTS
+
+This document depends on:
+  - TIA-102.BAAC-D (CAI Reserved Values) for the Location Service SAP identifier
+  - TIA-102.BAEA-C (P25 Data Overview and Specification) for U_m interface, Direct
+    Data and Repeated Data configurations, and the unconfirmed data packet format
+  - TIA/TSB-102.BAJA-B (Location Services Overview) for the two-tier framework and
+    the rationale for non-standardized LIS and LSHS interfaces
+  - NMEA 0183 Version 3.01 for the application-layer sentence format
+
+Tier 2 Location Services, which provide IP addressing, trunked FNE delivery, and
+network-managed triggering, are specified in separate TIA-102 documents (TIA-102.BAJC
+series and related).
+
+LIMITATIONS
+
+  - No network-side (FNE) involvement: Tier 1 cannot deliver location data to a fixed
+    host server across a trunked network — that is Tier 2.
+  - No acknowledgement or guaranteed delivery: the unconfirmed U_m bearer means
+    packets can be lost without detection or recovery.
+  - Scalability limits: automatic periodic updates from large groups of users at short
+    intervals suffer significant packet loss due to channel contention.
+  - No IP addressing: suitable only for SU-to-SU scenarios, not server-hosted dispatch
+    center mapping.
+
+DOCUMENT STATUS
+
+Active. ANSI/TIA-102.BAJB-B-2019, approved December 9, 2019. Cancels and
+replaces TIA-102.BAJB-A (2014). There are no annexes.

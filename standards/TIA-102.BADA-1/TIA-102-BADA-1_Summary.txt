@@ -1,0 +1,128 @@
+TIA-102.BADA-1 Summary
+Project 25 Telephone Interconnect Requirements and Definitions (Voice Service)
+Addendum 1: Conventional Individual Calls
+ANSI/TIA-102.BADA-1 2006 | Approved May 3, 2006
+(TIA/EIA-102.BADA-1 Issue D, February 2004)
+
+OVERVIEW
+
+This document is Addendum 1 to TIA/EIA-102.BADA, the base specification for Project 25
+telephone interconnect (phone patch) requirements. Where the base document covers both
+trunked and conventional P25 systems, this addendum focuses exclusively on improving
+telephone interconnect behavior for conventional channels. The three primary enhancements
+it introduces are: (1) availability checking before connecting an incoming PSTN call to a
+subscriber unit, (2) improved call progress signaling on outgoing calls, and (3) a cleaner
+call teardown procedure using a structured termination message rather than only an analog
+disconnect code. All procedures defined here are optional improvements layered on top of
+the mandatory baseline from TIA/EIA-102.BADA.
+
+WHAT IT SPECIFIES
+
+Section 2 covers Subscriber Unit (SU) behavior. For outgoing calls (service requests), the
+SU may optionally accept and display Acknowledgment, Deny, or Queued response signals
+from the RFSS as call-progress indicators. If no such signals arrive, the SU must fall back
+to the baseline behavior of simply playing received audio. For incoming calls, the SU may
+optionally receive a Telephone Interconnect Answer Request from the RFSS, alert the user,
+and then send a Telephone Interconnect Answer Proceed or Deny response to indicate
+whether the user wishes to accept the call. This is the "availability check" mechanism —
+analogous to a ring on a desk phone. For call termination, the SU may optionally send a
+Cancel Service Request message to instruct the RFSS to disconnect the active call; SUs
+that support this must also retain backward-compatible support for the legacy DTMF
+disconnect code.
+
+Section 3 covers RF Subsystem (RFSS) behavior. For outgoing service requests, the RFSS
+may optionally send Acknowledge, Deny, or Queued responses back to the requesting SU,
+and is recommended to relay call progress tones from the telephone network (with the
+caveat that the P25 vocoder may distort or suppress DTMF tones). For incoming
+availability checks, the RFSS transmits a Telephone Interconnect Answer Request to the
+targeted SU and provides ring-back tone to the PSTN while awaiting the response. If the
+SU answers Proceed, the RFSS connects the call and signals answer supervision to the
+telephone network. If the SU answers Deny, the RFSS connects the call to a tone signal,
+recorded announcement, operator position, or voicemail. If no response arrives within 1
+second, the RFSS may abandon the attempt and route to alternate treatment. The RFSS
+must be configurable to disable availability checks on a per-subscriber or per-system basis
+to interoperate with SUs that do not support the feature. For call teardown, when the RFSS
+disconnects the call it must send a call termination message per TIA-102.AABF (Link
+Control Word Formats, clause 6.3.8 Call Termination/Cancellation) on the traffic or
+conventional channel; an audible confirmation may precede the teardown on conventional
+channels.
+
+KEY MESSAGES AND SIGNALS
+
+This addendum references message types by name rather than defining their wire formats —
+the actual encoding is specified in:
+  - TIA-102.AABF-A (Link Control Word Formats and Messages, Dec 2004): provides the
+    LC TELE INT V CH USR word and the call termination LC word used in §3.4.1
+  - TIA-102.AABG-1 (Conventional Control Messages Addendum 1 — Individual Telephone
+    Calls, SP-3-3604-AD1): provides the Telephone Interconnect Answer Request/Response,
+    Acknowledge/Deny/Queued response, and Cancel Service Request messages
+
+MANDATORY VS OPTIONAL FEATURE TABLES (ANNEX A — NORMATIVE)
+
+Annex A replaces Tables A.1 and A.2 in the base document TIA/EIA-102.BADA with updated
+tables that incorporate conventional individual call features.
+
+For Subscriber Equipment (Table A.1), notable distinctions between trunked/composite and
+conventional:
+  - Explicit dialing modes (Buffered/Live Key/List): Mandatory in trunked; conventional
+    compliance subject to Note A.3.2
+  - Voice Channel Grant acceptance: Mandatory in trunked; Not Applicable in conventional
+  - Acknowledge/Deny/Queued response reception: Not Applicable / Mandatory in trunked;
+    Optional in conventional (new capability added by this addendum)
+  - Telephone Interconnect Answer Request/Response: Standard Option in trunked;
+    Optional in conventional (new capability added by this addendum)
+  - Cancel Service Request: Mandatory in trunked; Optional in conventional
+  - Group Incoming Call: Standard Option in trunked; Mandatory in conventional
+  - Hookflash Signaling: Standard Option in trunked; Mandatory in conventional
+
+For RF Subsystem (Table A.2), notable distinctions:
+  - Class of Service per-subscriber enabling: Standard Option in trunked; See Note 5
+    in conventional
+  - Toll restriction, speed dialing, outgoing/incoming only, hookflash: Standard Option
+    in trunked; Mandatory in conventional
+  - Voice Channel Grant (send): Mandatory in trunked; Not Applicable in conventional
+  - Acknowledge response (send): Not Applicable in trunked; Optional in conventional
+  - Answer Request/Deny/Queued (send): Standard Option / Mandatory in trunked;
+    Optional in conventional (new capability from this addendum)
+  - Cancel Service Request (accept): Mandatory in trunked; Optional in conventional
+  - 2-wire loop start at Et point: Standard Option in trunked; Mandatory in conventional
+  - Overdial generation: Standard Option in trunked; Mandatory in conventional
+  - Individually targeted incoming calls: Mandatory in trunked; Optional in conventional
+  - Group incoming calls: Standard Option in trunked; Mandatory in conventional
+
+MESSAGE SEQUENCE (ANNEX B — INFORMATIVE)
+
+Figure B.1 shows the complete message sequence for an incoming PSTN call on a
+conventional system with availability checking enabled. The sequence is: PSTN CALL ALERT
+arrives at RFSS → RFSS sends TELE_INT_ANS_REQ to SU while providing ring-back to PSTN →
+SU user answers, SU sends TELE_INT_ANS_RSP (Proceed) → RFSS signals ANSWER supervision
+to PSTN → bidirectional SPEECH established. When the SU user keys PTT, LC TELE INT V CH
+USR link control words are exchanged, and speech flows in the outgoing direction.
+
+RELATIONSHIP TO OTHER DOCUMENTS
+
+This addendum sits directly on top of TIA/EIA-102.BADA and should be read in conjunction
+with it. It explicitly extends the following clauses of the base document: 2.1.2.4
+(SU service request outgoing), 2.4.2 (SU availability check), 2.6.1.2 (SU call
+termination), 3.7 (RFSS service requests and availability check), 3.14.1 (RFSS call
+termination by radio user), 3.14.2 (disconnect code), and 3.14.3 (RFSS-initiated call
+teardown). The next complete revision of TIA/EIA-102.BADA was intended to incorporate the
+content of this addendum directly. The message encoding for the new conventional control
+messages is specified in TIA-102.AABG-1 (Conventional Control Messages Addendum 1).
+
+LIMITATIONS AND NOTES
+
+This addendum notes that not all specifications contained in the document were fully
+operationally tested at time of publication. Call progress tones relayed from the PSTN
+through the P25 vocoder may be distorted or blocked. Availability checking is an optional
+feature, and system operators must configure the RFSS to skip availability checks for SUs
+that do not support it, in order to maintain interoperability. The SU interoperability
+requirement ensures that any telephone-interconnect-capable SU receiving incoming voice
+will present it to the user regardless of whether an availability check preceded the call.
+
+DOCUMENT STATUS
+
+Published as ANSI/TIA-102.BADA-1 2006, approved May 3, 2006. This addendum was prepared
+by TIA TR-8 Subcommittee under the P25 MoU framework (TIA, APCO, NASTD, Federal
+government). The content was contributed by Rex Nisbet of Tait North America Inc. under
+project number SP-4624-AD1. No encumbering patents were identified.

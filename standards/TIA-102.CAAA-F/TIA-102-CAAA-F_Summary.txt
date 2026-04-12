@@ -1,0 +1,204 @@
+TIA-102.CAAA-F — Digital C4FM/CQPSK Transceiver Measurement Methods
+Summary
+
+CLASSIFICATION: MEASUREMENT
+REVISION: F (Final, September 14, 2021)
+SUPERSEDES: TIA-102.CAAA-E
+PAGES: 198
+ANNEX: Annex A (Normative) — Trunking Software Module Listings
+
+================================================================================
+DOCUMENT PURPOSE
+================================================================================
+
+TIA-102.CAAA-F is the master measurement methods document for Project 25 (P25)
+transceivers. It defines the test procedures, setup configurations, measurement
+equipment, and calculation methods for verifying all RF performance parameters
+for P25 Phase 1 (C4FM/CQPSK FDMA) and Phase 2 (CQPSK TDMA) radios, base
+stations, and RF sub-systems. Every performance requirement in the companion
+specification TIA-102.CAAB-B references this document for how to measure
+compliance. It is the "how to test" document; TIA-102.CAAB-B is the "what the
+limits are" document.
+
+================================================================================
+SCOPE
+================================================================================
+
+Covers measurement methods for:
+- Vehicular (mobile) radios
+- Handheld (portable) radios
+- Fixed Network Equipment (FNE), including base stations and repeaters
+- RF Sub-Systems (RFSS) — the trunking infrastructure
+
+Applicable to both conventional (non-trunked) and trunked operation.
+
+================================================================================
+KEY TECHNICAL CONCEPTS
+================================================================================
+
+MODULATION TYPES:
+- C4FM (Compatible 4-level FM): 4-symbol dibit FSK modulation at ±1.8 kHz (high
+  symbols) and ±0.6 kHz (low symbols). The native P25 Phase 1 modulation.
+  Symbol-to-deviation mapping: 01→+1.8kHz, 00→+0.6kHz, 10→-0.6kHz, 11→-1.8kHz.
+- CQPSK (Compatible QPSK): Linear modulation spectrally compatible with C4FM.
+  Used for P25 TDMA (Phase 2) and as an alternative for Phase 1 equipment.
+- Linear simulcast: Modulation used in simulcast networks; measured with the
+  same combined modulation fidelity method as C4FM/CQPSK.
+
+FUNDAMENTAL PASS/FAIL CRITERION:
+- Standard BER = 5% (1 bit error in 20 bits). All receiver sensitivity
+  measurements use this threshold. A receiver "passes" sensitivity if it achieves
+  ≤5% BER at the specified input signal level.
+
+FADING MODEL:
+- Rayleigh fading with 30 Hz Doppler frequency is the standard faded channel
+  condition. The CPDF is F(P)=1−exp(−P/P_ave); level crossing rate is
+  L(P)=sqrt(2πP/P_ave)·f_d·exp(−P/P_ave). Most faded receiver tests use 30 Hz.
+
+SYMBOL RATE:
+- 4800 symbols per second for both C4FM and CQPSK. The symbol rate pattern
+  produces a 1200 Hz FM output when demodulated, used for symbol rate accuracy
+  measurement: ppm_error = (MBR_Hz/1200 − 1) × 10^6.
+
+================================================================================
+RECEIVER MEASUREMENTS (Section 2.1)
+================================================================================
+
+18 measurement categories covering:
+
+1. Reference Sensitivity — minimum RF level for 5% BER with no interference
+2. Faded Reference Sensitivity — same under 30 Hz Rayleigh fading
+3. Adjacent Channel Rejection (ACR) — rejection of ±12.5 kHz interferer
+4. Faded ACR — ACR under fading conditions
+5. Co-Channel Rejection (CCR) — rejection of same-frequency interferer
+6. Faded CCR
+7. Spurious Response Rejection (SRR) — rejection at image/IF/harmonic frequencies
+8. Intermodulation Rejection — 3rd-order IM rejection (25/50 kHz spacing)
+9. Signal Displacement Bandwidth — usable frequency offset range
+10. Bit Error Rate Floor — BER at high signal level (no interference)
+11. Late Entry Unsquelch Delay — time to unmute on LDU1 or LDU2 detection
+12. Receiver Throughput Delay — audio latency from RF in to audio out
+13. Blocking Rejection — strong out-of-band signal rejection (≥1 MHz offset)
+14. Broadband Strong Signal Intermodulation Rejection — LTE band interference
+    (700/800/900 MHz bands), added in recent revisions for real-world LTE coexistence
+15-17. Faded versions of intermodulation, SRR, and blocking
+18. Receiver Throughput Delay (trunking calibration version)
+
+Measurement setups use: RF signal generator + faded channel simulator (for faded
+tests) + BER detector + standard P25 test patterns (tone, silence, interference).
+
+================================================================================
+TRANSMITTER MEASUREMENTS (Section 2.2)
+================================================================================
+
+20 measurement categories:
+
+RF Power & Spectrum:
+- RF Output Power (C4FM average power; CQPSK duty-cycle-adjusted average power)
+- Operating Frequency Accuracy (AFC disabled and AFC-locked conditions)
+- Modulation Emission Spectrum (C4FM mask per TIA-102.CAAB-B)
+- ACPR — Adjacent Channel Power Ratio (conducted and radiated)
+- Intermodulation Attenuation (conducted and radiated)
+- Radiated Spurious Emissions — GTEM cell, anechoic chamber, GNSS band,
+  calculated EIRP methods; special 700 MHz GNSS-band test for 1.559-1.610 GHz
+- Conducted Spurious Emissions
+- Conducted Spurious Emission into VSWR (2:1 mismatch condition)
+- Radiated Power Output (average radiated power and ERP)
+
+Modulation Quality:
+- Frequency Deviation for C4FM (high symbols ±1.8 kHz, low symbols ±0.6 kHz)
+- Modulation Fidelity — two methods:
+  (a) Combined time-domain method (C4FM/CQPSK/simulcast): z_k = C0 + C1*(s_k + e_k);
+      reports carrier offset C0, deviation C1*1.8kHz, rms deviation error %.
+      Requires capture of ≥144-bit segment.
+  (b) C4FM spectrum method: compares FM demodulator output spectrum X(f) to
+      ideal C4FM comb spectrum Y(f); reports deviation, rms error magnitude,
+      peak spurious. Optional alternative for C4FM-only equipment.
+- Symbol Rate Accuracy (4800 sym/s; tolerance per TIA-102.CAAB-B)
+- Transient Frequency Behavior (frequency vs time during PTT on/off transitions;
+  periods t1, t2, t3 per TIA-102.AABB-E)
+
+Timing (base station):
+- Transmitter Power and Encoder Attack Time (conventional mode; with Busy/Idle)
+- Transmitter Throughput Delay
+- RFSS Throughput Delay (total audio delay through a repeater)
+- RFSS Idle to Busy Transition Time (status symbol IDLE→BUSY latency)
+
+================================================================================
+TRUNKING SYSTEM MEASUREMENTS (Section 2.3)
+================================================================================
+
+5 timing measurements for trunked radio systems:
+
+1. Trunking Control Channel Slot Times:
+   - RF power attack slot time (slot boundary to 50% power)
+   - RF power turn off slot time (slot boundary to 50% power fall)
+   - Encoder attack slot time (slot boundary to first frame sync word symbol)
+   All referenced to the TDMA slot boundary in the P25 control channel.
+
+2. Trunking Request Time: PTT to ISP transmission on control channel.
+
+3. Trunking Voice Access Time: PTT to sustained transmission on traffic channel.
+   Includes both radio response and RFSS grant latency. End-to-end.
+
+4. Time to Grant: ISP receipt to channel grant OSP transmission (RFSS response).
+
+5. Transmitter Time to Key on Traffic Channel: Channel grant OSP to RF power onset
+   and to first frame sync word on the assigned working channel.
+
+These measurements use oscilloscope triggering with P25 frame decoders and RF
+detectors (1.5 ms time constant for power detection). 10-sample averages required.
+
+================================================================================
+UNIT CHARACTERISTIC MEASUREMENTS (Section 2.4)
+================================================================================
+
+Environmental and physical measurements: power supply voltage range, temperature
+range (chamber testing, ≤200°C/hour rate, ≤10°C frequency error increments),
+high humidity (8-hour soak at max humidity), vibration stability (during vibration
+table testing), shock stability (calibrated shock or drop test), DC supply noise
+susceptibility, battery life (standard duty cycle to discharge endpoint), dimensions,
+weight, and other environmental per referenced documents.
+
+Battery life endpoint conditions: manufacturer discharge voltage, receiver
+sensitivity degraded 3 dB DFS, transmitter power degraded 6 dB DFS, or frequency
+error exceeds limit [R2].
+
+================================================================================
+ANNEX A — TRUNKING SOFTWARE (NORMATIVE)
+================================================================================
+
+A complete, normative C software implementation for generating P25 trunking
+waveforms for the LCLS test platform. The software implements the full P25 CAI
+channel processing chain:
+
+  Input data → CRC (CCITT-16, CRC-9, or CRC-32) → Trellis encoding (rate 1/2 or
+  3/4) → BCH(64,16,23) NID encoding → Frame packing → Microslot output
+
+Key modules: bch.c (BCH encoder), crc.c (3 CRC variants), trellis.c (rate 3/4 and
+1/2 trellis encoders), vector_operations.c (dibit extraction), parm.h (complete
+parameter structure), buildtsb.c (TSBK builder), process_and_print_unconfirmed()
+(data packets), main() (DUID-driven top-level dispatcher). This code is normative
+— it defines the correct bit sequence for P25 trunking signaling.
+
+================================================================================
+NORMATIVE REFERENCES
+================================================================================
+
+[R2] TIA-102.AABB-E — P25 FDMA Common Air Interface (receiver/transmitter specs)
+[R3] TIA-102.BAAB-B — P25 TDMA Common Air Interface
+[R4] TIA-102.BBAB — P25 TDMA Physical Layer
+[R5] TIA-102.CAAB-B — P25 Transceiver Performance Specifications (limits document)
+
+================================================================================
+PHASE 3 IMPLEMENTATION SPEC NOTE
+================================================================================
+
+This document is classified MEASUREMENT. It defines test procedures, not
+implementable protocol behavior. Phase 3 implementation specs are NOT warranted.
+The measurement methods here are used by test labs and manufacturers; the
+corresponding Annex A software could inform test fixture implementation in Rust,
+but the measurement procedures themselves are not directly implementable in radio
+firmware.
+
+================================================================================

@@ -1,0 +1,152 @@
+TIA-102.AABB-A: Project 25 Trunking Control Channel Formats
+ANSI/TIA-102.AABB-A-2005 | Approved January 10, 2005 | Published July 2005
+Revision of TIA-102.AABB | Committee: TIA TR-8.10, Trunking and Conventional Control
+
+OVERVIEW
+
+This document defines the general bit-level packet structures used on the Project 25
+(P25) trunking control channel. It specifies how control channel messages are framed,
+packetized, and transmitted at 9600 b/s over the FDMA Common Air Interface (CAI). It
+does not define the content of specific trunking messages — that is the role of the
+companion document TIA-102.AABC — but rather defines the containers into which all
+trunking messages are placed.
+
+There are two fundamental packet formats: the single-block Trunking Signaling Block
+(TSBK) and the multiple-block PDU. The TSBK is the workhorse format, intended for
+the majority of time-critical transactions such as call requests, call grants, and
+talkgroup affiliation updates. The multiple-block format is reserved for transactions
+requiring larger data payloads, such as unit registration, talkgroup registration, and
+system status broadcasts.
+
+PACKET STRUCTURE AND FRAMING
+
+Every control channel packet begins with a preamble consisting of a 48-bit Frame Sync
+(FS) word followed by a 64-bit Network Identifier (NID). The 4-bit Data Unit ID (DUID)
+field within the NID signals the packet format: 0x7 indicates a TSBK (single-block),
+0xC indicates a PDU (multiple-block). All information blocks use rate 1/2 trellis coding
+for error correction (defined in TIA-102.BAAA). Status Symbols (2 bits each) are
+inserted after every 70 bits throughout a packet.
+
+The control channel operates as a full-duplex pair: the Outbound Signaling Packet (OSP)
+is transmitted from the Fixed Network Equipment (FNE/base station) to subscriber units,
+and the Inbound Signaling Packet (ISP) is transmitted from a subscriber unit to the FNE.
+Both inbound and outbound channels carry the same packet formats.
+
+SINGLE-BLOCK FORMAT (TSBK)
+
+The TSBK is exactly 12 octets (96 bits) and is the primary unit of trunking control
+channel communications. Its structure:
+
+  Octet 0: [LB | P | Opcode(6 bits)]
+  Octet 1: [Manufacturer's ID (MFID)]
+  Octets 2-9: [Arguments — destination/source IDs, call options, channel info]
+  Octets 10-11: [CRC-CCITT parity check]
+
+The Last Block (LB) flag indicates whether more TSBKs follow in the same OSP. The
+Protected (P) flag marks whether the payload is encrypted. The 6-bit Opcode identifies
+the message type; opcodes are defined in TIA-102.AABC. MFID 0x00 or 0x01 indicates a
+standard P25 message; other MFID values identify proprietary manufacturer extensions.
+Octets 7-9 carry the Logical Link ID — the subscriber unit address. The CRC covers all
+10 preceding octets.
+
+On the outbound channel, up to three TSBKs may be concatenated within a single OSP
+transmission after a single FS+NID preamble, making the triple-TSBK format the most
+bandwidth-efficient mode: 75 ms / 10 micro-slots total. Each TSBK carries its own
+independent CRC. The inbound channel (ISP) supports only a single TSBK per
+transmission.
+
+Timing: each micro-slot is 7.5 ms (70 information bits + 2 status symbol bits at 9600
+b/s). A single-TSBK ISP fits in 5 micro-slots (37.5 ms), leaving 44 guard bits for
+transmitter turn-on/turn-off time (TONT/TOFFT) and propagation delay (PD).
+
+PROTECTED TSBK
+
+When the P flag is set, the Opcode and Arguments (octets 0 bits 5-0 through octet 9)
+are encrypted. The LB and P flags themselves (octet 0 bits 7-6), the MFID (octet 1),
+and the CRC (octets 10-11) remain in plaintext, allowing non-crypto-capable subscriber
+units to still detect, frame-sync on, and validate the block structure of the packet
+without being able to read its content. The CRC is computed over the encrypted octets,
+not the plaintext, so it validates successful reception and framing, not decryption.
+
+MULTIPLE-BLOCK FORMAT (PDU)
+
+For control channel messages exceeding the 12-octet TSBK payload, the multiple-block
+format uses the CAI Unconfirmed Data Packet structure. Each packet consists of one
+header block followed by up to three data blocks, each exactly 12 octets (96 bits when
+trellis-coded to 196 bits). Maximum packet size is 44 octets (4 blocks), providing
+approximately 135 ms outbound latency.
+
+Two header block variants are defined. The standard header has FORMAT = 0b10101
+(SAP 61 or 63 for protected). The alternative header has FORMAT = 0b10111, with octets
+7-9 repurposed to carry the message opcode and trunking-specific fields (defined in
+TIA-102.AABC). The NID DUID is 0xC for all PDU formats. The last data block carries
+a 4-octet CRC across all data block contents. In protected mode, the Logical Link ID in
+the header and the data block payloads are encrypted; the CRCs are plaintext.
+
+INBOUND ACCESS: SLOTTED ALOHA
+
+Subscriber units access the inbound control channel via Slotted ALOHA. Slot boundaries
+are defined by IDLE (%11) Status Symbols in the outbound stream; non-boundary Status
+Symbols are UNKNOWN (%10). Inbound slot size is a configurable multiple of 7.5 ms
+micro-slots. A subscriber unit pressing PTT must wait for the next slot boundary before
+transmitting its ISP. This synchronization is derived entirely from the outbound channel
+Status Symbol stream.
+
+CONTROL CHANNEL MODES
+
+A control channel may operate in dedicated mode (exclusively for control signaling) or
+composite mode (alternating between control signaling and bearer traffic). Each RFSS has
+at least one 9600 bps control channel. One is designated primary; others are secondary.
+All channels within an RFSS must operate in the same protection mode (all protected or
+all nonprotected). Subscriber units learn the protection mode via a broadcast update
+message.
+
+KEY PARAMETERS
+
+  Channel bit rate:          9600 b/s
+  Micro-slot duration:       7.5 ms (70 data bits + 2 SS bits = 72 bits)
+  TSBK size:                 12 octets (96 bits payload)
+  Max TSBKs per OSP:         3 (single, double, or triple)
+  Single TSBK timing:        37.5 ms ISP / 37.5 ms OSP
+  Max PDU blocks:            4 (1 header + 3 data)
+  Max PDU size:              44 octets
+  Triple TSBK OSP duration:  75 ms
+  Max PDU OSP duration:      97.5 ms (triple data block)
+  Guard bits (TONT+TOFFT+PD): 44 bits per 5 micro-slot slot
+  NID DUID for TSBK:         0x7
+  NID DUID for PDU:          0xC
+  Standard MFID:             0x00 or 0x01
+  Error correction:          Rate 1/2 trellis code
+  TSBK CRC:                  2 octets (per CAI section 6.2)
+  PDU CRC:                   4 octets (per CAI section 6.3)
+
+DOCUMENT RELATIONSHIPS
+
+This document defines packet containers. It is normatively dependent on:
+  - TIA-102.BAAA-A: P25 FDMA CAI (frame sync, NID, rate 1/2 trellis, CRC, Unconfirmed
+    Data Packet format)
+  - TIA-102.AABA-A: P25 Trunking Overview (system architecture context)
+  - TIA-102.AABC-A: Trunking Control Channel Messages (opcode definitions, message
+    content for each TSBK and PDU type)
+  - TIA-102.BAAC-A: CAI Reserved Values (MFID registry)
+
+Informative companions:
+  - TSB102.AABD: Trunking Procedures (service flows, encryption parameter broadcast)
+  - Project 25 WACN/System ID Assignment Guidelines
+
+LIMITATIONS AND NOTES
+
+The document explicitly states that conformance tests remained to be developed at time
+of publication. NAC interference mitigation guidance (section 4.2) addresses co-channel
+deployment scenarios. The document covers structure only — message semantics (what each
+opcode means and how arguments are laid out) are deferred entirely to TIA-102.AABC. No
+explicit timing recovery or frequency error correction mechanisms are specified here;
+those are inherited from TIA-102.BAAA.
+
+STATUS
+
+Superseded by TIA-102.AABB-B (July 2011), which is the current active version of this
+standard. A further revision TIA-102.AABB-C was in progress as of 2019. The TSBK
+format structure defined here has remained essentially unchanged through subsequent
+revisions, making this document a useful reference for understanding the foundational
+design rationale of P25 trunking control channel framing.

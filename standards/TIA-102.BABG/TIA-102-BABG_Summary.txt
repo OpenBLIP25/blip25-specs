@@ -1,0 +1,124 @@
+TIA-102.BABG: Project 25 Enhanced Vocoder Methods of Measurement for Performance
+Published: March 2010
+Classification: MEASUREMENT
+Applies to: P25 Enhanced Vocoder (full-rate 7200 bps and half-rate 3600 bps)
+
+OVERVIEW
+
+TIA-102.BABG defines the methods of measurement and performance specifications for
+the Project 25 enhanced vocoder, a dual-rate vocoder with a full-rate mode for
+interoperability with P25 Phase 1 equipment and a half-rate mode for interoperability
+with P25 Phase 2 (TDMA) equipment. The document establishes measurable voice quality
+targets that any candidate enhanced vocoder implementation must meet, whether deployed
+in a radio or a fixed infrastructure device such as a console. All test methods and
+performance limits apply to both full-rate and half-rate operation.
+
+WHY THIS DOCUMENT EXISTS
+
+The original P25 Phase 1 system used an IMBE vocoder baselined in 1993. As P25 moved
+toward Phase 2 TDMA with its need for spectrum efficiency equivalent to 6.25 kHz (as
+mandated by the FCC), a higher-quality enhanced MBE vocoder was selected. This
+document was created to set objective, repeatable quality thresholds that go beyond what
+the 1993 baseline vocoder can achieve. Section 1.2 explicitly states that the baseline
+vocoder defined in prior versions of TIA-102.BABA for Phase 1 is outside the scope of
+these tests -- in general, the baseline vocoder cannot pass them. The performance
+limits are derived from Mean Opinion Score (MOS) testing conducted between 2003 and
+2008 on the reference vocoder, ensuring that any conforming implementation matches or
+exceeds that reference quality.
+
+TEST METHODOLOGY
+
+The standard uses PESQ (Perceptual Evaluation of Speech Quality) per ITU-T
+Recommendation P.862 as the objective quality metric. Raw PESQ scores are converted to
+MOS-LQO (Listener Quality Objective) values using the mapping defined in ITU-T P.862.1
+(P.826.1 in the normative references). The conversion formula is:
+
+  LQO = 0.999 + 4 / (1 + exp(4.6607 - 1.4945 * PESQ))
+
+This yields scores in the range of approximately 1.0 to 4.55. The encoder and decoder
+are tested independently: for encoder tests, the candidate encoder is paired with the
+standard reference decoder; for decoder tests, the candidate decoder is paired with the
+standard reference encoder. The standard reference encoder and decoder are PC-executable
+software that replicates the performance demonstrated in the MOS tests. This independent
+testing approach verifies that each component individually achieves quality equivalent to
+the reference vocoder.
+
+Four categories of measurement are defined:
+- Encoder Audio Sensitivity (Section 2.1.1): verifies the encoder produces proper
+  output level compared to the reference, using a 1031.25 Hz test tone.
+- Encoder Noise Reduction (Section 2.1.2): measures LQO, ASL, and noise power with
+  speech-plus-noise input at 15 dB SNR.
+- Decoder Audio Output Level (Section 2.2.1): verifies the decoder produces proper
+  output level compared to the reference decoder.
+- Decoder Residual Noise (Section 2.2.2): measures LQO, ASL, and noise power at the
+  decoder output with speech-plus-noise input at 15 dB SNR.
+
+TEST MATERIALS
+
+The test uses 32 standard test sentence pairs sourced from TSB-102.BABE. Each file
+contains a pair of sentences spoken by a talker in a normal voice, 8 seconds in
+duration, with the active speech level adjusted to -28 dBov (-22 dBm0).
+
+Fifteen real-world noise environments are defined, all adjusted to -43 dBov (producing
+a 15 dB SNR when mixed with speech). These noise types reflect actual public safety
+operating conditions:
+- General: pink noise, babble noise, car noise, street noise
+- Law enforcement: police siren noise
+- Fire service: fire siren, fire truck without siren, fire truck pump panel, dual PASS
+  alarm, SCBA low air alarm, fog nozzle, rotary saw, chainsaw
+- Other: helicopter noise, boat noise (Coast Guard)
+
+The fireground noises (fire truck pump, dual PASS alarm, low air alarm, fog nozzle,
+rotary saw, chainsaw) were sourced from NTIA TR 08-453 testing at 48 kHz sample rate.
+
+KEY PARAMETERS
+
+- Standard average speech level: -22 dBm0 (equivalent to -28.02 dBov)
+- Standard test noise level: -43 dBov (yielding 15 dB SNR)
+- Standard vocoder sample rate: 8 kHz (used by PESQ and the vocoder itself)
+- Standard audio sample rate: 48 kHz (used for WAV files and audition)
+- Full-rate vocoder frame: 144 bits (144 octets in DAT file), 20 ms per frame
+- Half-rate vocoder frame: 72 bits (72 octets in DAT file), 20 ms per frame
+- Software precision: IEEE 754 double precision (64-bit) floating point minimum
+- Audio sensitivity tolerance: -22 dBm0 +1/-2 dB (encoder), -22 dBm0 +/- 1 dB (decoder)
+
+PERFORMANCE SPECIFICATIONS
+
+Table 3-1 (Encoder Noise Reduction Limits) and Table 3-2 (Decoder Residual Noise
+Limits) specify minimum LQO scores, maximum noise levels, and ASL tolerances for each
+of the 15 noise types. The general threshold is LQO >= 2.0 across all noise types, with
+one exception: fog nozzle noise requires only LQO >= 1.8 (for both encoder and decoder).
+Noise reduction values vary by noise type, ranging from -44 dBov to -60 dBov. ASL must
+be -22 dBm0 +/- 1 dB for all noise types. These limits apply identically to both the
+full-rate and half-rate vocoder.
+
+NORMATIVE REFERENCES
+
+- TIA-102.BABA: Project 25 Vocoder Description (with Annex for Half Rate Vocoder)
+- ITU-T P.56: Objective measurement of active speech level
+- ITU-T P.862: PESQ algorithm specification
+- ITU-T P.826.1 (P.862.1): Mapping function for transforming P.862 raw results to MOS-LQO
+- ITU-T P.862.3: Application guide for objective quality measurement
+- IEEE 754: Standard for Binary Floating Point Arithmetic
+
+INFORMATIVE REFERENCES
+
+- TSB-102.BABE: Project 25 Vocoder Evaluation Mean Opinion Score Test (2007) -- the
+  full-rate MOS test that established baseline performance levels
+- TSB-102.BABF: Experiment 3 MOS Test Plan for Vocoder Technology for Project 25
+  Phase 2 (2008) -- the half-rate MOS test
+- NTIA TR 08-453: Intelligibility of Selected Radio Systems in the Presence of
+  Fireground Noise: Test Plan and Results (2008) -- source of fireground noise recordings
+- APCO Project 25 Statement of Requirements (October 2008)
+- TSB-102-A: APCO Project 25 System and Standards Definition (November 1995)
+
+DOCUMENT STRUCTURE
+
+1. Introduction -- scope, objectives, standard definitions (speech level, sample rates,
+   reference encoder/decoder, test tone, dB units), test conditions (interfaces, sentence
+   pairs, noise types), test equipment characteristics (WAV/PCM/DAT file formats, PESQ
+   calculation, hex interpolation/decimation algorithms with filter coefficients)
+2. Methods of Measurement -- encoder (audio sensitivity, noise reduction) and decoder
+   (audio output level, residual noise), each with definition and step-by-step procedure
+3. Performance Specifications -- encoder and decoder limits in Tables 3-1 and 3-2
+4. References, Abbreviations and History

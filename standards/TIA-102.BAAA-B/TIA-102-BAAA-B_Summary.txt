@@ -1,0 +1,136 @@
+TIA-102.BAAA-B SUMMARY
+Project 25 Common Air Interface (CAI) — Revision B
+Published: June 22, 2017
+Document length: 83 pages + Annex A (normative transmit bit order)
+
+PURPOSE AND SCOPE
+
+This document defines the Project 25 (P25) Common Air Interface (CAI): the complete
+physical and data-link layer specification for digital radio communications between
+subscriber units (SUs) and fixed network equipment (FNE), or directly between SUs in
+talk-around mode. It specifies everything necessary to build a compliant P25 Phase 1 CAI
+radio: error correction codes for voice and data, data packet formats, trellis coding and
+interleaving for data blocks, channel access using CSMA, frame synchronization, network
+identification, modulation parameters, and the normative transmit bit order for all data
+units. Revision B corrects a Full Message Flag (FMF) definition error present in Revision A
+that could cause data packets to be silently discarded in retransmission scenarios, and
+deprecates a NACK type that had no purpose in LLC procedures.
+
+WHAT IT SPECIFIES
+
+Error Correction Codes (Section 4): Six FEC codes are defined, each chosen for the data
+type being protected. The (16,8,5) shortened cyclic code protects Low Speed Data (LSD)
+octets in voice frames. The (23,12,7) standard Golay and (18,6,8) shortened Golay codes
+protect voice header information (Message Indicator, ALGID, Key ID, Talk Group ID) and
+Link Control words. The (10,6,3) and (15,11,3) Hamming codes serve as the inner code for
+IMBE voice data in Logical Link Data Units. Three shortened Reed-Solomon codes over
+GF(2^6) serve as the outer code for IMBE voice data: (36,20,17) for the header portion,
+(24,16,9) for Link Control information, and (24,12,13) for encryption synchronization. The
+(63,16,23) BCH code protects the Network Identifier, extended to 64 bits by appending a
+parity bit.
+
+All generator matrices are provided in compact octal notation using GF(2^6) field
+representation where applicable. The document provides complete GF(2^6) logarithm and
+exponential lookup tables for field arithmetic, generator polynomials for all three
+Reed-Solomon codes, and the full generator matrix for all codes.
+
+Data Packets (Section 5): Two delivery modes are specified. Unconfirmed delivery uses
+12-octet data blocks protected by a rate-1/2 trellis code, with a single 32-bit packet CRC
+at the end of the last block. Confirmed delivery uses 18-octet blocks (16 data + 2 header)
+protected by a rate-3/4 trellis code, with a 9-bit per-block CRC (CRC-9) and selective
+ARQ for retransmission of corrupted blocks. Both modes use a 12-octet header block
+carrying addressing, SAP identifier, manufacturer ID, and a 16-bit CRC-CCITT header CRC.
+
+Response packets support ACK, NACK (six subtypes), and SACK (selective retry). The
+Enhanced Addressing format allows direct SU-to-SU data without fixed network routing, by
+inserting a source address in a second header block.
+
+Trellis Coding and Interleaving (Section 6): Data blocks use trellis coding before
+transmission. The trellis encoder is a finite state machine: 4-state for rate-1/2 (dibits in,
+dibit pairs out) and 8-state for rate-3/4 (tribits in, dibit pairs out). State transition tables
+produce one of 16 constellation points per input symbol. Constellation points map to
+(Dibit 0, Dibit 1) amplitude pairs drawn from {-3, -1, +1, +3}. Both code rates produce
+98-dibit output (196-bit code word) from 48 input symbols. An interleave table (98 entries)
+remaps the output dibits to spread burst errors; the same table is used for both rates.
+
+Channel Access and Data Units (Section 7): Six data unit types are specified: Header Data
+Unit (HDU, 792 bits), Logical Link Data Unit 1 (LDU1, 1728 bits), Logical Link Data Unit 2
+(LDU2, 1728 bits), Simple Terminator Data Unit (TDU, ~184 bits), Terminator with Link
+Control (TDU+LC, ~440 bits), and Packet Data Unit (PDU, variable). Each data unit begins
+with a fixed 48-bit Frame Sync Word followed by a 64-bit Network Identifier. Status Symbols
+(2 bits each, indicating channel busy/idle) are interleaved every 70 information bits
+throughout each data unit. A voice superframe consists of HDU + LDU1 + LDU2, repeated
+as needed, followed by a Terminator, spanning 360 ms per LDU pair at 9600 bps.
+
+The Frame Sync Word is a fixed 24-bit pattern (0000 0100 1100 1111 0101 1111 in binary,
+read as dibits with "1"=dibit 11 and "0"=dibit 01). The Network Identifier carries a 12-bit
+Network Access Code (NAC) and a 4-bit Data Unit Identifier (DUID), protected by the BCH
+code. Six DUID values are defined: HDU (%0000), TDU-no-LC (%0011), LDU1 (%0101),
+LDU2 (%1010), PDU (%1100), TDU-with-LC (%1111).
+
+Modulation (Section 8): The modulation is π/4 DQPSK at 4800 symbols/sec (9600 bps).
+Each symbol conveys 2 bits (dibit). Bit mapping: dibit 01=+3 (+135°/+1.80kHz),
+00=+1 (+45°/+0.60kHz), 10=-1 (-45°/-0.60kHz), 11=-3 (-135°/-1.80kHz). Two transmitter
+variants are specified: C4FM (constant-envelope frequency modulation) and CQPSK
+(linear amplitude-and-phase modulation with narrower spectrum). Both are receivable by a
+single QPSK demodulator. Pulse shaping uses a Nyquist Raised Cosine Filter (flat to
+1920 Hz, cosine rolloff 1920–2880 Hz, zero above 2880 Hz) followed by a Shaping Filter
+with response (πf/4800)/sin(πf/4800). The CQPSK modulator is fully defined by a 32-entry
+lookup table mapping (current phase state 0–7, information dibit 00/01/10/11) to
+(next state, I level, Q level) using 5-level {-1.0, -0.7071, 0.0, +0.7071, +1.0} signals.
+
+KEY PARAMETERS
+
+- Air interface: 9600 bps, π/4 DQPSK, 4800 symbols/sec, 12.5 kHz channel spacing
+- Voice superframe: HDU (82.5 ms) + LDU1 (180 ms) + LDU2 (180 ms) per pair
+- IMBE frames per LDU: 9 (frames 1–9 in LDU1, 10–18 in LDU2), ~20 ms each
+- Frame sync: 48 bits, fixed pattern 0x04CF5F (expanded to dibits)
+- Status symbol period: 2 bits after every 70 information bits
+- NID: 12-bit NAC + 4-bit DUID + 48-bit BCH parity = 64 bits
+- Maximum confirmed data blocks per packet: 127
+- Maximum confirmed data octets per block: 16 (minus 2 for serial number and CRC-9)
+- Maximum unconfirmed data octets per block: 12
+- Minimum fragment storage: 512 octets (SU and Fixed Station)
+- Trellis code input size: 48 tribits (rate 3/4) or 48 dibits (rate 1/2)
+- Trellis code output: 98 dibits (196 air bits) for both rates
+
+RELATIONSHIPS TO OTHER DOCUMENTS
+
+This document is the physical/MAC layer specification for P25 Phase 1 FDMA. It relates to:
+
+- TIA-102.AABC (Assigned Numbers): Provides SAP identifier and Manufacturer ID values
+  referenced by the data packet formats.
+- TIA-102.BAAB (Physical Layer): Covers the RF physical layer for FDMA; the CAI document
+  focuses on the bit/symbol layer above it.
+- TIA-102.BAAD (Data Services): Provides operational detail for data services that use
+  the packet formats defined here.
+- TIA-102.BABA (IMBE Vocoder): Defines the IMBE voice compression algorithm whose
+  code words (c_0 through c_7) are the information payload carried in LDU1 and LDU2.
+- TIA-102.AABF and related documents: Define Link Control word formats whose content
+  is carried in LDU1 and the Terminator with LC.
+- TIA-102.CAAA / TIA-102.CAAB: Define measurement procedures and tolerances for
+  C4FM deviation and CQPSK modulation.
+- Trunking/conventional channel specifications (TIA-102 series ref [7]): Define
+  channel access procedures for trunked and conventional operation that use the data
+  units defined here.
+
+LIMITATIONS ACKNOWLEDGED
+
+- The document specifies bit-level structure but does not define trunking channel
+  access protocols (covered in companion specs).
+- Clock recovery details for the QPSK demodulator are not specified.
+- IMBE vocoder internals are not specified (covered in TIA-102.BABA / JMBE/AMBE codecs).
+- The document covers P25 Phase 1 (FDMA) only. P25 Phase 2 (TDMA) uses a different
+  air interface specified in TIA-102.BBAB and companions.
+- Annex A (transmit bit order tables) covers HDU, LDU1, and LDU2 only; Terminator Data
+  Unit transmit bit order tables appear to be absent from this 83-page edition.
+
+REVISION HISTORY
+
+Revision B made two corrections to Revision A:
+1. FMF (Full Message Flag) definition corrected: in Rev A the flag could cause a data
+   packet to be silently discarded during retransmission when the receiver had not
+   previously received a previous header block. Rev B corrects this and aligns with
+   LLC Procedures.
+2. NACK type "Out of sequence (N(S) ≠ V(R) or V(R)+1)" was deprecated because it has
+   no purpose based on LLC Procedures.

@@ -1,0 +1,131 @@
+TIA-102.AABH: Project 25 Dynamic Regrouping Messages and Procedures
+Summary (~1,000 words)
+Published: November 2014 | Committee: TIA TR-8.10
+
+WHAT THIS DOCUMENT SPECIFIES
+
+This document specifies the over-the-air messaging and subscriber unit (SU) / Radio Frequency
+Sub-System (RFSS) behavioral procedures for Dynamic Regrouping operations in a P25 trunked
+radio system. Dynamic Regrouping encompasses two related features: Group Regrouping and
+Individual Regrouping.
+
+Group Regrouping allows a dispatch console or system administrator to dynamically merge
+multiple talkgroups into a temporary composite talkgroup called a "supergroup," identified by a
+Supergroup Working Group ID (SP-WGID). The SP-WGID is drawn from a pool of addresses
+reserved specifically for supergroups and not used for normal talkgroup operation, so SUs can
+distinguish supergroup assignments from ordinary channel grants. Group Regrouping is used to
+conserve RF voice channels—rather than granting separate channels to each constituent
+talkgroup, the RFSS can place all members on one channel with a single grant. Group
+Regrouping supports two call modes: a two-way patch (bidirectional voice on the supergroup)
+and a one-way simulselect (RFSS/console transmits outbound to the supergroup; SUs receive
+on the supergroup but transmit on their original WGID).
+
+Individual Regrouping is a MFID90-only feature that commands a specific SU to affiliate with a
+new dynamically assigned talkgroup ("dynamic group"), effectively replacing the SU's currently
+selected talkgroup for the duration of the regrouped state.
+
+WHY IT EXISTS
+
+Before this document was published, two incompatible proprietary regrouping methods had
+already been deployed in the field by different P25 infrastructure vendors: the "MFIDA4 Explicit
+Encryption" method (using Manufacturer ID $A4) and the "MFID90 Airlink Efficient" method
+(using Manufacturer ID $90, originally Motorola). Because both methods were widely fielded, the
+TIA TR-8.10 committee elected to formally standardize both rather than deprecate either. An
+RFSS may implement one or both methods; however, subscriber manufacturers are required to
+implement both methods to ensure interoperability across different infrastructure vendors.
+
+KEY PARAMETERS AND REQUIREMENTS
+
+Group Regrouping Timer (T_grp_rgrp): Default 20 seconds (minimum 20 s, maximum
+unspecified). SUs leave the Group Regrouped state if they do not receive a refreshing Group
+Regroup command before timer expiration. The timer runs only while the SU monitors the control
+channel and is paused while on a traffic channel.
+
+Supergroup Sequence Number (SSN): A unique non-zero 5-bit value embedded in the
+GRG_Options field of MFIDA4 commands. It prevents SUs from remaining in the regrouped
+state when an SP-WGID is reused for a new supergroup after teardown.
+
+Encryption handling differs by method. In MFIDA4 (Explicit Encryption), the Algorithm ID and
+Key ID are carried directly in the GRG_EXENC_CMD message for patch operations (T=0). For
+simulselect (T=1), the Key ID and Algorithm ID are set to 0. In MFID90 (Airlink Efficient),
+encryption is pre-configured in both infrastructure and subscriber units; the regrouping messages
+carry only a P-bit indicating whether the channel grant is for an encrypted or clear transmission.
+
+MFIDA4 MESSAGES DEFINED
+
+- GRG_EXENC_CMD (OSP, opcode %110000, MFID $A4): The sole MFIDA4-specific message.
+  Carries GRG_Options byte (Type/Group/Activate flags + 5-bit SSN), SP-WGID, Key ID,
+  Algorithm ID, and Regroup Target (WGID or WUID). Sent continuously for all active
+  supergroups as part of normal control channel background scheduling.
+- Standard ISPs and OSPs from TIA-102.AABC (GRP_V_REQ, GRP_V_CH_GRANT,
+  GRP_V_CH_GRANT_UPDT, etc.) are reused for voice call setup; no dedicated MFIDA4 ISPs
+  are defined in this document.
+- Standard Link Control words from TIA-102.AABF and MAC messages from TIA-102.BBAC are
+  reused on FDMA and TDMA traffic channels respectively.
+
+MFID90 MESSAGES DEFINED
+
+Trunking Control Channel (TSBK format):
+- MOT_GRG_V_REQ (ISP, %000000): SU requests supergroup channel grant.
+- MOT_EXT_FNCT_RSP (ISP, %000001): SU sends IR Command ACK or IR Cancel ACK.
+- MOT_GRG_ADD_CMD (OSP, %000000): RFSS programs up to 3 WGIDs into supergroup.
+- MOT_GRG_DEL_CMD (OSP, %000001): RFSS removes up to 3 WGIDs from supergroup.
+- MOT_GRG_CN_GRANT (OSP, %000010): Initial channel grant for supergroup.
+- MOT_GRG_CN_GRANT_EXP (OSP, %000010, alternate format): Explicit channel grant with
+  separate transmit and receive channel identifiers for inter-site cases.
+- MOT_GRG_CN_GRANT_UPDT (OSP, %000011): Channel update carrying two simultaneous
+  supergroup channel assignments (A and B).
+- MOT_EXT_FNCT_CMD (OSP, %000100): RFSS sends IR Command or IR Cancel to a target SU.
+- MOT_QUE_RSP (OSP, %000110): Proprietary queued response for supergroup requests.
+- MOT_DENY_RSP (OSP, %000111): Proprietary deny response; reason codes include
+  "secure request on clear supergroup" ($00) and "clear request on secure supergroup" ($01).
+- MOT_ACK_RSP_FNE (OSP, %001000): FNE acknowledgment of SU service request.
+
+Link Control Words (FDMA traffic channel):
+- LC_MOT_GRG_V_CH_USR (LCO %000000): Identifies transmitting unit and SP-WGID on traffic
+  channel. Used both inbound and outbound. Carries P-bit (encryption state), SP-WGID,
+  source WUID, and S-bit (explicit source ID required flag).
+- LC_MOT_GRG_V_CH_UPDT (LCO %000001): Outbound only; notifies SUs of a supergroup
+  call occurring on another channel.
+
+TDMA MAC Messages (Two-Slot TDMA traffic channel):
+- MAC_MOT_GRG_V_CH_USR (MCO %000000, 8 bytes): Abbreviated format for home system.
+- MAC_MOT_GRG_V_CH_USR_EXT (MCO %100000, 16 bytes): Extended format (roaming); adds
+  WACN ID, System ID, and Source ID for full SUID identification.
+- MAC_MOT_GRG_V_CH_UPDT (MCO %000011, 7 bytes): Channel update for TDMA.
+- MAC_MOT_EXT_FNCT_CMD (MCO %000100, 11 bytes): IR Command/Cancel on TDMA.
+
+RELATIONSHIPS TO OTHER DOCUMENTS
+
+This document depends on:
+- TIA-102.AABC (Trunking Control Channel Messages): Standard ISPs/OSPs reused by MFIDA4
+  Group Regrouping voice call procedures.
+- TIA-102.AABF (Link Control Word Formats): Standard LCs reused for MFIDA4 traffic channel
+  maintenance.
+- TIA-102.AABD (Trunking Procedures): Group Affiliation, Group Voice Call, Emergency Call, and
+  Announcement Group procedures referenced extensively. Also defines the SU state machine
+  entry and exit rules cited throughout this document.
+- TIA-102.BBAC (Phase 2 TDMA MAC Layer): Standard MAC messages reused for MFIDA4
+  TDMA operation; MFID90 TDMA MAC messages are additionally defined in this document.
+
+SCOPE AND LIMITATIONS
+
+- This document covers FDMA (Um) and Two-Slot TDMA (Um2) Common Air Interfaces.
+- Individual Regrouping is defined only for MFID90; MFIDA4 does not include an individual
+  regrouping procedure.
+- Simulselect is defined only for MFIDA4; MFID90 does not specify simulselect behavior.
+- Announcement Groups shall not be regrouped under MFID90. Under MFIDA4, announcement
+  group behavior is specified (the SU enters the Group Regrouped state when its AGID is
+  included in a supergroup).
+- Emergency operation differs between methods: MFIDA4 processes emergencies on the
+  SP-WGID; MFID90 requires SUs to leave the Group Regrouped state and send a standard
+  GRP_V_REQ on the emergency working group.
+- The criteria for initiating or canceling a Group Regroup (console or administrator actions,
+  inter-RFSS coordination) are outside the scope of this document.
+
+REVISION HISTORY
+
+This is the initial published version (November 2014). The document went through four internal
+revision levels (Rev 0 through R3) between June and October 2014 before being approved for
+publication. It was formulated under TIA TR-8.10 Subcommittee on Trunking and Conventional
+Control.

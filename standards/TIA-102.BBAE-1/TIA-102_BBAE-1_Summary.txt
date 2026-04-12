@@ -1,0 +1,43 @@
+TIA-102.BBAE-1 SUMMARY
+======================
+
+DOCUMENT IDENTITY
+TIA-102.BBAE-1, "Project 25 Two-Slot TDMA MAC Layer Procedures — Addendum 1: Location on PTT and User Alias." Published March 2025 (approved January 2025). This is an addendum to TIA-102.BBAE, the base document that specifies MAC layer procedures for P25 Phase 2 Two-Slot TDMA voice channels. It was developed by the TIA TR-8.10 Air Interface Subcommittee with inputs from the APCO/TIA Project 25 Interface Committee (APIC) and TIA industry members.
+
+PURPOSE
+This addendum introduces two new features into the P25 Phase 2 TDMA voice channel procedures: Location on Push-To-Talk (LoPTT) and User Alias. Both features are additions to the Voice Channel (VCH) procedures section of the parent standard, specifically as new subclauses 4.6 and 4.7. The addendum does not modify any existing procedures in the base document; all prior sections remain unchanged. The next full revision of TIA-102.BBAE will incorporate these additions directly.
+
+FEATURE 1: LOCATION ON PUSH-TO-TALK (LoPTT)
+Location on PTT solves a specific operational problem in public safety dispatch: a dispatcher can hear a field unit transmitting voice but has no way to determine the unit's geographic location from the voice call alone. In some cases, the field user may not even know their own location. LoPTT addresses this by embedding GPS coordinates directly into the MAC layer signaling that accompanies voice traffic on TDMA working channels.
+
+When a GPS-equipped subscriber unit (SU) keys up on a trunked group call, the radio automatically includes its GPS coordinates within MAC messages sent in the SACCH (Slow Associated Control Channel) alongside the voice data. The site RFSS (Radio Frequency Subsystem) extracts this location data and forwards it over the network to dispatch console mapping applications. A dispatch operator monitoring the call will hear the voice and, shortly after, see the transmitting subscriber's position update on a map display.
+
+The addendum specifies two independent manufacturer implementations of this feature:
+
+MFIDA4 Operation (L3Harris, Manufacturer ID 0xA4): The SU sends a MAC_MFIDA4_LOP message in the SACCH directly following each Voice Channel User MAC message. The SU continuously updates GPS coordinates as the call progresses and includes its emergency status in the GPS payload status bits. Key preconditions for the SU to include location are: (1) the SU has not decoded a MOT_STS_BCST message, (2) LoPTT is enabled in the radio, and (3) the GPS receiver is equipped and enabled. If GPS fix is lost mid-transmission, the radio continues sending its last known position while setting status bits to indicate stale data. The RFSS routes decoded location data to network devices but does not forward data it cannot successfully decode, ensuring legacy sites gracefully ignore the feature without disrupting voice service. MFIDA4 LoPTT supports all voice call types including group, announcement, U2U, PSTN, and explicit encryption group regroup calls. It also supports roaming scenarios where the SU is not on its home system.
+
+MFID90 Operation (Motorola Solutions, Manufacturer ID 0x90): The SU sends a MAC_MOT_PTT_LOC message in the inbound SACCH of the first three frames of the ultraframe. Unlike the MFIDA4 approach, the MFID90 operation requires several additional preconditions: the SU must have decoded a MOT_STS_BCST broadcast indicating the RFSS supports LoPTT, must have completed context activation for trunked data service (per TIA-102.BAEB-C), and must have completed Tier-2 location registration (per TIA-102.BAJC-B). The GPS reading must also meet a configurable "freshness" threshold. The RFSS adds the SU's IP address and completes time fields (year, day, hour) before forwarding the location to the mapping application as an IP data message. On the repeat path, the RFSS converts the location MAC messages into standard Group Voice Channel User (MAC_GRP_V_CH_USR) messages, which prevents location data from being broadcast to other subscribers while still identifying the talker. MFID90 LoPTT supports talkgroup calls, emergency calls, announcement group calls, individually regrouped subscriber calls, Remote Unit Monitor-initiated calls, and MFID90 supergroup calls. For supergroup calls, the RFSS converts location MACs into the MAC_MOT_GRG_V_CH_USR message format. MFID90 operation assumes the subscriber is on its home system.
+
+Both implementations share a critical limitation: location information is not conveyed over ISSI (Inter-RF Subsystem Interface) or CSSI (Console Subsystem Interface). This means LoPTT data does not traverse between different RFSS systems or across system boundaries in the current specification. Additionally, location information is explicitly not end-to-end encrypted, even when the voice itself may be encrypted.
+
+FEATURE 2: USER ALIAS
+User Alias addresses the problem of subscriber identification on voice calls. A listening subscriber may hear a voice transmission but has no way to identify the talker unless they already know all possible subscriber unit IDs. User Alias solves this by allowing up to 14 characters of human-readable talker identification to be embedded in the outbound voice stream.
+
+Unlike Location on PTT, User Alias is an FNE-side (Fixed Network Equipment) feature rather than a subscriber-initiated one. The transmitting subscriber simply makes a standard voice call. The FNE looks up the associated user alias for the calling SU and embeds it into the outbound working channel signaling using the MAC_MFIDA4_UA message in the SACCH. Receiving subscribers decode and display this alias. No action is required from the calling SU, and the calling SU need not know what alias the FNE is using.
+
+The FNE sends one MAC_MFIDA4_UA message per voice channel user message. Because the alias is embedded in the voice stream itself rather than in call setup signaling, User Alias also works on dynamically regrouped calls.
+
+The sole precondition is that the FNE has a user alias registered for the calling subscriber.
+
+NORMATIVE REFERENCES
+The addendum references six companion standards: TIA-102.AABC-E-1 (trunking control channel messages for LoPTT), TIA-102.BBAD-A-1 (TDMA MAC layer messages for LoPTT, which defines the actual MAC PDU formats), TIA-102.BBAD-A (base TDMA MAC messages), TIA-102.AABD-B (trunking procedures), TIA-102.BAEB-C (IP data bearer service), and TIA-102.BAJC-B (Tier 2 location services).
+
+LIMITATIONS AND CAVEATS
+The document explicitly notes that some specifications may not have been fully operationally tested. Location data is not encrypted. LoPTT does not work across ISSI/CSSI boundaries. The MFID90 variant requires the subscriber to be on its home system. Legacy sites that cannot decode the new MAC messages will simply ignore them without impacting voice service — a deliberate backward-compatibility design choice.
+
+KEY PARAMETERS
+- User Alias length: up to 14 characters
+- Location message placement: SACCH (inbound for LoPTT, outbound for User Alias)
+- MFID90 location timing: first 3 frames of the ultraframe
+- Manufacturer IDs: 0xA4 (L3Harris), 0x90 (Motorola Solutions)
+- GPS freshness: configurable per local policy (MFID90 only)

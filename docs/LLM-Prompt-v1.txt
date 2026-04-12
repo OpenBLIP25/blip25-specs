@@ -1,0 +1,17 @@
+I'm uploading a TIA/P25 standard document. Please process it in three steps:
+
+1. **Full Text Extraction (.md file):** Extract all text in order from the document, including tables (as markdown tables) and descriptions of any images, charts, or diagrams. Skip the Notice page and the "Don't Violate the Law" copyright page — I will have disclaimers handled separately in my app. For any mathematical formulas, equations, or expressions: reconstruct them from the extracted text fragments into readable code-block notation, using the surrounding prose descriptions (e.g., "the gain is computed by dividing...") to verify correct numerator/denominator placement and operator relationships. Flag any formulas where the text extraction was ambiguous enough that the reconstruction may not be accurate. Save as a .md file.
+
+2. **1,000-Word Summary (.txt file):** Write a ~1,000 word summary of the document suitable for inclusion in search results. Cover what the document specifies, why it exists, what it tests or defines, key parameters and requirements, and any limitations it acknowledges. Save as a .txt file.
+
+3. **Related Resources & Context (.md file):** Search the web for resources that reference or use this spec. Produce a .md file covering:
+   - **Status** — Is this document active, expired, or superseded? What replaced it?
+   - **Standards Family** — Where does this document fit in the broader TIA-102 suite? List related companion documents with their document numbers and what each covers.
+   - **Practical Context** — How does this standard apply in real-world equipment and systems?
+   - **Key Online Resources** — Websites, archives, and vendor pages with relevant content (include URLs).
+   - **Open-Source Implementations** — Any open-source projects that implement or relate to what this document specifies (include GitHub URLs).
+   - **Standards Lineage** — Show the document hierarchy as an ASCII tree.
+
+   Keep all references neutral — refer to the uploaded document as "this document" rather than by title. Do not include any personal context about me.
+
+Please deliver all three files for download.

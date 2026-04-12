@@ -1,0 +1,138 @@
+TIA-102.BCAD: Project 25 Phase 2 Two-Slot TDMA Trunked Voice Services
+Common Air Interface Conformance Specification
+
+DOCUMENT OVERVIEW
+
+This document defines Conformance Profiles (CPs) for the Phase 2 Two-Slot
+Time Division Multiple Access (TDMA) Trunked Voice Services Common Air
+Interface (CAI). Published by the Telecommunications Industry Association
+(TIA) in September 2011, it was developed and is maintained by the TR-8.12
+(Two-Slot TDMA) subcommittee. The document's primary purpose is to aid in
+the development, validation, and verification of the MAC protocol
+implementation defined in TIA-102.BBAC. It explicitly states it is not
+intended for formal product conformance certification, though manufacturers
+may elect to use it for that purpose.
+
+WHAT IT SPECIFIES
+
+The document defines four Conformance Profiles (CPs), each targeting a
+specific functional layer of a Phase 2 TDMA radio or RFSS:
+
+- CP 1: Burst Field Conformance — Tests the Reed Solomon encoder for the
+  Encryption Synchronization Signal (ESS) and Encoded MAC Information (EMI)
+  messages. Four sub-tests cover the ESS, IEMI (Inbound EMI), S-OEMI
+  (Outbound EMI with Sync), and I-OEMI (Outbound EMI with Information)
+  encoders.
+
+- CP 2: Transmit Voice Channel Conformance — Tests modulation polarity
+  (H-DQPSK for outbound RFSS, H-CPM for inbound SU), and the complete
+  construction pipeline for outbound and inbound bursts: 4-voice bursts,
+  2-voice bursts, OEMI/IEMI bursts, superframes, and ultraframes including
+  I-ISCH encoding and scrambling.
+
+- CP 3: Receive Decode Conformance — Tests the Reed Solomon decoders for all
+  four EMI types, the DUID (Data Unit ID) binary decoder, and the I-ISCH
+  (Information Inter-Slot Channel) binary decoder. Error vectors are provided
+  to exercise maximum error-correction capability.
+
+- CP 4: Receive Voice Channel Conformance — Tests end-to-end receive
+  functionality by applying unerrored transmit test vectors to the receiver
+  and verifying that the ESS fields, MAC_ACTIVE, and MAC_PTT codewords are
+  correctly decoded after unscrambling and CRC verification.
+
+WHY IT EXISTS
+
+Interoperability between manufacturers is the central driver. Phase 2 TDMA
+equipment from multiple vendors must encode and decode burst fields
+identically. Without a shared set of test vectors, vendors cannot independently
+verify they have correctly implemented the Reed Solomon coding, scrambling
+sequences, ISCH encoding, and PDU construction specified in TIA-102.BBAC.
+This document provides a self-contained test framework that is independent
+of the clause numbering in the underlying MAC specification, enabling
+unambiguous statements about which functional aspects of a product are in
+conformance.
+
+KEY TECHNICAL PARAMETERS
+
+The following parameters are used throughout all tests:
+
+- Color Code (CC): 0x65C (12-bit, used as scrambling seed)
+- WACN ID: 0x47D89 (20-bit, used as scrambling seed)
+- System ID: 0x65C (12-bit, used as scrambling seed)
+- Default WGID (Group Address): 0xFFFF; alternate WGID: 0x0001
+- Default WUID (Source Address): 0x428914; alternate: 0x000001;
+  Ending WUID (used in MAC_END_PTT): 0xFFFFFF
+- Vocoded test patterns: 1031.25 Hz tone = 0xCEA8FE83ACC458200A;
+  Silence = 0xB9E881526173002A6B
+- ESS: 15 linearly independent input values spanning unencrypted default
+  (ALGID=0x80, KID=0x0000) and AES (ALGID=0x84) combinations
+
+REED SOLOMON CODE PARAMETERS
+
+Four Reed Solomon codes are exercised, all over GF(64):
+- ESS: (44,16,29) — corrects up to 14 symbol errors
+- I-OEMI: (52,30,23) — corrects up to 11 symbol errors
+- S-OEMI: (45,26,20) — corrects up to 9 symbol errors
+- IEMI: (46,26,21) — corrects up to 10 symbol errors
+
+Binary codes also tested:
+- DUID: (8,4,4) over GF(2) — corrects 1 bit error
+- I-ISCH: (40,9,16) over GF(2) — corrects up to 7 bit errors
+
+MAC PDUS USED IN TESTS
+
+Three MAC PDU types define the test inputs for the EMI encoder tests:
+- MAC_ACTIVE (opcode %100): carries GVCU-ABV or GVCU-EXT messages plus
+  Null Information filler on FACCH and SACCH channels
+- MAC_PTT (opcode %001): carries ESS fields, source/group addresses, used
+  for scrambled FACCH burst construction
+- MAC_END_PTT (opcode %010, offset %111): unscrambled, carries Color Code
+  and source/group addresses; marks end of PTT sequence
+
+STRUCTURE OF TEST VECTORS
+
+The expected test vectors in Annex A (normative) cover 23 categories:
+- A.1-A.4: Reed Solomon codewords (ESS, IEMI, S-OEMI, I-OEMI)
+- A.5: Binary DUID codewords (6 messages, 4-bit values %0000 through %1111)
+- A.6: Binary I-ISCH codewords (6 expected decoded messages)
+- A.7-A.15: Outbound burst test vectors (RFSS) including 4V, 2V, S-OEMI,
+  I-OEMI, superframe, and two full ultraframe vectors
+- A.16-A.23: Inbound burst test vectors (SU) including 4V, 2V, IEMI, and
+  superframe vectors for both logical channels
+
+Inbound burst vectors include 0x000 guard-time padding at both ends to
+reflect burst positioning in the middle of the timeslot.
+
+REFERENCE IMPLEMENTATION
+
+An informative MATLAB reference implementation (Annex B) of a Phase 2
+Two-Slot TDMA CAI Burst Generator is included as text-format M-Files
+distributed through the TIA FTP server. Written for MATLAB R2008b, the
+implementation includes functions for Reed Solomon encoding, CRC12
+computation, DUID encoding, I-ISCH encoding, inbound and outbound burst
+generation for all burst types, and scrambling sequence generation. The
+reference implementation produces two output files: CAI_Test_Fields.txt
+(intermediate processing fields, informative) and CAI_Test_Vectors.txt
+(normative Annex A values in labeled text format).
+
+RELATIONSHIPS TO OTHER DOCUMENTS
+
+This document is tightly coupled to TIA-102.BBAC (Phase 2 Two-Slot TDMA
+MAC Description), which is the normative basis for all test inputs and
+expected outputs. TIA-102.BAAC (Reserved Values) is also normative for
+ALGID and KID defaults. Informative references include TIA-102.AAAD (Block
+Encryption Protocol) for AES parameter values and a Digital Voice Systems
+document for the half-rate vocoder test signals used in the burst patterns.
+Other conformance specifications in the TDMA suite (TIA-102.BCAE,
+TIA-102.BCAF) likely address additional conformance areas. The physical
+layer measurement specifications (TIA-102.CCAA series) complement this
+document by covering RF-level pass/fail criteria.
+
+LIMITATIONS AND APPLICABILITY
+
+This document explicitly does not provide a complete functional test suite.
+It does not test how operations are provisioned, how PTT is invoked, or
+how call control operates. It operates at the MAC layer U_m2 interface only
+and does not address RFSS-to-RFSS or higher-layer interfaces. Testing with
+this document does not preclude normal operation interference when applied
+to live equipment without care.

@@ -1,0 +1,145 @@
+TIA-102.AABF-D — Link Control Word Formats and Messages
+ANSI/TIA-102.AABF-D-2015 | Approved February 24, 2015
+Revision of TIA-102.AABF-C
+
+Document Summary (~1,000 words)
+================================================================================
+
+PURPOSE AND SCOPE
+
+This document defines the formats and content of Link Control Words (LCWs) for
+Project 25 digital public safety radio systems. Link Control Words are 72-bit
+(9-octet) code words that carry identification and control information embedded
+within voice transmissions on the Common Air Interface (CAI). They appear in
+two specific CAI slots: the Logical Link Data Unit 1 (LDU1) frame and the
+Expanded Terminator Data Unit (ETDU). While voice carries audio, the embedded
+LC word announces who is talking, what group or unit they are addressing, what
+channel resources are assigned, and what network context governs the call. This
+information is essential for subscriber units and Fixed Network Equipment (FNE)
+to route calls, enforce priorities, and maintain situational awareness across
+both conventional and trunked systems.
+
+LC words apply to both conventional (repeater-based, no trunking controller)
+and trunked (controller-assigned channel) P25 systems, though not every defined
+message type applies to both modes. The document does not specify error
+correction coding for the LC word (covered in TIA-102.BAAA) nor the modulation
+details of the air interface.
+
+BASIC FORMAT
+
+Every LC word begins with a single-octet Link Control Format (LCF) byte:
+  bit 7 = P (Protected flag: 1 = encrypted, 0 = clear)
+  bit 6 = SF (MFID format: 1 = Implicit standard MFID=$00, 0 = Explicit MFID)
+  bits 5-0 = LCO (Link Control Opcode, 0–63)
+
+When SF=1 (Implicit MFID), the remaining octets 1–8 are the message payload,
+and if P=1, octets 1–8 are encrypted. This is the common case for all standard
+P25 messages. When SF=0 (Explicit MFID), octet 1 carries the Manufacturer's ID
+(MFID) and octets 2–8 are manufacturer-defined; if P=1, octets 2–8 are
+encrypted. Standard P25 MFID values are $00 (the default) and $01 (reserved for
+future standard expansion). Non-standard MFIDs identify proprietary extensions.
+
+LCO OPCODE SPACE
+
+The 6-bit LCO field supports 64 opcodes. As of Rev D:
+  - Opcodes 0–10, 15–28, 32–36, 38–42 are assigned to standard messages
+  - Opcodes 1, 8, 11–14, 29–31, 37, 43–63 are reserved
+  - LCO 18 (Unit Authentication Command) and LCO 37 (Protection Parameter
+    Broadcast) are explicitly marked OBSOLETE — deleted in earlier revisions
+
+MESSAGE TYPES (34 DEFINED)
+
+Group voice messages (LCO 0, 2, 4): Used to announce the talker and group on
+the current channel (LCO 0), or to notify listeners of other concurrent group
+calls on the system with their channel assignments (LCO 2 implicit-channel,
+LCO 4 explicit T/R channel pair for systems requiring separate receive/transmit
+frequency designation).
+
+Unit-to-unit voice messages (LCO 3, 5, 10): LCO 3 announces a unit-to-unit
+call's talker and target. LCO 5 (Unit to Unit Answer Request) is an outbound
+trunked command looking for a specific target unit. LCO 10 is an extended form
+used when the source or destination belongs to a different network or system,
+and always requires a following Source ID Extension (LCO 9) LC word to convey
+the full SUID.
+
+Telephone interconnect messages (LCO 6, 7): LCO 6 identifies the user of a
+telephone interconnect channel along with a Call Timer (100 ms granularity,
+up to 6553.6 seconds). LCO 7 (Telephone Interconnect Answer Request) carries
+up to 10 PSTN digits in BCD nibble pairs followed by the target address.
+
+Call lifecycle (LCO 15, 22): LCO 15 (Call Termination/Cancellation) is carried
+in the ETDU to signal channel release. LCO 22 (Call Alert) requests a
+subscriber to initiate a callback.
+
+Status and messaging echoes (LCO 20, 21, 26, 27): LCOs 20 and 21 echo status
+or short-message updates to a second subscriber via traffic channel signaling.
+LCOs 26 and 27 are their cross-system equivalents requiring a Source ID
+Extension follow-on.
+
+System queries and commands (LCO 16, 17, 19, 23, 24, 25, 28): LCO 16 queries
+group affiliations. LCO 17 commands unit registration. LCO 19 queries unit
+status. LCO 23 issues extended function commands (radio inhibit, enable, etc.).
+LCO 24 and 25 carry channel identifier update information used to describe
+the frequency plan for a band plan identifier.
+
+Network identity broadcasts (LCO 32–36, 38–42): This group forms the primary
+mechanism by which an operating P25 site announces its identity and topology
+to subscriber units. LCO 32 (System Service Broadcast) announces available
+and supported services plus the WUID validity timer. LCO 33/38 (Secondary
+Control Channel Broadcast, implicit/explicit) lists backup control channels.
+LCO 34/39 (Adjacent Site Status Broadcast, implicit/explicit) reports neighbor
+sites. LCO 35/40 (RFSS Status Broadcast, implicit/explicit) gives the RFSS and
+site identity. LCO 36/41 (Network Status Broadcast, implicit/explicit) provides
+WACN and System ID. The "explicit" variants (LCOs 38–41) carry separate
+transmit and receive channel fields (Channel T and Channel R) for systems where
+the two frequencies differ and cannot be derived from a single channel number
+plus a fixed offset.
+
+Conventional fallback (LCO 42): Sent outbound by a repeater to indicate it is
+providing conventional fallback service. Carries up to six Fallback Channel IDs
+that subscriber units use to find a common fallback repeater.
+
+Source ID extension mechanism (LCO 9): When a subscriber unit's WUID does not
+derive from the current site's WACN+System, the preceding LC word sets its S
+flag and the next transmitted LC in the LDU1 sequence is LCO 9. This carries
+the full 20-bit WACN, 12-bit System ID, and 24-bit Unit ID to completely
+identify a cross-network subscriber.
+
+KEY FIELD DEFINITIONS
+
+Service Options byte (used in group and unit-to-unit calls): Emergency (E),
+Protected/encrypted resources (P), Duplex mode (D), Circuit vs. packet mode
+(M), Reserved (R), and 3-bit Priority Level.
+
+Subscriber Unit Address space: 24-bit values. $000000 = No Unit; $000001–
+$FFFFFC = assignable; $FFFFFD = Reserved for FNE dispatch functions; $FFFFFE =
+Registration Default; $FFFFFF = ALL units broadcast address.
+
+Call Timer: $0000 = unlimited call; $0001–$FFFF = 100ms × value (0.1 s to
+6553.6 s / 109.23 min).
+
+RELATIONSHIPS TO OTHER DOCUMENTS
+
+This document is a leaf in the TIA-102 CAI suite. It draws field value
+definitions from TIA-102.AABC (Trunking Control Channel Messages), frequency
+plan encoding from TIA-102.AABB (Trunking Control Channel Formats), encryption
+parameters from TIA-102.AAAD (Block Encryption Protocol) and TIA-102.BAAC
+(CAI Reserved Values), and trunking procedures from TIA-102.AABD. The
+fundamental air interface framing and error coding of the LC word itself is
+defined in TIA-102.BAAA (FDMA CAI). This document intentionally contains no
+modulation or error-correction content, deferring entirely to BAAA for those
+aspects.
+
+REVISION HISTORY NOTE
+
+Rev D (Feb 2015) merged AABF-C (Jan 2011) with addendum AABF-C-1 and
+editorial board comments. Notable changes from prior revisions include the
+deletion of the Unit Authentication Command (LCO 18) in AABF-A-1 and the
+addition of explicit-channel variants of the broadcast messages.
+
+LIMITATIONS
+
+The document acknowledges that conformance tests for LC word implementations
+had not yet been fully developed and proven at time of publication. Field value
+enumerations (service classes, channel identifiers, etc.) are explicitly
+deferred to AABC rather than reproduced here.

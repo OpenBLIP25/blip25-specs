@@ -1,0 +1,127 @@
+TIA/EIA/IS-69.5: Enhanced Digital Access Communications System IMBE Implementation
+Summary -- approximately 950 words
+
+WHAT THIS DOCUMENT IS
+
+TIA/EIA/IS-69.5 is a TIA/EIA Interim Standard published in April 2000 that specifies the
+Improved Multi-Band Excitation (IMBE) voice coding algorithm as implemented in the
+Enhanced Digital Access Communications System (EDACS). It was formulated under TIA
+Project No. 4223 by the TR-8.4 Subcommittee on Vocoders, with inputs from TIA Industry
+Members and the International EDACS User's Group. The document is 117 pages and
+provides a complete functional description of the IMBE encoder and decoder sufficient
+for implementation, including detailed mathematical specifications, quantization tables,
+FEC coding matrices, window coefficients, and flow charts.
+
+WHAT EDACS IS
+
+EDACS (Enhanced Digital Access Communications System) is a trunked radio system
+originally developed by Ericsson/GE Mobile Communications (later acquired by M/A-COM,
+then Harris Corporation, now L3Harris). EDACS predates Project 25 and was widely
+deployed for public safety and commercial users beginning in the late 1980s. The EDACS
+family of documents describes a complete trunked radio system with backward
+compatibility requirements. TIA/EIA/IS-69.5 specifically covers the digital voice codec
+portion of that system.
+
+IMBE VOCODER SPECIFICATIONS
+
+The EDACS IMBE vocoder operates at a net bit rate of 4.4 kbps for voice information
+and a gross bit rate of 7.1 kbps after error control coding. Speech is sampled at 8 kHz
+(16-bit linear PCM, range [-32768, 32767]) and processed in 20 ms frames (160 samples
+per frame). The vocoder produces 142 bits per frame (88 voice parameter bits plus 54
+FEC bits), yielding the 7.1 kbps gross rate.
+
+The underlying speech model is the Multi-Band Excitation (MBE) model, which divides
+the speech spectrum into multiple frequency bands and makes independent
+voiced/unvoiced (V/UV) decisions for each band. This is a key advantage over
+traditional vocoders (LPC, homomorphic) that make a single V/UV decision per frame.
+
+SPEECH ANALYSIS
+
+The encoder extracts three sets of parameters per frame: fundamental frequency
+(pitch), V/UV decisions per frequency band, and spectral amplitudes. Pitch estimation
+uses a two-stage process: initial estimation with half-sample accuracy using a 301-sample
+window (w_I), followed by refinement to quarter-sample accuracy using a 221-sample
+window (w_R). Pitch tracking with both look-back and look-ahead algorithms ensures
+continuity between frames. The pitch period range is 21 to 122 samples (corresponding
+to fundamental frequencies from about 65.6 Hz to 381 Hz at 8 kHz sampling).
+
+The number of harmonics L ranges from 9 to 56, and the number of V/UV frequency
+bands K is derived from L (K = floor((L+2)/3) for L <= 36, otherwise K = 12). The
+spectral amplitudes are estimated differently depending on whether each frequency band
+is declared voiced or unvoiced.
+
+PARAMETER ENCODING AND BIT ALLOCATION
+
+The 88 voice bits per frame are allocated as follows:
+  - Fundamental frequency (b_0): 8 bits
+  - V/UV decisions (b_1): K bits (varies with pitch)
+  - Spectral amplitudes (b_2 through b_{L+1}): 79-K bits
+  - Synchronization: 1 bit
+
+Spectral amplitudes are encoded differentially using prediction residuals computed
+from the previous frame. The residuals are divided into 6 blocks, each transformed via
+DCT. The first DCT coefficient from each block forms a 6-element gain vector, which
+is further transformed by a 6-point DCT. The first element is quantized with a 6-bit
+non-uniform quantizer (64 levels, tabulated in Annex E); the remaining five elements
+use uniform quantizers with bit allocations dependent on L (tabulated in Annex F).
+Higher-order DCT coefficients use the remaining bits with allocations from Annex G.
+
+FEC AND BIT MANIPULATIONS
+
+The 88 voice bits are prioritized into 7 bit vectors (u_0 through u_6) by perceptual
+importance. These are protected with a layered FEC scheme:
+  - u_0 (7 bits): [19,7] Extended Golay code -> v_0
+  - u_1 (12 bits): [24,12] Extended Golay code -> v_1
+  - u_2 (12 bits): [23,12] Golay code -> v_2
+  - u_3 (12 bits): [23,12] Golay code -> v_3
+  - u_4 (11 bits): [15,11] Hamming code -> v_4
+  - u_5 (11 bits): [15,11] Hamming code -> v_5
+  - u_6 (23 bits): no FEC (passed through)
+
+Total: 19+24+23+23+15+15+23 = 142 bits per frame. A pseudo-random bit modulation
+scheme keyed off v_0 provides additional error detection capability. Intra-frame bit
+interleaving spreads burst errors across code words (minimum separation of 6 bits
+between any two bits of the same code).
+
+Error estimation counts corrections across all FEC decoders. A frame repeat is
+triggered when the [19,7] Extended Golay decoder corrects 2+ errors AND total
+corrections across all decoders reach 12+. Frame muting to comfort noise occurs when
+the smoothed error rate exceeds 0.0875.
+
+SPEECH SYNTHESIS
+
+The decoder reconstructs speech by separately synthesizing voiced and unvoiced
+components. Unvoiced synthesis uses a windowed white noise sequence processed through
+a 256-point DFT, with spectral shaping per the decoded amplitudes. Voiced synthesis
+generates cosine waves at each harmonic frequency with amplitude and phase
+interpolated between the current and previous frames. The total algorithmic delay
+is 80 ms (73.75 ms analysis + 6.25 ms synthesis).
+
+COMPARISON WITH P25 IMBE (TIA-102.BABA)
+
+The EDACS IMBE vocoder and the P25 Full-Rate vocoder share the same fundamental
+MBE speech model and DVSI-patented IMBE algorithm. Key parameters are identical:
+8 kHz sampling, 20 ms frames, 160 samples/frame, same pitch range (21-122 samples),
+same number of harmonics (9-56). Both use the same speech analysis approach
+(analysis-by-synthesis with pitch tracking and spectral amplitude estimation).
+
+The critical difference is in the channel coding layer. The EDACS vocoder produces
+88 voice bits + 54 FEC bits = 142 bits/frame (7.1 kbps), while the P25 Full-Rate
+vocoder produces 88 voice bits + 56 FEC bits = 144 bits/frame (7.2 kbps). The FEC
+structures differ: EDACS uses a [19,7] Extended Golay + [24,12] Extended Golay +
+two [23,12] Golay codes + two [15,11] Hamming codes, whereas P25 uses a different
+arrangement. The bit prioritization schemes, interleaving tables, and bit modulation
+details also differ between the two systems since they must interface with different
+air interface protocols. However, the core vocoder parameters (the MBE model
+parameters themselves) are essentially identical, meaning transcoding between the
+two systems at the parameter level would preserve voice quality.
+
+ANNEXES AND REFERENCE DATA
+
+The document includes 11 normative annexes: variable initialization values (A),
+pitch estimation window coefficients (B, 301 values), pitch refinement window
+coefficients (C, 221 values), FIR low-pass filter (D, 21 taps), gain quantizer
+levels (E, 64 entries), gain vector bit allocation tables (F), higher-order DCT
+coefficient bit allocation tables (G), bit frame interleaving format (H), speech
+synthesis window (I, 209 values), prediction residual block lengths (J), and
+detailed flow charts for all major algorithms (K, 12 flow charts).

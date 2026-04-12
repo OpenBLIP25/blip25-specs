@@ -1,0 +1,146 @@
+TIA-102.BACE: Inter RF Subsystem Interface (ISSI) for Conventional Operation —
+Messages and Procedures
+
+Approval: June 2008 | Reaffirmed: January 2013 | Pages: ~169
+
+WHAT THIS DOCUMENT SPECIFIES
+
+This document defines the messages and procedures for the Conventional Inter RF
+Subsystem Interface, designated "Ec." Ec is the IP-based protocol that interconnects
+Console Subsystems (dispatch consoles and console controllers) with Conventional
+Access Radios (CARs) — the infrastructure equipment that bridges between the IP
+network and conventional P25 fixed radio stations. Ec is the conventional counterpart
+to the trunking ISSI (TIA-102.BACA), adapted for simplex and half-duplex conventional
+channel operation rather than trunked infrastructure.
+
+WHY THIS DOCUMENT EXISTS
+
+Conventional P25 deployments require dispatch consoles to remotely control fixed
+stations (transmitters and receivers), monitor subscriber activity, forward audio
+between the radio network and the IP network, and manage multi-receiver voter systems.
+Before this specification, these interfaces were proprietary to each equipment
+manufacturer. This document standardizes the IP-based interface so that Console
+Subsystems and CARs from different manufacturers can interoperate.
+
+ARCHITECTURAL CONTEXT
+
+The conventional ISSI (Ec) sits between two functional entities:
+- Console Subsystem (CS): the dispatch console host system. Initiates connections,
+  controls stations, requests transmissions, and routes audio.
+- Conventional Access Radio (CAR): the IP-to-RF gateway. Manages one or more
+  fixed stations via the Fixed Station Interface (FSI, per TIA-102.BAHA). Acts as
+  an RTP mixer for audio routing between multiple consoles and the fixed station.
+
+A single CAR may serve multiple fixed stations simultaneously. Multiple Console
+Subsystems may simultaneously connect to the same CAR for the same fixed station,
+allowing multiple dispatcher positions to monitor the same channel. Only one Console
+Subsystem may transmit at a time on a given fixed station.
+
+The protocol is transport-agnostic at the IP layer; it supports both IPv4 and IPv6.
+All messaging is carried in RTP/UDP packets per RFC 3550.
+
+WHAT IT DEFINES
+
+The document is organized around three main areas:
+
+1. RTP PAYLOAD BLOCK TYPES: Twenty-one block types are defined, carrying everything
+   from IMBE voice frames to voter control commands. Key types include:
+
+   - Block Type 0 (IMBE Voice, E=1): Carries 18-octet IMBE voice frames. Sub-variants
+     by Frame Type carry different supplemental data: no data (frames 1-2, $62-$63),
+     link control words (frames 3-8, $64-$69), low speed data (frames 9 and 18,
+     $6A/$73), and encryption sync words (frames 12-17, $6D-$72). Error status uses
+     a base-3 encoding: STn=0 (no errors), STn=1 (1 error), STn=2 (erasure).
+   - Block Type 0 (PCM Audio, E=0): 160-octet μ-law PCM blocks (20 ms, G.711) for
+     analog RF mode or analog FSI connections.
+   - Block Type 1 (TC Packet Type): 2-octet transmission control header. Carries
+     Packet Type (0=PTT Request, 1=Grant, 2=Progress, 3=End, 4=Start, 5=Mute,
+     6=Unmute, 7=Wait, 8=Deny, 9=TC Heartbeat, 11=PTT Transmit Data), the 7-bit
+     Transmission Sequence Number, and the Losing Audio (L) bit.
+   - Block Types 5, 6, 7: Carry the Conventional Header Word and IMBE Voice Header
+     Parts 1 and 2 (for digital subscriber transmissions). Header words contain
+     MI (Message Indicator), AlgID, Key ID, MFID, Group ID, NID.
+   - Block Types 16-19: PTT control and link control identification words carrying
+     56-bit station SUIDs (WACN + System ID + Unit ID), console SUIDs, voice source
+     IDs, TX priority ($10 lowest through $F0 highest), intercom flags, and link
+     control opcodes.
+   - Block Types 21-23: Station control — channel selection, repeat mode, squelch
+     mode, second receiver, CTCSS code selection (A-H), protected mode, wildcard,
+     RF mode. Full report request/response cycle.
+   - Block Types 24-26: Single Block Control Command (emergency alarm, data messages
+     per TIA-102.AABC-B and TIA-102.AABG), Voter Command (REPORT/NORMAL/SELECT/
+     DISABLE), and Voter Status Update (NO_SIGNAL, SELECTED, GOOD_P25, GOOD_FM,
+     BAD_P25, BAD_FM, NOT_EQUIPPED, FAILED).
+   - Block Types 27-30: Connection management — Connection Request (with port
+     negotiation), Control Service Heartbeat, Control Service Acknowledgement
+     (with ACK/NAK codes 0-9), Disconnect Request.
+   - Block Types 63-127: Manufacturer Specific blocks (MFID + Length + data).
+
+2. CALL CONTROL PROTOCOL: Eight state machines handle the four call control
+   services (Connection Establishment, Station Control, Single Block Control,
+   Voter Control) from both Console Subsystem and CAR perspectives. Connection
+   establishment uses request-retry-heartbeat logic with configurable retry counts
+   (NControlRetry), retry timers (TControlRetryTimer), heartbeat periods
+   (TControlHBTimer), and heartbeat loss limits (NControlHBLoss). The ACK/NAK
+   response code set (9 codes) enables rich error reporting.
+
+3. TRANSMISSION CONTROL PROTOCOL: Four state machines govern voice conveyance:
+   Console Send (Requesting → Transmitting), Console Receive (Receiving), CAR
+   Transmit, and CAR Receive (Arbitrating → Receiving/Wait/Deny). PTT arbitration
+   is priority-based, with the CAR acting as arbiter using the Console TX Priority
+   field ($10-$F0). PTT Wait defers the grant decision; PTT Deny refuses it.
+
+KEY TECHNICAL REQUIREMENTS
+
+- TSN parity: Console Subsystems use even TSNs (≥2); CARs use odd TSNs. TSN 0 is
+  reserved for TC Heartbeats during muted transmissions.
+- TSN selection: next = (TSN + 2) mod 128, skipping 0. All RTP packets for a TSN
+  processed in sequence number order; late-arriving packets discarded.
+- Voice Conveyance Service carries only PTT Progress and TC Heartbeat packets.
+  All other TC packets use the Control Service (separate UDP port or IP address).
+- IMBE bundling: 1-3 IMBE blocks per PTT Progress packet (up to 60 ms). All
+  IMBE-bearing packets for a TSN carry the same count. IMBE1 block always first
+  in any packet containing it; IMBE18 and IMBE1 never in the same packet.
+- PCM bundling: 1-3 PCM blocks per PTT Progress packet supported.
+- Signal bit: 0 during PTT Request phase; 1 during PTT Grant and Progress phases;
+  0 during PTT End phase.
+- A CAR grants transmission permission to exactly one Console Subsystem at a time
+  per Fixed Station. Losing audio flag marks less-preferred streams.
+- Console priority preemption: higher priority Console Subsystem can take over from
+  a lower priority one by sending NTCResend PTT Ends to the lower priority Console.
+
+RELATIONSHIPS TO OTHER DOCUMENTS
+
+This specification derives from and references:
+- TIA-102.BACA (trunking ISSI): parent specification; block type 5 is a direct copy
+  of the ISSI Header Word from BACA.
+- TIA-102.BAHA (FSI): the CAR's interface to fixed stations; defines SSRC assignment
+  and station management.
+- TIA-102.BAAA-A (CAI): IMBE frame structure, link control code words, encryption
+  sync words, HDLC data units.
+- TIA-102.AABF-A (link control word formats): defines LCO values and data formats
+  used in block type 19.
+- TIA-102.AABC-B (TSBK): defines SBC message opcodes and payloads.
+- TIA-102.AABG (short data messages): additional SBC message definitions.
+- RFC 3550/3551 (RTP/PCM): transport and PCM audio encoding.
+- ITU-T G.711: μ-law PCM encoding.
+
+LIMITATIONS AND SCOPE BOUNDARIES
+
+- Does not specify internal console subsystem arbitration logic for multiple
+  simultaneous transmission requests from the same console.
+- Does not specify the FSI behavior beyond what the CAR must do in response.
+- Voter functionality is specified at the ISSI level only; internal voter hardware
+  behavior is outside scope.
+- The document does not specify timer default values in the main body; these appear
+  in Annex A (timer table).
+- Positive Mode Control behavior (automatically keying/detuning stations) is
+  implementation-defined within the framework provided.
+- Manufacturer Specific block internals are left open; manufacturers are encouraged
+  to propose general-use packet types to TIA for standardization.
+
+DOCUMENT STATUS
+
+Active (reaffirmed January 2013). Companion documents in the conventional ISSI suite
+include TIA-102.BACA (trunking ISSI) and TIA-102.BAHA (FSI). No known superseding
+document as of the knowledge cutoff.

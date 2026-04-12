@@ -1,0 +1,41 @@
+SUMMARY: TIA-102.BBAB — Project 25 Phase 2 Two-Slot TDMA Physical Layer Protocol Specification (July 2009)
+
+WHAT THIS DOCUMENT SPECIFIES
+
+TIA-102.BBAB defines the OSI Layer 1 (physical layer) protocol for the P25 Phase 2 Two-Slot TDMA Common Air Interface (CAI), designated Um2. It specifies how digital information is transmitted over a 12.5 kHz radio channel using a two-slot time division multiple access scheme, effectively doubling the voice capacity of a single RF channel compared to the Phase 1 FDMA approach. The standard covers four areas: the TDMA transmission format, the modulation schemes, the power ramping requirements for bursty subscriber transmissions, and the burst structure used for voice, data, and signaling.
+
+WHY IT EXISTS
+
+P25 Phase 1 systems use 12.5 kHz FDMA channels, providing one voice path per channel. As public safety agencies face increasing demand for radio capacity in congested spectrum environments, Phase 2 was developed to achieve 6.25 kHz equivalent channel efficiency by splitting a single 12.5 kHz channel into two TDMA time slots. This standard is the physical layer foundation that makes that possible. It was developed under the TIA TR-8.12 subcommittee (Two-Slot TDMA) in coordination with the APCO Project 25 Steering Committee, drawing on the APCO P25 Statement of Requirements (October 2008). The document was prepared by EADS Defense and Security Networks, Motorola Inc., and Tyco Electronics Corporation.
+
+A critical design requirement was backward compatibility: P25 Phase 2 systems must support Phase 1 subscriber units for trunked voice and data services, enabling gradual migration from FDMA to TDMA without stranding existing equipment.
+
+KEY PARAMETERS AND TECHNICAL DETAILS
+
+Transmission Format:
+The TDMA frame uses 30 ms time slots. Each slot carries 360 bits at 12 kbps, mapped to 180 quaternary symbols at a symbol rate of 6000 symbols/sec. Both uplink (inbound) and downlink (outbound) use the same basic slot structure, differing only in the first and last 10 symbols. On the inbound side, these symbols provide ramp-up/ramp-down guard time and pilot sequences. On the outbound side, they carry the Interslot Signaling Channel (ISCH), a control channel that allows subscriber units to continuously track signaling even during active calls. The outbound transmission is continuous (never bursty) — when only one TDMA slot is in use, MAC Idle PDUs fill the other slot.
+
+Modulation — Uplink (H-CPM):
+Subscriber units transmit using Harmonized Continuous Phase Modulation (H-CPM), a constant-envelope modulation that allows portable radios to continue using efficient non-linear (Class C) power amplifiers. The specific H-CPM parameters are: modulation index h = 1/3, pulse shaping parameter λ = 0.75, and pulse response length L = 4 symbols. The frequency pulse g(t) is a sinc function windowed by a raised-cosine taper, and the phase pulse q(t) is its integral, ramping from 0 to 1/2 over L symbol periods. The normalization factor G = 4.3455×10⁻⁴ ensures proper phase pulse scaling at 6000 symbols/sec. The symbol alphabet is quaternary: {-3, -1, +1, +3}, with a Gray-code-adjacent bit mapping ([01]→+3, [00]→+1, [10]→-1, [11]→-3). Demodulation is specified conceptually using a Maximum Likelihood Sequence Estimator (MLSE) with matched filters and a Viterbi algorithm, outputting soft-decision log-likelihood ratios (LLRs) for downstream error correction.
+
+Modulation — Downlink (H-DQPSK):
+Base stations transmit using Harmonized Differential Quadrature Phase Shift Keyed modulation (H-DQPSK), a variant of π/4-DQPSK with an IQ pulse-shaping filter. This modulation requires linear amplifiers at the base station. The phase accumulates in π/4 increments scaled by the symbol value. The IQ filter uses a raised-cosine frequency response (α = 1) with the 6 dB bandwidth at 3.6 kHz. Demodulation uses differential phase detection (comparing consecutive symbol phases) followed by LLR computation.
+
+Ramping:
+Inbound (subscriber) bursts reserve 2 ms total guard time (1 ms at each end of the 30 ms slot). Of this, at least 0.8 ms is for propagation delay protection, and up to 1.2 ms is available for power ramp-up/ramp-down. The standard allows ramp overlap between adjacent slots as long as the center 28 ms of information content is not corrupted. Detailed timing diagrams show that even with maximum ramp length (1.2 ms) and maximum propagation delay (0.8 ms), the adjacent slot's information remains protected.
+
+Burst Structure:
+The Normal Burst is the only burst type defined. For outbound: 10 symbols of ISCH + 160 symbols of information + 10 symbols of ISCH. For inbound: 6 symbols of Interslot Fill (zeros, during ramp/guard) + 4 symbols of pilot + 160 symbols of information + 4 symbols of pilot + 6 symbols of Interslot Fill.
+
+Informative Annex — H-D8PSK:
+An optional higher-order modulation, H-D8PSK (π/8 differential 8-PSK), is described in an informative annex. Operating at 4000 symbols/sec with an 8-ary alphabet ({±1, ±3, ±5, ±7}), it achieves the same 12 kbps data rate with a lower symbol rate, potentially improving simulcast performance. Its IQ filter bandwidth may be reduced to 2.5 kHz to match the ~2.5 dB peak-to-average ratio of H-DQPSK. This modulation is not normative.
+
+LIMITATIONS AND CAVEATS
+
+The document acknowledges that some specifications had not been fully operationally tested at the time of publication. The standard defines only OSI Layer 1; the MAC layer (Layer 2) is specified separately in TIA-102.BBAC. Pilot symbol sequences for the inbound burst are not defined in this document but are deferred to the MAC layer specification. The demodulator descriptions are conceptual — specific implementation methods for LLR generation are left to the equipment designer. The H-D8PSK modulation in Annex A is informative only, not a normative requirement.
+
+The standard applies exclusively to the trunked mode of operation on the Um2 interface. It does not cover direct mode (subscriber-to-subscriber) operation, which remains on the Phase 1 Um interface. The TDMA scheme is fixed at two slots; no provisions for three- or four-slot TDMA are defined, though the ISCH structure has reserved bits that could support future expansion.
+
+RELATIONSHIP TO OTHER STANDARDS
+
+This document is part of the P25 Phase 2 Two-Slot TDMA suite. It works in conjunction with TSB-102.BBAA (overview), TIA-102.BBAC (MAC layer), TIA-102.BABA-1 (half-rate vocoder), TIA-102.BBAD (MAC layer messages), TIA-102.BCAD/BCAF (conformance specifications), and TIA-102.CCAA (transceiver measurement methods). Together these documents define the complete Phase 2 TDMA air interface from physical layer through call control.

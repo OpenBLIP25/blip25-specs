@@ -1,0 +1,134 @@
+TIA-102.BAED-A: Project 25 Packet Data Logical Link Control Procedures
+ANSI/TIA-102.BAED-A-2019 | Approved: April 12, 2019 | Pages: 19 (normative) + front matter
+Revision A of TIA-102.BAED (original: August 2013, materials from TIA-102.BAAD-A)
+No annexes.
+
+OVERVIEW
+
+TIA-102.BAED-A specifies the Logical Link Control (LLC) procedures governing how CAI
+(Common Air Interface) data packets are conveyed between air-interface endpoints in a
+Project 25 packet data system. The LLC layer sits between the physical/MAC layer defined
+in TIA-102.BAAA-B (FDMA Common Air Interface) and the higher-layer data services
+described in TIA-102.BAEA-C (Data Overview and Specification). Its two primary functions
+are: (1) reliable or unreliable conveyance of CAI data packets, and (2) segmentation and
+reassembly of logical messages that span multiple data packets.
+
+The document covers all four P25 packet data configurations: Direct Data (SU-to-SU,
+no infrastructure), Repeated Data (SU-to-SU via FS_R), Conventional FNE Data, and
+Trunked FNE Data. The procedures are identical across configurations; the primary
+difference is addressing mode (symmetric vs. asymmetric).
+
+ADDRESSING
+
+Two addressing forms are defined, selected based on the data configuration:
+
+  - Symmetric Addressing: Used in Direct Data and Repeated Data configurations.
+    Both a source LLID and a destination LLID are required in every data and response
+    packet. Uses the Enhanced Addressing format from TIA-102.BAAA-B.
+
+  - Asymmetric Addressing: Used in Conventional FNE Data and Trunked FNE Data
+    configurations. Only one LLID is required (source on inbound; destination on
+    outbound). Uses the single-LLID format from TIA-102.BAAA-B.
+
+RECEIVER PREPROCESSING
+
+Before invoking either conveyance procedure, a receiver (SU, FNE, or FS_R) must qualify
+an incoming data packet on three criteria:
+
+  1. NAC Qualification — the received NAC must be allowed per local policy (conventional
+     channels per TIA-102.BAAD-B; trunked channels per TIA-102.AABD-B).
+  2. MFID Qualification — the Manufacturer ID must be a standard value or a locally
+     accepted manufacturer-specific value. FS_Rs skip MFID checking.
+  3. Address Qualification — the destination LLID must match the unit or a group
+     address. FNEs verify the addressing form matches their supported configuration.
+     FS_Rs accept symmetric-addressed packets without further verification.
+
+Packets that fail any qualification are silently discarded.
+
+CONFIRMED DATA PACKET CONVEYANCE (Clause 3.2)
+
+The confirmed conveyance method implements a stop-and-wait ARQ protocol. The LLC
+layer is not a sliding-window protocol; one data packet is in-flight at a time per session.
+
+Sequence Numbering: V(S) (sender) and V(R) (receiver) track N(S) and N(S)-last-received
+respectively, both modulo 8 (3-bit). The receiver compares each arriving N(S) against V(R):
+  - N(S) = V(R)+1: normal case; V(R) incremented.
+  - N(S) = V(R): possible duplicate; checked against CRC_LAST / CRC_PACKET.
+  - N(S) = other: packets lost; V(R) reset to N(S) to restore duplicate detection.
+
+Resynchronization: Either end can assert the SYN bit to reset both V(S) and V(R) to zero.
+Required on first packet after power-up/restart, after a channel change (if using Static
+Packet Data Registration per TIA-102.BAEJ-A), or when sending the same payload
+repeatedly.
+
+Fragmentation (FSNF): Large logical messages are split into fragments, each carried in a
+separate data packet. The 4-bit Fragment Sequence Number Field (FSNF) encodes both the
+Last-In-Chain (LIC) flag (high bit) and the 3-bit Fragment Sequence Number (FSN). FSN
+values: 0 = only-in-chain (LIC=1) or first-in-chain (LIC=0); 1–7 cycling = subsequent
+fragments. The FSNF allows the receiver to detect lost fragments and discard incomplete
+logical messages.
+
+Responses: Three response types are mandated (from TIA-102.BAAA-B response packet
+Class/Type/Status encoding):
+  - ACK (Class=%00, Type=%001): all blocks received correctly.
+  - NACK (Class=%01, Type=%001): CRC_PACKET failure; request full retransmission.
+  - SACK (Class=%10, Type=%000): selective retry; individual bad blocks identified by
+    flags in the response packet.
+
+The sender retransmits up to TX_MAX times (suggested: 4) with timeout T_RETRY
+(suggested: 2 seconds) between attempts. On SACK, only the identified bad blocks are
+retransmitted with FMF=0 and updated BTF. On NACK, the full packet is retransmitted
+with FMF=1. If all retries are exhausted, delivery is aborted and the next logical message
+is attempted.
+
+The receiver stores incoming data blocks indexed by serial number, allowing the SACK
+path to fill gaps selectively. CRC_BLOCK (9-bit) guards individual data blocks; CRC_PACKET
+(32-bit) guards the reassembled packet; CRC_HEADER (16-bit) guards the header block.
+
+Confirmed Data Block Size: 16 octets per data block. BTF formula:
+  BTF = floor((L + 4 + P_MAXC) / 16), P_MAXC suggested = 15 pad octets.
+
+UNCONFIRMED DATA PACKET CONVEYANCE (Clause 3.3)
+
+The unconfirmed conveyance method is fire-and-forget: no sequence numbering, no
+fragmentation, no responses. The sender constructs the data packet and transmits it once.
+The receiver performs only a CRC_PACKET check and silently discards failed packets.
+
+Unconfirmed Data Block Size: 12 octets per data block. BTF formula:
+  BTF = floor((L + 4 + P_MAXU) / 12), P_MAXU suggested = 11 pad octets.
+
+After extracting and optionally decrypting the logical message, the receiver forwards it to
+the indicated SAP. If the SAP value is Packet Data Scan Preamble, routing depends on
+whether the SNDCP function is active (→ SNDCP) or inactive (→ CMS function).
+
+ENCRYPTION INTEGRATION
+
+Both confirmed and unconfirmed procedures integrate with the block encryption protocol
+(TIA-102.AAAD-B). Encrypted logical message fragments have Auxiliary Header(s) chained
+before the header block is formatted. Decryption failure is handled by notifying the CMS
+function (via TIA-102.BAEJ-A) and silently discarding the fragment.
+
+RELATIONSHIPS TO OTHER DOCUMENTS
+
+This document depends heavily on TIA-102.BAAA-B for data packet formats (header block
+fields, CRC definitions, serial numbers, FSNF encoding, response packet bit layouts).
+TIA-102.BAEA-C defines the overall data architecture, the four configurations, and the
+SAP/SNDCP/LLC layering model. TIA-102.BAEJ-A defines the CMS function used for
+supplementary encryption notifications. TIA-102.BAAD-B and TIA-102.AABD-B govern
+NAC acceptance policies for conventional and trunked channels respectively.
+
+LIMITATIONS
+
+The document explicitly states that state diagrams are informational and do not imply
+specific implementation. Duplicate detection at the receiver is optional; V(R) and CRC_LAST
+tracking is normative only for receivers that choose to support it. Fragmentation and
+sequence numbering are entirely absent from unconfirmed conveyance — upper layers must
+tolerate out-of-order or lost unconfirmed packets. The protocol does not automatically
+recover lost data packets from failed confirmed transmissions; it only adjusts V(R) to
+maintain duplicate-detection correctness after loss.
+
+REVISION NOTES (Revision A)
+
+Revision A (approved April 12, 2019) updated front matter to align with current TR-8
+practices and refreshed all normative references to their current editions. No technical
+content was changed from the original 2013 edition.

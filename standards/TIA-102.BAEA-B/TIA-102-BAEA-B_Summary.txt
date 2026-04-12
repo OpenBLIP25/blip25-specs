@@ -1,0 +1,43 @@
+TIA-102.BAEA-B — Project 25 Data Overview and Specification
+ANSI/TIA-102.BAEA-B-2012 | Approved June 22, 2012 | Revision of TIA-102.BAEA-A
+~1,000 Word Summary
+
+OVERVIEW
+
+This document is the top-level overview and specification for TIA-102 Packet Data Services within the Project 25 digital public safety radio suite. It defines the scope, architecture, interfaces, bearer services, and configurations that collectively constitute P25 packet data capability. It does not define wire-format messages or algorithms itself — instead it maps out which companion documents handle each piece of the architecture, making it the essential entry point for understanding how P25 data works end to end.
+
+This is the third edition (Revision B) of the document, first published in 1995. Revision B, approved in 2012, removed the Circuit Data Bearer Service (whose governing document, TIA-102.BAEC, was officially withdrawn in January 2010) and removed a set of Annex A protocol descriptions that were relocated to a new Mobile Data Peripheral Interface document. The revision also restructured the content to serve as a more comprehensive overview suitable for use by test document developers.
+
+WHY IT EXISTS
+
+P25 data capability evolved alongside P25 voice. The APCO/NASTD/FED Project 25 Steering Committee mandated interoperable digital communications for public safety; this document provides the architectural framework that makes packet data interoperability possible by defining the exact set of services, interface protocols, and configurations that conforming equipment must or may support.
+
+WHAT IT DEFINES
+
+Data Services Taxonomy: The document organizes TIA-102 data into three tiers — Low Speed Data (4-octet payloads embedded in voice superframes, not further specified here), Supplementary Services (trunking/conventional control messages, emergency alarms, radio inhibit, short messages), and Packet Data Service (the main subject). The Packet Data document suite is formally defined as eight designators: BAEA (this document), BAEB (IP Data Bearer Service Specification), BAEC (withdrawn), BAED (Packet Data LLC Procedures), BAEE (Radio Management Protocols), BAEF (Packet Data Host Network Interface), BAEG (Mobile Data Peripheral Interface), and BAEH (IP Data Security Service, future).
+
+Packet Data Interfaces: Eleven interfaces exist in the TIA-102 Open System Interface Model. This document identifies which are relevant to packet data and how: the U_m (FDMA air interface, core), E_d (Data Host Network, IPv4 over Ethernet/802.3), and A (SU-to-MDP serial, IPv4 over PPP or SLIP via USB or TIA-232) are fully specified in the BAEA document suite. The G, E_f, and E_c interfaces (ISSI, Fixed Station, Console) carry packet data but are specified in their own wireline document suites. The U_m2 (TDMA air) interface is a future work item. Telephone, network management, key fill, and inter-KMF interfaces are not relevant for packet data.
+
+Bearer Services: Two bearer services are standardized. The CAI Data Bearer Service carries opaque payloads (any format) and is used where IP routing is not needed or available. The IP Data Bearer Service carries IPv4 datagrams routable by standard IP means; it is the preferred service and supports UDP/TCP above the IPv4 layer.
+
+Data Configurations: Four topologies are defined. Direct Data is SU-to-SU over the air with no infrastructure, used for portable-to-portable or mobile-to-mobile communication. Repeated Data routes through a Fixed Station Repeater (FS_R) that simply retransmits at the PHY/MAC layer without processing packet content. Conventional FNE Data routes SU traffic through a Fixed Network Equipment node on a conventional channel; the FNE connects to a Data Host Network (DHN) via the E_d interface, enabling communication with fixed Data Hosts. Trunked FNE Data is the same topology but operates on a trunked channel, adding trunked channel management signaling on the control channel. Combinations are permitted.
+
+Architecture and Protocol Stacks: For each bearer service / configuration combination, the document defines the protocol layer stack at each endpoint. CAI Data Bearer Service stacks use FDMA CAI PHY/MAC plus LLC as core layers. For Direct and Repeated Data, only the SU carries the full stack (LLC + PHY/MAC); the FS_R has only PHY/MAC, confirming it is transparent at the data link layer. Conventional FNE Data adds CMS (Conventional Management Services) and SP (Scan Preamble) protocol elements on both SU and FNE sides.
+
+IP Data Bearer Service stacks add SCEP (Simple CAI Encapsulation Protocol) and IPv4 above LLC for Direct and Repeated Data, enabling IP address binding (static or via ARP) and datagram conveyance. For Conventional FNE Data, SCEP or SNDCP (Subnetwork Dependent Convergence Protocol) sits above LLC, along with CMS and SP elements. SNDCP on the conventional channel provides context management, confirmed/unconfirmed datagram conveyance, header compression, data user authentication, and Data Host Network selection. When SNDCP is used, CMS dynamic registration is subsumed by SNDCP context management. For Trunked FNE Data, TMS (Trunked Management Services) operates on the control channel for unit registration, location registration, deregistration, and SNDCP Packet Data Channel Management; SNDCP operates on the traffic channel for IPv4 datagram delivery.
+
+Key distinctions in addressing: Direct and Repeated Data configurations use symmetric addressing (the SU addresses another SU or MDP at a peer level). Conventional and Trunked FNE Data use asymmetric addressing (SU-to-FNE, with routing through the infrastructure). Confirmed delivery is always a SHALL requirement; unconfirmed is always a MAY.
+
+Notably absent is IP Data Security (IP layer confidentiality between SU and DHN), which is declared a future work item (BAEH). The CAI Data Bearer Service is not defined for Trunked FNE Data (it is Not Supported in that configuration).
+
+RELATIONSHIPS TO OTHER DOCUMENTS
+
+This document is the anchor of the BAEA packet data suite. Implementors need TIA-102.BAEB (IP Data Bearer Service Specification) for the actual SCEP/SNDCP/TMS/CMS protocol details, TIA-102.BAED (LLC Procedures) for the data link layer, TIA-102.BAEG (MDP Interface) for the A Interface physical layer (USB/PPP/SLIP), TIA-102.BAEF (Host Network Interface) for the E_d Interface, and TIA-102.BAEE (Radio Management Protocols) for MDP management. The physical and MAC layer is specified in TIA-102.BAAA-A. Packet Data Registration and OTAR messages for conventional channels are in TIA-102.BAAD-1.
+
+LIMITATIONS
+
+The document explicitly marks several items as out of scope or future work: multipoint A Interface, Packet Data over E_f and E_c, Packet Data over U_m2 (TDMA), IP Data Security Service (BAEH), and the Packet Data Test Suite (Section 7). As of the 2012 publication, several referenced companion documents (BAEB, BAED, BAEF, BAEG) were still in draft form and carried editor's notes flagging them as informational-only pending approval. The TIA also explicitly notes that some specifications may not have been fully operationally tested.
+
+PRACTICAL SIGNIFICANCE
+
+This document is the architectural map that manufacturers consult when designing P25 data-capable subscriber units, mobile data peripherals, fixed network equipment, and repeater infrastructure. It identifies exactly which protocol combinations are permissible on each interface and which configurations require which bearer service components, enabling interoperability across vendors. Tier 1 Location Services (using CAI Data Bearer Service) and Tier 2 Location Services (using IP Data Bearer Service) are explicitly cited as representative applications, along with OTAR (over-the-air rekeying) as a key use case for both conventional and trunked IP data.

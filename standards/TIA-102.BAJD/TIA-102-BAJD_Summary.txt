@@ -1,0 +1,104 @@
+TIA-102.BAJD: Project 25 TCP/UDP Port Number Assignments
+Summary
+Published: October 2010 | Status: Active (no superseding document identified)
+Document type: TIA Standard | Subcommittee: TR-8.5 Signaling and Data Transmission
+
+OVERVIEW
+
+TIA-102.BAJD defines the TCP/UDP port numbers assigned to Project 25 (P25) public safety
+radio system applications, and reserves a block of IANA dynamic/private port numbers
+exclusively for P25 use. It is a short, single-topic reference document containing one
+normative table. Its purpose is to prevent port number conflicts between P25 applications
+and non-P25 applications developed by the same manufacturers for deployment on P25-capable
+equipment.
+
+WHY IT EXISTS
+
+TCP and UDP, as defined by IETF RFCs 793 and 768 respectively, use 16-bit port numbers to
+identify the source and destination of packets. The IANA manages port number assignments
+globally. The IANA "dynamic/private" range (49152-65535) is available without formal IANA
+registration, making it attractive for proprietary or application-specific use. Without a
+reserved P25 block within this range, equipment manufacturers could assign conflicting port
+numbers to non-P25 applications running on the same hardware, breaking interoperability.
+
+WHAT IT DEFINES
+
+The document establishes two categories of P25 port assignments within the IANA
+dynamic/private range:
+
+1. SPECIFICALLY NAMED ASSIGNMENTS - Three port numbers assigned to particular P25
+   subsystems:
+   - Port 49198: P25 Tier 2 Location Service
+   - Port 49199: P25 Inter-KMF (Key Management Facility) Interface
+   - Port 64414: P25 OTAR (Over-the-Air Rekeying)
+
+2. RESERVED BLOCKS - Four non-contiguous ranges reserved for future P25 application
+   assignment, totaling 68 ports:
+   - 49200-49213 (14 ports)
+   - 49226-49249 (24 ports)
+   - 49257-49279 (23 ports)
+   - 49281-49291 (11 ports)
+
+In total, 74 port numbers are claimed for P25 use (3 named + 71 reserved — note the
+document states "74 port numbers" in the revision history).
+
+PORT NUMBER USAGE RULES
+
+- P25-assigned port numbers SHALL be used as the default destination port number for their
+  respective P25 applications.
+- P25-assigned port numbers SHOULD be configurable to handle network-specific conflicts
+  and security requirements.
+- Manufacturers SHOULD NOT use P25-reserved port numbers as default values for non-P25
+  applications.
+- Manufacturers MAY use non-P25-reserved port numbers for non-P25 applications.
+
+The document clarifies that P25-assigned port numbers serve as defaults within the broader
+P25 technical specification suite — the actual port used in any deployment can be
+reconfigured.
+
+CONTEXT WITHIN THE P25 SUITE
+
+This document is a dependency for any P25 subsystem that communicates over IP using TCP
+or UDP. The three specifically named ports correspond to P25 subsystems defined in other
+TIA-102 documents:
+
+- Port 49198 (Tier 2 Location Service): Related to P25 location/AVLS services
+- Port 49199 (Inter-KMF Interface): Related to TIA-102.AACA series (OTAR Messages and
+  Procedures) which defines Key Management Facility interactions
+- Port 64414 (OTAR): The primary OTAR application port, also related to TIA-102.AACA
+
+The document does not define message formats, protocol procedures, or call flows. It is
+purely a registry/assignment reference.
+
+RELATIONSHIP TO OTHER STANDARDS
+
+This document normatively references only the IANA Port Number Assignments registry [4].
+It informatively references RFC 768 (UDP), RFC 793 (TCP), and RFC 2780 (IANA allocation
+guidelines for IP-related values). It does not reference any other TIA-102 document
+directly, though its assignments support:
+
+- TIA-102.AACA series (OTAR) — consumers of port 64414
+- TIA-102.BAJA/BAJB/BAJC series (P25 data application layer documents) — consumers of
+  the KMF and location service ports
+- Any P25 IP-based subsystem using TCP/UDP as a transport
+
+REVISION HISTORY
+
+The document went from initial draft proposal (07-Apr-10) to final publication (26-Aug-10)
+in a single development cycle with two revisions. The initial proposal already included
+the complete port assignment table. No substantive technical changes occurred between the
+initial draft and final publication.
+
+LIMITATIONS
+
+The foreword explicitly notes that some aspects of the specifications may not have been
+fully operationally tested. The document makes no claims about applicability. As a port
+number registry, it can become outdated if new P25 subsystems requiring port numbers are
+defined in subsequent TIA-102 documents without updating this registry. No mechanism for
+adding new assignments is specified in the document itself.
+
+DOCUMENT STATUS
+
+Published as a TIA Standard in October 2010. No superseding revision has been identified
+as of the processing date. The document is referenced by companion P25 IP interface
+specifications as the authoritative source for default port values.

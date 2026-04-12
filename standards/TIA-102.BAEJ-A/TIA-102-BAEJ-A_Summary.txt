@@ -1,0 +1,124 @@
+TIA-102.BAEJ-A: Project 25 Conventional Management Service Specification for Packet Data
+ANSI/TIA-102.BAEJ-A-2019 | Approved March 8, 2019 | Revision A of TIA-102.BAEJ (2013)
+
+OVERVIEW
+
+This document specifies the Conventional Management Service (CMS) for TIA-102 packet data
+bearer services. It defines the protocols by which a Fixed Network Equipment (FNE) manages
+subscriber unit (SU) access to conventional P25 packet data channels. The CMS layer sits atop
+the physical and data-link layers defined in TIA-102.BAAA-B (FDMA CAI), drawing its SAP
+assignments from TIA-102.BAAC-D, and operating within the packet data framework established
+by TIA-102.BAEA-C (Data Overview and Specification).
+
+This is a compact, focused specification — 21 normative pages plus one informative annex —
+covering four CMS functions: Packet Data Registration, SU Location Tracking, CMS Scan Mode,
+and Packet Data Supplementary Encryption Info. Revision A (2019) refined the Scan Mode
+operational text and updated normative references; the core PDU formats are unchanged from
+the 2013 original, which was itself derived from material in TIA-102.BAAD-1.
+
+WHAT IT SPECIFIES
+
+1. PACKET DATA REGISTRATION
+
+The central function. An SU must register with the FNE before it may use any packet data bearer
+services. Two registration methods are defined:
+
+  Static Registration: The SU is pre-provisioned by a system administrator. When entering packet
+  data operational mode, the SU transmits a Registration Request – Connect PDU and immediately
+  transitions to the Open (registered) state. No response from the FNE is required for the SU's
+  state transition, but the FNE records the SU's location upon receiving any valid inbound PDU.
+
+  Dynamic Registration: The SU transmits a Registration Request – Connect PDU and waits in
+  the Register (pending) state. The FNE responds with either a Registration Response – Accepted
+  or a Registration Response – Denied PDU. If accepted, the FNE assigns an IP address (for
+  SCEP-based IP bearers) and records the SU's channel location. If denied, the SU returns to
+  Closed state. Dynamic registration also supports CMS Scan Mode negotiation.
+
+  De-registration occurs when the SU transmits a Registration Request – Disconnect PDU (sent
+  unconfirmed), upon which the FNE marks the SU's location as unknown.
+
+  Registration PDUs carry a Registration Type (RT) field (4 bits) and a Registration Options (RO)
+  field (4 bits) in the first octet, followed by a 24-bit LLID and a 32-bit IPv4 address field. The
+  common PDU format is 12 octets; the Disconnect PDU omits the IP address field (8 octets total).
+
+2. SU LOCATION TRACKING
+
+After registration, the FNE continuously updates its record of the SU's location by noting the
+conventional radio channel on which any inbound PDU arrives. This enables correct routing of
+individually addressed outbound packet data. For group-addressed outbound data, channel
+selection is governed by local FNE policy.
+
+3. CMS SCAN MODE
+
+An optional function negotiated during dynamic registration. When enabled, the SU may
+periodically leave the packet data channel to scan other channels, returning at its scan period
+interval to check for traffic. The FNE signals pending outbound data by transmitting Scan Preamble
+PDUs before the data payload. The Scan Preamble PDU is an empty CAI Unconfirmed Data Packet
+Header Block with no data blocks, sent on the Packet Data Scan Preamble SAP. The FNE's
+preamble transmission duration should exceed the SU's scan period; the exact method is local
+policy. Overlong scan periods degrade packet data channel capacity (noted as a normative
+footnote). CMS Scan Mode is not available when IP Data Bearer Service with SNDCP is used,
+because SNDCP provides its own scan-mode mechanism.
+
+4. PACKET DATA SUPPLEMENTARY ENCRYPTION INFO
+
+When an SU receives an encrypted CAI data packet that it cannot decrypt, it sends an Unable to
+Decrypt PDU (unconfirmed, inbound, 7 octets) to the FNE. This PDU carries the SAP identifier,
+key ID, algorithm ID, current keyset index, and an error code identifying the failure reason:
+  $00 — Key ID not matched or Algorithm ID not recognized
+  $02 — Encryption failure (hardware, offline, zero MI, or disabled)
+
+The FNE uses this notification to invoke the appropriate key management response, which may
+include triggering an OTAR warm-start procedure per TIA-102.AACA-A. Use of this PDU is not
+required for OTAR interoperability, since the key management service can initiate warm-start
+independently. Only one Unable to Decrypt PDU should be sent per logical message to avoid
+ambiguity with fragmented data.
+
+STATE MACHINES
+
+SU State Machine (3 states):
+  Closed   — Not registered; all bearer service requests fail.
+  Register — Request sent; new bearer requests queued; awaiting FNE response.
+  Open     — Registered; bearer services processed normally.
+
+FNE State Machine (per-LLID, 2 states):
+  Closed — Awaiting initial registration from this SU.
+  Open   — SU is registered; bearer services processed; location updated on each inbound PDU.
+
+PDU FORMATS AT A GLANCE
+
+  RT field values (4-bit):  %0000=Connect, %0001=Disconnect, %0100=Accepted, %0101=Denied
+  RO field (4-bit bitmask):  b0=CMS Scan Mode (1=enabled); b1–b3 reserved
+  SEI MT:  $01=Unable to Decrypt (only defined value)
+  MFID:    $00 (standard); $90 is Motorola proprietary (see Annex A)
+
+KEY PARAMETERS
+
+  - PDU format: most significant bit = bit 7, transmitted MSB-first, top-to-bottom order
+  - LLID: 24-bit SU identifier (defined in TIA-102.BAAC-D)
+  - IP address: 32-bit IPv4, $00000000 when not applicable (CAI bearer) or managed by SNDCP
+  - Confirmed delivery used for: Connect request, Accepted response, Denied response
+  - Unconfirmed delivery used for: Disconnect request, Scan Preamble, Unable to Decrypt
+  - All reserved bits in CMS PDUs set to %0
+  - MFID=$00 and Data Header Offset=%000000 in all CAI Data Packet Header Blocks
+
+RELATIONSHIPS TO OTHER DOCUMENTS
+
+  TIA-102.BAEA-C  — Data Overview and Specification (master data framework; normative [5])
+  TIA-102.BAAA-B  — FDMA CAI (confirmed/unconfirmed delivery services; normative [3])
+  TIA-102.BAAC-D  — CAI Reserved Values (SAP assignments, MFID values; normative [4])
+  TIA-102.BAEB-B  — IP Data Bearer Service / SNDCP specification (normative [6])
+  TIA-102.AAAD-B  — Block Encryption Protocol (ES Auxiliary Header formats; normative [1])
+  TIA-102.AACA-A  — OTAR Protocol (warm-start, KEYID/KM SAP definitions; normative [2])
+  TIA-102.BAEJ    — Original 2013 edition; cancelled and replaced by this document
+
+LIMITATIONS AND NOTES
+
+  - Only one Registration Option (CMS Scan Mode) is defined as of Revision A; three bits are
+    reserved for future options.
+  - Only one SEI MT value ($01, Unable to Decrypt) is defined; all others are reserved.
+  - SNDCP-based configurations use different mechanisms for IP address binding and scan mode;
+    this document's Registration procedures are applicable but the CMS-specific options are not.
+  - Annex A (informative) recommends that FNEs accept both MFID=$00 (standard) and
+    MFID=$90 (Motorola) forms of all CMS PDUs for backward compatibility with legacy equipment,
+    and that SUs be capable of attempting both forms when negotiating with legacy FNEs.

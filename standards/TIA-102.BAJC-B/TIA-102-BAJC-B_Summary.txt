@@ -1,0 +1,168 @@
+ANSI/TIA-102.BAJC-B — P25 Location Registration Reporting Protocol (LRRP)
+Published: March 2019 | 163 pages | Supersedes TIA-102.BAJC-A
+
+CLASSIFICATION: protocol, location
+
+WHAT THIS DOCUMENT IS
+----------------------
+This is the normative specification for the P25 Location Registration Reporting
+Protocol (LRRP), version B. LRRP is a Tier 2 (IP-based) application-layer
+protocol for requesting and delivering subscriber unit (SU) and mobile data
+peripheral (MDP) location information over a P25 network. Messages are XML
+documents, EXI-compressed (schema-informed), and transported over UDP only.
+
+ENTITIES AND ROLES
+------------------
+Three entities participate in LRRP:
+  - LSHS: Location Services Host Server (centralized coordinator)
+  - SU:   Subscriber Unit (mobile radio)
+  - MDP:  Mobile Data Peripheral (external AVL device attached to SU)
+
+Three roles exist per service:
+  - Requester: initiates the location query
+  - Responder: fulfills and responds to the query
+  - Recipient: receives ongoing triggered reports (may differ from Requester)
+
+FOUR LRRP SERVICES
+------------------
+1. Immediate Location Service: Single query-response. Requester sends
+   Immediate-Location-Request; Responder sends Immediate-Location-Report
+   (with info-data on success, operation-error on failure).
+
+2. Triggered Location Service: Subscription-based ongoing reporting.
+   Requester sends Triggered-Location-Request with trigger conditions;
+   Responder sends Triggered-Location-Answer (ack), then periodic
+   Triggered-Location-Reports to Recipient. Stopped via
+   Triggered-Location-Stop-Request / Stop-Answer exchange.
+   Trigger types: oneshot-trigger (start-time or event condition) and
+   periodic-trigger (interval/distance/start-stop times, event conditions).
+
+3. Unsolicited Location Report Service: SU/MDP proactively sends
+   Unsolicited-Location-Report without prior request. The request-id field
+   carries a single-octet event code (power-on, emergency, PTT, low battery,
+   movement, periodic, etc.; 0x00-0x2F defined, 0x40+ implementation-defined).
+
+4. Location Protocol Version Service: Version negotiation plus service
+   notification (register/re-register/de-register). Uses Location-Protocol-
+   Request and Location-Protocol-Report messages. Extended by Section 10 for
+   Tier 2 Profile registration lifecycle (application-id="41" signals
+   service notification; ASCII "REG"/"REREG"/"DEREG" payloads).
+
+MESSAGES (10 TOTAL)
+-------------------
+  Immediate-Location-Request
+  Immediate-Location-Report
+  Triggered-Location-Request
+  Triggered-Location-Answer
+  Triggered-Location-Report
+  Triggered-Location-Stop-Request
+  Triggered-Location-Stop-Answer
+  Unsolicited-Location-Report
+  Location-Protocol-Request
+  Location-Protocol-Report
+
+KEY DATA TYPES AND ENCODING RULES
+----------------------------------
+- Coordinates: WGS-84 datum mandatory. lat: xs:decimal [-90.0, +90.0],
+  long: xs:decimal [-180.0, 180.0), both totalDigits=8.
+
+- Angles (direction, heading, ellipse rotation): lrrpAngle type, which is a
+  union of intAngle (xs:unsignedByte, max 180) and floatAngle (xs:float, max
+  180). IMPORTANT: Values are in units of 2 degrees. Actual angle = value × 2.
+  Maximum stored value is 179 (or 179.x) representing up to 358° (or 359.x°).
+  An intAngle value of 30 = 60 degrees. intAngle cannot represent odd-degree
+  angles (use floatAngle for those).
+
+- Numeric measurements: uIntOrFloat (union of xs:unsignedInt and unsignedFloat,
+  distinguished by presence of decimal point) for unsigned values. intOrFloat
+  (union of xs:int and xs:float) for signed values (altitude in meters,
+  vertical speed).
+
+- Speed: speed-hor and speed-vrt in m/s; speed-vrt positive = upward.
+
+- Timestamps: xs:dateTime in UTC. Format: YYYY-MM-DDThh:mm:ss.
+
+- suaddr types: APCO (7 octets, SUID long format), PLMN (BCD nibble-encoded),
+  IPV4 (4 octets), IPV6 (16 octets), TETRA (6 octets ITSI), LTD (3 octets,
+  SUID short), USER-SPECIFIED.
+
+- recipient-addr: pattern ipv4-udp:[0-9A-F]{8}:[0-9A-F]{4}
+  (4-octet IPv4 hex : 2-octet UDP port hex)
+
+- result element: required result-code attribute (xs:unsignedInt), optional
+  hex binary body. Codes: 0x00 SUCCESS, 0x01 SYSTEM FAILURE, 0x04 UNKNOWN
+  SUBSCRIBER, 0x05 ABSENT SUBSCRIBER, 0x08 UNSUPPORTED VERSION, 0x0A SYNTAX
+  ERROR, 0x11 REPORTING WILL STOP, 0x12 TIME EXPIRED, 0x15 NO SUCH REQUEST,
+  0x51 POSITION METHOD FAILURE, 0x200+ GPS errors and impl-specific.
+
+- protocol-version: xs:unsignedInt restricted to [1, 1]. Only version 1 defined.
+
+SHAPE TYPES
+-----------
+Location data is returned in an info-data container with a shape element:
+  point-2d   (lat, long)
+  point-3d   (lat, long, altitude, altitude-acc?)
+  circle-2d  (lat, long, radius)
+  circle-3d  (lat, long, radius, altitude, altitude-acc?)
+  ellipse-2d (lat, long, angle, semi-major, semi-minor)
+  ellipse-3d (lat, long, angle, semi-major, semi-minor, altitude, altitude-acc?)
+  impl-spec-shape (implementation-specific, implSpecData type)
+
+QUERY PARAMETERS (query-info)
+-----------------------------
+Requesters can specify quality-of-position (QoP) requirements. Each parameter
+has a "request-" (preference) and "require-" (mandatory) variant:
+  hor-acc, altitude, altitude-acc, direction-hor, direction-hor-acc,
+  heading-hor, heading-hor-acc, speed-hor, speed-hor-acc, speed-vrt,
+  speed-vrt-acc, max-resp-time, max-info-age, lev-conf, impl-spec-data (repeated)
+Also: ret-info (controls return of accuracy and timestamp), request-prio (NORMAL/HIGH).
+If query-info absent: Responder returns WGS-84 lat/long by default.
+
+EXI ENCODING PIPELINE
+----------------------
+1. Serialize XML per Section 8 schema
+2. Compress with EXI: bit-packed, strict, schemaID=0x00 (schema-informed)
+3. Strip EXI header: remove cookie and options; retain 8 bits
+   (Distinguishing Bits + Presence Bit + EXI Format Version) + 1 byte schemaID
+4. Transmit over UDP
+5. Receiver reconstructs EXI header, checks versions, decompresses
+   Incompatible EXI Format Version or schemaID → silent discard
+Multiple LRRP documents may be packed into a single EXI body (UDP payload).
+
+SERVICE NOTIFICATION (SECTION 10)
+-----------------------------------
+The Location Protocol Version Service is extended for Tier 2 Profile lifecycle:
+  Register:     application payload = "REG"   (hex 52 45 47)
+  Re-Register:  application payload = "REREG" (hex 52 45 52 45 47)
+  De-Register:  application payload = "DEREG" (hex 44 45 52 45 47)
+All use application-id="41" to signal service notification.
+LSHS responds to Register/Re-Register with hours of registration validity
+(payload "xHOURS" where x is digit 1-9). De-Register gets no response.
+LSHS may send updated Tier 2 Profile to SU upon Register/Re-Register.
+
+CONFORMANCE
+-----------
+Annex A provides normative static conformance requirements (LRRP-SP-* and
+LRRP-DF-* prefixes) for LSHS, SU, and MDP. Key mandatory requirements:
+  - Support LRRP framework (all entities)
+  - Support UDP mapping (SU and MDP)
+  - Encode/decode EXI per Section 9
+  - Support WGS-84 lat/long coordinates (LRRP-DF-LC-001)
+  - Respond with appropriate error codes on protocol errors
+
+RELATIONSHIP TO OTHER DOCUMENTS
+---------------------------------
+- BAJC-A: previous version of this specification
+- TIA-102.BAAA: P25 SUID addressing (defines APCO/LTD suaddr formats)
+- W3C EXI [2]: the encoding specification referenced normatively
+- TIA-102.BAJB series: P25 location services (complementary layer)
+- TIA-102.BADA series: P25 Tier 2 infrastructure (transport context)
+
+IMPLEMENTATION NOTES
+--------------------
+- LRRP is Tier 2 only; no FDMA/TDMA air interface framing defined here
+- UDP port selection is per local policy (no default port mandated)
+- unit-id provides per-device disambiguation when an SU has multiple MDPs
+- impl-spec-data/shape provide extensibility without schema changes
+- SUs receiving UNKNOWN SUBSCRIBER (0x04) MUST NOT send unsolicited reports
+  and SHOULD delete their Tier 2 Profile

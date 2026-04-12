@@ -1,0 +1,47 @@
+TIA-102.AAAB-B — Project 25 Security Services Overview
+ANSI/TIA-102.AAAB-B-2019, Approved February 5, 2019
+Summary (~1,000 words)
+
+WHAT THIS DOCUMENT IS
+
+This document defines the security services framework for Project 25 (P25) Land Mobile Radio (LMR) systems. It is an architectural overview — not an implementation specification — that establishes the conceptual foundation and vocabulary for all TIA-102 security standards. It identifies the threats these services counter, names the four service categories, and describes the functional models and key management architectures at a level of abstraction that applies to both conventional and trunked systems, and to both Phase 1 (FDMA) and Phase 2 (TDMA) air interfaces. The TIA-905 security suite covers Phase 2 TDMA and is designed to be interoperable with TIA-102. All detailed message formats, algorithms, and operational procedures are deferred to companion documents cited in section 1.6.
+
+WHY IT EXISTS
+
+The document was created in response to a request from the Project 25 Steering Committee, operating under a 1992 Memorandum of Understanding between TIA and APCO/NASTD/FED. Recognizing that digital LMR systems introduce both new security opportunities and new threat surfaces, the Steering Committee required a unifying overview of what security services would be offered as part of the P25 standard. This document — originally published in 2002 as TIA/EIA-102.AAAB, revised in 2004 (AAAB-A) with minor editorial corrections, and again in 2019 (AAAB-B) — serves as the top-level reference for the entire TIA-102 security sub-suite.
+
+SECURITY THREATS DEFINED
+
+The document defines nine threat categories that the security services are designed to counter: (1) Message Interception — passive eavesdropping of broadcast radio traffic; (2) Message Replay — retransmitting recorded messages to cause a disruptive effect without requiring decryption; (3) Spoofing — impersonating a legitimate user by replaying or altering recorded user transmissions; (4) Misdirection — impersonating the system infrastructure to issue false commands to subscriber units; (5) Jamming — transmitting interference to disrupt communications (noted as beyond the scope of these security services); (6) Traffic Analysis — inferring operational patterns from message count and timing even without decrypting content; (7) Subscriber Duplication — cloning a radio's identity into a new device; (8) Theft of Service — using a system to which access is not authorized; and (9) Theft of Unit — physical theft of a radio, countered by zeroize procedures and FNE-side rejection.
+
+FOUR SECURITY SERVICE CATEGORIES
+
+Confidentiality (Privacy): Provided through encryption, protecting both user traffic (voice and data) and optionally the air interface signaling itself. Four encryption types are recognized (Type I through Type IV, in descending security level). Five cipher modes are described at a functional level — ECB, OFB, CFB, CBC, and CTR — with OFB/CTR preferred for traffic and CBC used for MAC generation. Traffic Encryption operates end-to-end on the U_m or U_m2 interface. Air Interface Encryption is an optional extension that also encrypts signaling and identity fields at the link layer, countering traffic flow analysis. The Message Indicator (MI) is the synchronization field shared between encryptor and decryptor; the base station periodically broadcasts the MI for air interface encryption.
+
+Integrity: Guards against replaying or altering messages after interception. Chronological integrity is provided via message sequence numbers (for key management messages) and time-limited MI synchronization windows (for air interface messages). Message integrity is provided by a Message Authentication Code (MAC) computed using the CBC cipher mode over the message content and appended before encryption. The MAC is key-dependent, making it impossible for an adversary to forge without knowledge of the shared key.
+
+Authentication: Source authentication determines whether a message genuinely originated from its claimed sender. Group Source Authentication is available when all parties in a group share a common Traffic Encryption Key (TEK); Individual Source Authentication is available when a unique TEK or Key Encryption Key (KEK) is shared between exactly two parties. A challenge-response mechanism (using randomly generated seeds and session keys) provides Individual Source Authentication for clear traffic on trunked systems. Table 1 of the document maps available authentication service levels to message type (clear, encrypted, key management) and system type (trunked, conventional).
+
+Key Management: The lifecycle management of cryptographic keys — generation, distribution, entry, use, storage, destruction, and archiving. The document identifies two distribution mechanisms: Physical (wireline Key Fill via Key Fill Device) and Over-the-Air Rekeying (OTAR) via the Key Management Facility (KMF). Automated Key Management procedures include key download, key activation (keyset switching), key destruction (including full zeroize), rekey request, SU provisioning, audit queries, and registration/deregistration with the KMF.
+
+KEY MANAGEMENT ARCHITECTURE (Section 7)
+
+The largest section of the document provides a comprehensive set of functional models and architecture diagrams for each security sub-domain:
+
+Voice Encryption Key Management: KMF and KFD act as Key Manager Endpoints; SUs are Voice Encryption Endpoints. Architecture examples include KFD-to-SU wireline fill, KMF-to-KFD wireline fill, OTAR via the KMF over the CAI, inter-KMF key distribution using S/MIME-protected IKI messages, combined wireline+wireless configurations, and OTAR delivery across inter-RFSS boundaries via the ISSI.
+
+CAI Data Encryption Key Management: Applies only to Conventional (not Trunked) LMR systems. Data Security Endpoints may be SU-to-FNE or SU-to-SU. Grouping Profiles associate channels with algorithms and keys. KMMs protect key material using an inner-layer KEK (key wrapping) and an outer-layer TEK.
+
+IP Data Encryption: Section 7.1.4 is flagged as incomplete pending ongoing P25 architectural discussions (as of the 2019 publication date).
+
+Link Layer Authentication (LLA): Operates over the Trunking Control Channel only. Two endpoints: SU LLA and FNE LLA. Unit Authentication has the FNE challenge the SU using RAND1 and RS; the SU derives KS and computes RES1. Mutual Authentication adds a reverse challenge (RAND2) from the SU to the FNE, which responds with RES2 using KS'. Authentication material (K/SUID pairs, RS, KS, KS') is provisioned via wireline Key Fill only; no OTAR path for authentication keys is defined. The AF-to-FNE interface is noted as non-standardized. Roaming SUs trigger retrieval of session material from the home FNE via the ISSI.
+
+Air Interface Encryption (Link Layer Encryption): Section 7.2.2 is flagged as incomplete pending ongoing P25 architectural discussions.
+
+RELATIONSHIPS TO OTHER DOCUMENTS
+
+This document is the top-level reference for the TIA-102 security sub-suite. Key companion documents include: TIA-102.AACE-A (Link Layer Authentication detail), TIA-102.AACA-A (OTAR Messages and Procedures), TIA-102.AACD-A (Key Fill Device Interface Protocol), TIA-102.BAKA (KMF-to-KMF Interface), TIA-102.AAAD-A (Block Encryption Protocol), and TIA-102.BACA-B (ISSI Messages and Procedures). TIA-905 provides equivalent security services for Phase 2 TDMA. RFC 4301 is cited as the informative reference for IPSec in the IP Data Encryption context.
+
+LIMITATIONS AND NOTABLE GAPS
+
+Two sections — IP Data Encryption (7.1.4) and Air Interface Encryption/Link Layer Encryption (7.2.2) — were explicitly marked as on hold at time of publication due to ongoing architectural discussions within the ETG. The AF-to-FNE authentication key distribution interface has no standardized protocol. DES and 3DES algorithms are deprecated throughout the TIA-102 suite and supported only for legacy interoperability.

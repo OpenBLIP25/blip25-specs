@@ -1,0 +1,139 @@
+TIA-102.BACA-B: P25 ISSI Messages and Procedures for Voice and Mobility
+=======================================================================
+Published: November 19, 2012 | 506 pages | Supersedes TIA-102.BACA-A
+
+OVERVIEW
+--------
+TIA-102.BACA-B is the core normative specification for the P25 Inter-RF Subsystem
+Interface (ISSI). It defines the complete set of SIP/SDP messages and RTP procedures
+used to connect P25 RF Subsystems (RFSSs) to support trunking voice calls (both
+unit-to-unit and group), unit mobility management, and RFSS capability polling. The
+ISSI uses standard IETF protocols (SIP per RFC 3261, SDP per RFC 3264, RTP per RFC
+3550) extended with P25-specific headers and payload types.
+
+PURPOSE AND SCOPE
+-----------------
+The ISSI allows P25 systems to span multiple geographic sites by interconnecting
+independent RFSSs over IP networks. Each RFSS manages its own radio infrastructure
+(sites, channels, subscriber units). The ISSI enables a subscriber on one RFSS to
+communicate with a subscriber on another RFSS as if they were on the same system.
+The interface handles voice call establishment/teardown, audio transport, unit
+registration/roaming, and inter-RFSS coordination for group calls.
+
+FUNCTIONAL ENTITIES
+-------------------
+Five functional entities are defined for ISSI operations:
+- UCCF (Unit Call Control Function): manages SU-to-SU call signaling
+- GCCF (Group Call Control Function): manages group call signaling
+- MMF (Master Media Function): Home RFSS audio aggregation for group calls
+- SMF (Subordinate Media Function): Serving RFSS RTP endpoint for group calls
+- RCPF (RF Channel Polling Function): polls peer RFSSs for capability
+
+SIP ADDRESSING
+--------------
+P25 SIP URIs use the format: sip:[radical-name@]domain-name[parameters]
+The domain name encodes the RFSS address: rfss-id.system-id.wacn-id.p25dr
+The "p25dr" top-level domain uniquely identifies P25 SIP addresses. The
+X-TIA-P25-ISSI header (40+ parameters) carries P25-specific call context including
+WACN, system ID, RFSS ID, SUID, TGID, priority, emergency flags, and encryption
+parameters. The Route header tag (TIA-P25-U2Uorig, TIA-P25-U2Udest, or
+TIA-P25-GroupCall) identifies the role of the sending RFSS.
+
+SU-TO-SU (UNIT-TO-UNIT) CALLS
+------------------------------
+SU-to-SU calls traverse up to four RFSSs: Calling Serving, Calling Home, Called
+Home, and Called Serving. Three independent SIP dialogs (call segments) are
+established in sequence: Calling Serving to Calling Home (Segment 1), Calling Home
+to Called Home (Segment 2), and Called Home to Called Serving (Segment 3). Each
+segment is a separate SIP INVITE transaction. RTP audio flows end-to-end across all
+three segments. SIP methods used are INVITE, CANCEL, BYE, and ACK (no Re-INVITE
+for SU-to-SU). Colliding calls (both SUs call each other simultaneously) are resolved
+by the higher hexadecimal SUID value winning. Failure responses include 486 Busy
+Here, 404 Not Found, 403 Forbidden, 603 Decline, and 606 Not Acceptable.
+
+GROUP CALLS
+-----------
+Group calls use a star topology: a single Home RFSS (owning the talk group) connects
+to multiple Serving RFSSs. The Home RFSS runs the GCCF and MMF; each Serving RFSS
+runs an SMF. Each Serving RFSS establishes an independent SIP dialog with the Home.
+Group calls use INVITE, Re-INVITE (for vocoder mode changes), BYE, and ACK.
+Re-INVITE is used exclusively for group calls (not SU-to-SU). Confirmed group calls
+require RF Resource Availability confirmation before the Home grants the floor.
+The PTT protocol (11 packet types: TX_REQUEST through HEARTBEAT_QUERY) coordinates
+floor control over RTP. Hang timers (Tgchhangtime=30s) prevent premature teardown.
+
+RTP AUDIO TRANSPORT
+-------------------
+P25 vocoders are carried as proprietary RTP payload types:
+- PT 100: X-TIA-P25-FullRate/8000 (IMBE, 4.4 kbps)
+- PT 101: X-TIA-P25-HalfRate/8000 (AMBE+2, 2.2 kbps)
+- PT 102: X-TIA-P25-Native/8000 (transparent RF frames)
+
+RTP SSRC values are fixed by role (e.g., Serving=2, Home=1 for group calls). Block
+types within RTP packets identify content: voice frames (types 0, 34), header words
+(types 5, 33), PTT control words (types 11, 15), and manufacturer-specific (63-127).
+Full Rate uses 18 frame types (FR1=$C2 through FR18=$73); Half Rate uses 6 frame
+types (HR1=$01 through HR6=$06).
+
+VOCODER MODE NEGOTIATION
+------------------------
+Vocoder modes are negotiated per RFC 3264 SDP offer/answer. Preference order is
+Native > HalfRate > FullRate. Either the Serving RFSS or the Called Home RFSS may
+perform rate conversion (RC) between modes. If no acceptable mode can be negotiated,
+a 606 Not Acceptable response is returned. Rate conversion capability is advertised
+in the X-TIA-P25-ISSI header. Multiple modes may be offered simultaneously in the
+SDP m-line (e.g., "RTP/AVP 102 101 100" for all three modes).
+
+MOBILITY MANAGEMENT
+-------------------
+Nine mobility object classes are defined. Three REGISTER variants handle mobility:
+Register (SU announces presence at new Serving RFSS), Query (Home queries state),
+and Deregister (removes registration; Expires=0 or explicit deregister message).
+In-Call Roaming (ICR) allows a unit to move between Serving RFSSs during an active
+call: the new Serving sends REGISTER to Home, Home tears down the old call segment
+(BYE + REGISTER Expires=0 to old Serving), then establishes a new call segment to
+the new Serving with c-icr=1 in the X-TIA-P25-ISSI header, bridging the new RTP
+session with the existing call.
+
+RFSS CAPABILITY POLLING
+-----------------------
+SIP OPTIONS is used for RFSS capability polling. The polling RFSS sends OPTIONS to
+a peer; responses 200 OK/403/405/501 indicate the peer is reachable. Timeout or
+other failures trigger a retry after RetryTime (10 seconds). Progressive retransmission
+per RFC 3261 applies.
+
+KEY TIMERS
+----------
+Tu2uhangtime=30s (SU-to-SU release), Tgchhangtime=30s (group release),
+Tgchstartconfirmed=5s (confirmed group call RF wait), Theartbeat=10s (RTP heartbeat),
+T1=500ms (SIP retransmission base), T2=4s (SIP retransmission max),
+RetryTime=10s (capability polling retry), WaitTimeout=5s (OPTIONS response wait),
+Telection=100ms (election timer).
+
+ANNEXES
+-------
+Annex A: Generic SIP responses (GEN_ prefix, 12 response codes, 4 P25 condition codes)
+Annex B: Complete timer table (20+ timers)
+Annex C: Vocoder error mitigation bit fields (FR=9 bits, HR=5 bits, Enhanced +3 bits)
+Annex D: Detailed message sequence charts for all procedures
+Annexes E-G: SDP examples and vocoder mode negotiation call flows
+Annex H: Future considerations (security, compression, bandwidth reservation)
+Annex I: Console functionality (group registration, priority, floor takeover, feedback
+         prevention, duplicate audio detection; console subsystem acts as a type of RFSS)
+
+DEPENDENCIES
+------------
+This document depends on: RFC 3261 (SIP), RFC 3264 (SDP Offer/Answer), RFC 3550
+(RTP), TIA-102.AAAB (CAI), TIA-102.AAAC (IMBE vocoder), TIA-102.AACA (OTAR),
+TIA-102.BAEB (Data Host Ed), TIA-102.BACD (Supplementary Data Transport).
+Addenda: TIA-102.BACA-B-1, TIA-102.BACA-B-2, TIA-102.BACA-B-3 (IWF interworking).
+
+IMPLEMENTATION NOTES
+--------------------
+Implementors building an ISSI stack must: (1) implement SIP/UDP per RFC 3261 with
+P25-specific headers; (2) implement SDP offer/answer with the three P25 payload
+types; (3) implement the RTP block format with fixed SSRC values; (4) implement PTT
+floor control (11 packet types); (5) implement all five functional entities (UCCF,
+GCCF, MMF, SMF, RCPF) or the subset required for the deployment role; (6) handle
+all timer values in Annex B; (7) implement in-call roaming and colliding call
+resolution; and (8) implement the full generic SIP response set from Annex A.

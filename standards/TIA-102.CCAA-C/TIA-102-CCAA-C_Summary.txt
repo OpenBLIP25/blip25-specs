@@ -1,0 +1,291 @@
+TIA-102.CCAA-C Summary
+Two-Slot Time Division Multiple Access Transceiver Measurement Methods
+Revision C | July 2022 | TIA-102 Project 25 Family
+
+=============================================================================
+DOCUMENT PURPOSE AND SCOPE
+=============================================================================
+
+TIA-102.CCAA-C defines test definitions and methods of measurement for P25
+Phase 2 Two-Slot TDMA transceivers. It is the measurement methods companion
+to TIA-102.CAAC (performance specifications) and TIA-102.CAAA (common air
+interface). The standard covers both subscriber units (portable/mobile radios)
+and base stations, addressing:
+
+  - Receiver measurements (Section 2.1)
+  - Transmitter measurements (Section 2.2)
+  - Trunking system timing measurements (Section 2.3)
+  - Unit characteristic (environmental/physical) measurements (Section 2.4)
+
+This revision C supersedes revision B. The document contains 131 pages of
+normative test procedures plus Annex A (normative test pattern vectors, 14
+pages), totaling 145 pages of content plus covers.
+
+=============================================================================
+SYSTEM FUNDAMENTALS
+=============================================================================
+
+The Two-Slot TDMA system divides each 25 kHz RF channel into two logical
+channels (LCH 0 and LCH 1) using time division multiplexing:
+
+  - Symbol rate: 6000 symbols/second (12 kb/s)
+  - Inbound modulation: H-CPM (Harmonized Continuous Phase Modulation)
+  - Outbound modulation: H-DQPSK (Harmonized Differential QPSK)
+  - Control channel: C4FM at 9.6 kb/s (shared with P25 Phase 1)
+  - Frame: 60 ms (two 30 ms timeslots)
+  - Burst duration: 28 ms (with 1 ms ramp, 0.2 ms guard each side)
+  - Superframe: 12 timeslots = 360 ms
+  - Ultraframe: 4 superframes = 1440 ms
+
+Standard test references:
+  - Standard BER: 5.000%
+  - Standard input signal: -103 dBm
+  - Standard Doppler (faded tests): 30 Hz
+
+=============================================================================
+STANDARD TRANSMITTER TEST MODES
+=============================================================================
+
+Five modes are defined for controlled testing:
+
+  1. Outbound Standard: Base station transmits continuously on both LCHs.
+  2. Inbound H-CPM Standard Slot: Subscriber transmits on one of two slots.
+  3. Inbound H-CPM Logical Channel TDMA: Subscriber transmits on single LCH.
+  4. Inbound H-CPM Continuous: Continuous (no TDMA gating) for conducted tests.
+  5. Inbound H-CPM Logical Channel TDMA - Symmetrical: Both slots same content,
+     used for power envelope, off-slot power, and ACPR measurements.
+
+=============================================================================
+TEST PATTERNS
+=============================================================================
+
+Test patterns are constructed from voice information vectors (vxu_0..vxu_3)
+and ancillary control vectors (ISCH, SACCH) assembled into superframe structure
+per TIA-102.CAAB.
+
+  STTP-OB-1031 / STTP-IB-1031-0 / STTP-IB-1031-1:
+    Standard Tone Test Patterns producing 1031.25 Hz at receiver vocoder.
+    Voice vectors: vxu_0=%111111101110, vxu_1=%001000010010,
+                  vxu_2=%00010010000, vxu_3=%10010000100000
+
+  SSTP-OB / SSTP-IB-0 / SSTP-IB-1:
+    Standard Silence Test Patterns producing silence at receiver vocoder.
+    Voice vectors: vxu_0=%111110000000, vxu_1=%000110101001,
+                  vxu_2=%10011111100, vxu_3=%01100111000001
+
+  STTP-IB-SYM-0 / STTP-IB-SYM-1:
+    Symmetrical patterns for power envelope and off-slot measurements.
+
+  Calibration patterns: Every 20th bit inverted relative to tone pattern.
+    Outbound calibration yields 5.000% BER; inbound yields 4.992% BER.
+
+  SITP: C4FM 9.6 kb/s interference pattern for co-channel tests.
+  LDTP: Low deviation symbols (for frequency deviation, emission spectrum).
+  HDTP: High deviation symbols (for frequency deviation, symbol rate accuracy).
+
+Scrambling uses test vectors: WACN_ID=$00001 (20 bits), SYSTEM_ID=$001 (12 bits),
+COLOR_CODE=$001 (12 bits), yielding default test scrambling sequences.
+
+=============================================================================
+RECEIVER MEASUREMENTS (SECTION 2.1, 18 SUBCLAUSES)
+=============================================================================
+
+2.1.1  Radiated Spurious Emissions - OATS or GTEM; scan 30 MHz - 12.75 GHz;
+       special GNSS band (GPS L1/L2, GLONASS) EIRP limits.
+       EIRP(dBm) = ERP(dBm) + 2.15 dB
+
+2.1.2  Conducted Spurious Emissions - Spectrum analyzer at antenna port;
+       RBW=10 kHz (<1 GHz), 1 MHz (>1 GHz).
+
+2.1.3  Power Line Conducted Spurious - LISN on power lines.
+
+2.1.4  Reference Sensitivity - Minimum signal for 5% BER; standard input
+       signal is -103 dBm.
+
+2.1.5  Faded Reference Sensitivity - Rayleigh fading, f_d=30 Hz, minimum
+       10-second measurement interval.
+       F(P)=1-exp(-P/P_ave), L(P)=sqrt(2*pi*P/P_ave)*f_d*exp(-P/P_ave),
+       phase correlation: rho(tau)=J0(2*pi*f_d*tau)
+
+2.1.6  Signal Delay Spread - Two-path fading; measure BER vs. delay.
+
+2.1.7  Adjacent Channel Rejection - +/-12.5 kHz offset (digital ACR);
+       +/-18.75 kHz offset (digital offset ACR).
+
+2.1.8  Co-Channel Rejection - SITP interferer at same frequency.
+
+2.1.9  Spurious Response Rejection - Sweep interferer across frequency range.
+
+2.1.10 Intermodulation Rejection - Two interferers at +/-50 kHz and
+       +/-100 kHz offsets.
+
+2.1.11 Signal Displacement Bandwidth - Frequency offset tolerance for BER.
+
+2.1.12 Audio Output Distortion - THD at audio output.
+
+2.1.13 Residual Audio Noise Ratio - Signal/noise at audio output.
+
+2.1.14 Average Radiation Sensitivity - Geometric mean over all orientations.
+
+2.1.15 Acoustic Audio Output - Rated audio power from speaker.
+
+2.1.16 BER Floor - BER at high signal level (~-50 dBm), limited by residual
+       errors.
+
+2.1.17 Blocking Rejection - Interferer at 1/2/5/10 MHz offsets; verify BER
+       does not degrade.
+
+2.1.18 Broadband Strong Signal Intermodulation - Two broadband interferers;
+       700/800 MHz bands: 10 MHz bandwidth; 900 MHz band: 3 MHz bandwidth.
+
+=============================================================================
+TRANSMITTER MEASUREMENTS (SECTION 2.2, 18 SUBCLAUSES)
+=============================================================================
+
+2.2.1  RF Output Power - Power meter into 50 ohm load.
+
+2.2.2  Operating Frequency Accuracy - AFC disabled and enabled; frequency
+       counter measurement.
+
+2.2.3  Electrical Audio Performance - Input impedance, sensitivity, frequency
+       response, THD (electrically coupled).
+
+2.2.4  Acoustic Audio Performance - Same parameters via microphone path.
+
+2.2.5  Modulation Emission Spectrum - Spectral mask compliance with LDTP.
+
+2.2.6  Unwanted Emissions Radiated Spurious - OATS; standard and GNSS EIRP.
+
+2.2.7  Conducted Spurious Emissions - Spectrum analyzer at antenna port.
+
+2.2.8  ACPR - Adjacent Channel Power Ratio (conducted):
+       ACPR_L = P_REF - P_ADJL (dBc); ACPR_U = P_REF - P_ADJU (dBc)
+
+2.2.9  Intermodulation Attenuation - External signal injected into TX port.
+
+2.2.10 Average Radiated Power / ERP / EIRP:
+       P_avg = 10*log10((1/8)*sum(10^((LVL_i+LOSS)/10))) dBm
+       EIRP(dBm) = ERP(dBm) + 2.15 dB
+
+2.2.11 Conducted Spurious Emission into VSWR - Variable load (line stretcher);
+       conducted_spur(dB) = 10*log10(P_TX_watts/0.001) - level_at_stepk
+
+2.2.12 Frequency Deviation for H-CPM - FM demodulator; HDTP (high level)
+       and LDTP (low level); peak positive/negative deviation recorded.
+       Applies to H-CPM modulation only.
+
+2.2.13 Modulation Fidelity - Combined method for H-CPM and H-DQPSK:
+       Model: z_k = C0 + C1*(s_k + i_k + e_k)
+       sum-square error: sum|e_k|^2 = sum|z_k/C1 - C0/C1 - (s_k + i_k)|^2
+       Reported: C0 (carrier offset), C1*2.992 kHz (deviation),
+       rms deviation error (% of deviation).
+       Capture >= 164 symbols centered on TDMA burst.
+
+2.2.14 Symbol Rate Accuracy:
+       ppm_error = (MBR_Hz/1500 - 1) * 10^6
+       Nominal symbol rate = 6000 sym/sec; HDTP test pattern.
+
+2.2.15 H-CPM Peak Adjacent Channel Power Ratio (inbound only):
+       Spectrum analyzer: center +/-12.5 kHz, Span=0, RBW=5 kHz Gaussian,
+       Peak detector, Sweep=360 ms. Capture 360 ms of TDMA output.
+       Peak ACP ratio = P_TX - P_ACP_HI or P_TX - P_ACP_LO (minimum).
+
+2.2.16 H-CPM Off Slot Power (inbound only):
+       P_ON measured 1-29 ms; P_OFF measured 30.2-59.8 ms;
+       P_OFF = P_TX - (P_ON_REL - P_OFF_REL) dBm
+
+2.2.17 H-CPM Logical Channel Power Envelope (inbound only):
+       Three regions: A (ramp-up, 1 ms), B (steady state, 28 ms), C (ramp-down):
+       P_MAX-ON, P_SS-MAX, P_SS-MIN, P_MAX-OFF all expressed in dBc
+       relative to P_REF (mean power at slot center).
+
+2.2.18 H-CPM Logical Channel Time Alignment (inbound only):
+       Complex autocorrelation-based measurement using 192 kHz I/Q capture.
+       t_error0 = t_IB_sync0 - t_OB_sync - 242.6666 ms (LCH 0)
+       t_error1 = t_IB_sync1 - t_OB_sync - 272.6666 ms (LCH 1)
+       Reference waveforms in Annex A.6 (609-sample outbound) and A.7
+       (641-sample inbound) at 192 kHz.
+
+=============================================================================
+TRUNKING SYSTEM MEASUREMENTS (SECTION 2.3)
+=============================================================================
+
+Phase 2 Two-Slot TDMA uses the same trunking control channel as Phase 1.
+Many trunking timing tests are in reference [6] and not repeated here.
+
+2.3.1 Trunking Voice Access Time - Time from PTT until traffic channel granted
+      and transmission begun on that channel (includes radio + RF subsystem):
+      - Receivers at -47 dBm
+      - Measure to 50% of max TX power on first TDMA burst (70.7% of voltage)
+      - Average of 10 samples
+
+=============================================================================
+UNIT CHARACTERISTIC MEASUREMENTS (SECTION 2.4)
+=============================================================================
+
+2.4.1  Power Supply Voltage Range - Test at maximum and minimum specified voltages.
+2.4.2  Temperature Range - Chamber <=200 deg C/hour; min and max temp; frequency
+       error in <=10 deg C increments.
+2.4.3  High Humidity - 8 hours at max humidity before power applied; no condensation.
+2.4.4  Vibration Stability - Vibration table; specified amplitude/frequency/sweep.
+2.4.5  Shock Stability - Calibrated shock table or drop; test after shock cycles.
+2.4.6  DC Supply Noise Susceptibility - Sinusoidal signal on DC supply.
+2.4.7  Battery Life - Standard duty cycle; end conditions: manufacturer discharge
+       voltage, or 3 dB sensitivity degradation, or 6 dB TX power degradation,
+       or frequency error exceeds limit.
+2.4.8  Dimensions - Bounding box with required accessories; excludes antennas,
+       cables, optional accessories.
+2.4.9  Weight - With required accessories; excludes optional accessories.
+2.4.10 Other Environmental - Rain, salt fog, dust referenced to other documents.
+
+=============================================================================
+ANNEX A - NORMATIVE TEST PATTERN VECTORS
+=============================================================================
+
+Annex A provides the complete normative vector definitions for all test patterns:
+
+A.1 Scrambling vectors: WACN_ID=$00001, SYSTEM_ID=$001, COLOR_CODE=$001
+A.2 ISCH vectors: sync=$575D57F7FF, ultraframe count, channel number, listener
+    access flag, ISCH location, parity (6 ISCH per superframe)
+A.3 Tone test vectors: voice information bits for 1031.25 Hz tone (18 instances/SF)
+A.4 Silence test vectors: voice information bits for vocoder silence (18 instances/SF)
+A.5 Inverted timeslot SACCH vectors: MAC_ACTIVE PDU with Group Voice Channel
+    User abbreviated link control and NULL info; DUID=$39 (SACCH with scrambling,
+    inverted timeslot); iemi_sync=$5F577D577FF; 2 SACCH per superframe
+A.6 Outbound reference waveform: 609-sample I/Q at 192 kHz for OB time alignment
+A.7 Inbound reference waveform: 641-sample I/Q at 192 kHz for IB time alignment
+
+=============================================================================
+TEST EQUIPMENT (38 ITEMS)
+=============================================================================
+
+Key test equipment required includes: spectrum analyzer, RF signal generator,
+calibrated power meter, variable attenuator, faded channel simulator (Rayleigh,
+calibrated), FM demodulator, modulation fidelity analyzer, TDMA test signal
+generator, signal autocorrelation processor, signal analyzer (192 kHz capable),
+voice and control channel digital signal generators, OATS or GTEM cell,
+oscilloscope (storage), temperature and humidity chambers, vibration table,
+shock table, and GNSS signal generator for GNSS EIRP measurements.
+
+=============================================================================
+KEY STANDARDS RELATIONSHIPS
+=============================================================================
+
+This document (TIA-102.CCAA-C) is the measurement methods standard and must
+be used in conjunction with:
+
+  TIA-102.CAAA  - Two-Slot TDMA Common Air Interface (defines the modulation
+                  and physical layer format being tested)
+  TIA-102.CAAB  - Physical Layer Specification (burst structure, bit ordering,
+                  superframe construction, Annex E bit ordering)
+  TIA-102.CAAC  - Transceiver Performance Specifications (the pass/fail limits;
+                  CCAA-C defines HOW to measure, CAAC defines the limits)
+
+=============================================================================
+REVISION HISTORY NOTES
+=============================================================================
+
+Revision C (July 2022) is the current version. Changes from prior revisions
+include additions and clarifications to TDMA-specific tests (sections 2.2.15-
+2.2.18 are Phase 2 TDMA-specific additions not present in Phase 1 standards)
+and corrections to the normative test pattern vectors in Annex A.

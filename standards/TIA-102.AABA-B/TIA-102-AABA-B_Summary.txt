@@ -1,0 +1,69 @@
+TIA-102.AABA-B — Project 25 Trunking Overview Digital Radio Technical Standards
+ANSI/TIA-102.AABA-B 2011 | Approved April 22, 2011 | Revision of TIA-102.AABA-A (April 1995)
+Superseded by TIA-102.AABA-C (approved December 2019, published October 2020)
+
+OVERVIEW
+
+This document is the top-level architectural overview for the trunking mode of operation within the Project 25 (P25) digital public safety radio system. It does not define wire-level formats, algorithms, or implementation procedures; those are delegated to companion normative documents. Its purpose is to establish the conceptual framework, terminology, and service model that the rest of the P25 trunking standard suite — primarily the AABB, AABC, AABD, and AABF documents — is built upon.
+
+WHAT THIS DOCUMENT SPECIFIES
+
+This revision (Issue B) updates the original 1995 Issue A document to incorporate provisions for TDMA (Time Division Multiple Access) operation alongside the existing FDMA framework, and transfers security-related content to the dedicated security services documentation suite. The document is organized into four clauses covering introduction and terms, trunking overview, services, and the Composite Control Channel.
+
+SCOPE AND SYSTEM CONTEXT
+
+The TIA-102 series defines interfaces for digital land mobile radio operation. Trunking is defined as the mutual sharing of a finite number of RF channels among a population of radio subscribers, distinguished from conventional operation by the presence of a resource controller that grants or denies subscriber access. This centralized system access control is explicitly called out as the defining characteristic of a trunked system.
+
+CHANNEL ACCESS METHODOLOGIES
+
+Project 25 trunking supports both FDMA and TDMA channel access methodologies, both using 12.5 kHz channels. FDMA may be used for control, voice, and data channels. TDMA is currently restricted to trunking voice channels only and provides two time slots per 12.5 kHz channel. Interoperability between FDMA and TDMA radios is achieved through a common FDMA control channel and a common interoperable vocoder. TDMA voice channels use distinct modulation, bit rate, and frame formats from FDMA, but implement the same set of voice services.
+
+RESOURCE ALLOCATION METHODS
+
+The document distinguishes two trunking resource allocation modes. Transmission trunking allocates a working channel for each individual communication, releasing it at the end of the transmission. Message trunking holds the allocated working channel across multiple exchanges between the same set of call participants, reducing control channel overhead for multi-exchange calls.
+
+SITE REGISTRATION AND ROAMING
+
+Subscriber units register their identity and site location with the RF Subsystem's resource controller. This registration allows the system to activate only the required sites for each call, conserving RF resources. Roaming is supported both within a home system (continuing to communicate with home-system subscribers) and across systems (using the resources of a visited system to communicate with home-system or visited-system subscribers).
+
+SUPPLEMENTARY CONTROL
+
+Supplementary control information — carried both on the control channel and on working channels — enables extended control functions. Subscribers not in a call monitor the outbound control channel and may respond on the inbound channel. Subscribers in a call may send status responses or cancel requests on the working channel per defined access procedures. Working channel supplementary control messaging is governed by the AABD and AABF documents.
+
+INTEROPERABILITY AND MIGRATION
+
+A primary objective is seamless migration from FDMA to TDMA while maintaining interoperability. The shared FDMA control channel is the mechanism: FDMA control messages can reach FDMA subscribers, TDMA control messages can reach TDMA subscribers, and FDMA messages may also interoperate with TDMA subscribers on the common control channel. This design allows FDMA subscriber units to be updated to TDMA support incrementally without fragmenting the user base.
+
+SERVICES DEFINED
+
+The document establishes three service categories:
+
+Teleservices (end-user-visible):
+- Group Voice Call: two-way voice among a pre-defined talkgroup; all members share a common address (talkgroup ID); members may span multiple RF Subsystems (RFSSs), with inter-RFSS connectivity via the ISSI.
+- Individual Voice Call: two-way point-to-point voice between any two registered system users; similarly supports inter-RFSS operation via ISSI.
+
+Bearer Services (data transport):
+- CAI Confirmed Data Packet Delivery: connection-oriented or connectionless, variable-rate, confirmed delivery between E_d and A reference points or to the subscriber radio directly.
+- CAI Unconfirmed Data Packet Delivery: connectionless, best-effort delivery with optional network-layer error detection/correction.
+
+Supplementary Services (modifiers to bearer or teleservices):
+- Voice Telephone Interconnect: allows subscriber units or talkgroups to connect to and receive calls from the PSTN via the RF subsystem telephone interconnect interface.
+- Pre-programmed Data Messaging: delivers fixed-meaning, pre-agreed short messages compressed for RF efficiency; used for status signaling in dispatch applications; also known as "short message," "message update," or "short data message."
+
+COMPOSITE CONTROL CHANNEL (CCC)
+
+When all RF resources are committed as working channels, the system may temporarily assign the trunking control channel itself to carry voice or data traffic. During CCC operation there are periods when the control channel is unavailable for normal channel-grant access. Once the CCC-allocated service completes on any channel, control channel operation resumes. Details are specified in the AABD-1 Addendum.
+
+KEY RELATIONSHIPS TO OTHER DOCUMENTS
+
+This document sits at the top of the P25 trunking standard family. Its normative references are:
+- TIA-102.AABB: Trunking Control Channel Formats
+- TIA-102.AABC: Trunking Control Channel Messages
+- TIA-102.AABD / AABD-1: Trunking Procedures (and Addendum covering CCC)
+- TIA-102.AABF: Link Control Word Formats and Messages
+- TIA-102.BAEB: Packet Data Specification
+- TIA-102 (system definition document): full supplementary service catalogue and bearer reference point definitions
+
+LIMITATIONS AND STATUS
+
+This document is an overview only — it does not specify bit formats, opcode tables, timing parameters, or state machines. All normative implementation requirements are found in the referenced sub-documents. This document was superseded by TIA-102.AABA-C, approved December 2019 and published October 2020, which presumably incorporated further TDMA evolution and any errata accumulated since 2011. Implementers should consult the -C revision for the current baseline.

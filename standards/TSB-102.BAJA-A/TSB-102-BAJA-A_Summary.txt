@@ -1,0 +1,66 @@
+TSB-102.BAJA-A: Project 25 Location Services Overview
+TIA Telecommunications Systems Bulletin — February 2010
+Classification: OVERVIEW (with structural elements relevant to PROTOCOL)
+
+WHAT THIS DOCUMENT IS
+
+TSB-102.BAJA-A is the capstone overview document for the P25 Location Services suite. It defines the architectural framework within which all P25 location services operate, describes the two tiers of service, maps out the entities involved, catalogs the interfaces between them, and presents the complete set of protocol stacks. It is informative, not normative — it does not define message formats or wire protocols itself, but instead explains how the normative specifications in TIA-102.BAJB (Tier 1) and TIA-102.BAJC (Tier 2) fit together. This revision (Issue A, rev. 1, February 2010) supersedes TSB-102.BAJA (Issue O, 2009) and adds a reference to EXI (Efficient XML Interchange) compression for Tier 2 location messaging.
+
+WHY IT EXISTS
+
+Knowing the real-time location of a public safety subscriber unit (SU) is operationally critical. The document enumerates the primary use cases driving the Location Services suite: resource tracking (monitor positions of a user community, auto-report on PTT or at programmable intervals); emergency mode reporting (automatic location transmission on emergency button press or emergency PTT, no user intervention); and perimeter/waypoint mapping (walk a perimeter at short intervals to chart it, mark targets for search and rescue or grid searches). The specification suite enables multi-vendor interoperability for these applications.
+
+TWO-TIER SERVICE MODEL
+
+The architecture is divided into two service tiers with different capability profiles:
+
+Tier 1 (Dedicated SAP, TIA-102.BAJB): A simple SU-to-SU interface for Conventional Direct or Repeated mode. No IP addressing, no fixed-host routing, no bidirectional trigger configuration. Uses a new dedicated Service Access Point (SAP 0x30) on the P25 Common Air Interface, carrying location data formatted as NMEA 0183 sentences (4800 baud serial GPS protocol). Appropriate for field incident applications where the Location Service Host System (LSHS) runs on a portable device. Does not support trunked systems or delivery to a fixed network host.
+
+Tier 2 (LRRP, TIA-102.BAJC): A full-featured service for Conventional or Trunked systems in Direct, Repeated, or Fixed-Host mode. Uses the Location Request/Response Protocol (LRRP), an XML-based application protocol derived from the OMA/LIF Mobile Location Protocol and Java Location API (JSR-179), adapted for P25 with added compactness and P25-specific fields. LRRP is carried over UDP/IP via SCEP (Conventional) or SNDCP (Conventional or Trunked). Because LRRP is XML and the air interface is bandwidth-constrained, Efficient XML Interchange (EXI, W3C 2008) compression is mandatory on the air interface; the Fixed Data Host or MDP handles compression/decompression. Tier 2 supports bidirectional trigger configuration from the LSHS to the SU via LRRP.
+
+ARCHITECTURAL ENTITIES
+
+Five entity types participate in Location Services:
+
+- Location Information System (LIS): External to P25 network; provides position fixes to the SU (GPS, LORAN, etc.). May be fully internal to SU hardware (integrated GPSR). Interface to SU is NOT standardized by this suite — left to manufacturers.
+- Location Service Host System (LSHS): External to P25 network; consumes SU position data (e.g., mapping software). May reside on a Fixed Data Host, Mobile Data Peripheral, or even within the SU itself. Interface to SU/FDH/MDP is NOT standardized.
+- Fixed Data Host (FDH): The P25 Endpoint System (ES); has an IP address; terminates the Ed interface (Ethernet/802.x); receives UDP/IP location datagrams from the RFSS, uncompresses them, and passes them to the LSHS. Reverse path carries LSHS commands.
+- Mobile Data Peripheral (MDP): Connects to SU via A interface (IP/PPP/SLIP on USB or RS-232). Can host the LSHS or act as an IP gateway for the LIS. Handles UDP/IP encapsulation for SUs that cannot do it themselves.
+- P25 System: Contains the SU, Fixed Station (FS), and RFSS. The RFSS re-packages location data from the CAI and delivers it via UDP/IP to the FDH over the Ed interface.
+
+TRIGGERING CONDITIONS
+
+Seven triggering conditions are standardized and supported: PTT (Conventional only — trunking protocol changes not yet defined), Periodic (minimum 3-second interval), Emergency, Power On/Off, Host Request (Tier 2 only — requires LRRP bidirectional protocol), User Request, and Distance Change. Three conditions are explicitly out of scope for SU implementation but may be handled at the LSHS using periodic data: Speed Change, Direction Change, and Proximity. Batch reporting (buffered delivery) and freshness checking (stale-data retransmit limited to 4 times) are required SU behaviors.
+
+SYSTEM ARCHITECTURES
+
+Four deployment topologies are defined:
+1. Conventional SU direct to SU — transmitting SU sends location on CAI directly to a receiving SU, which passes it to the LSHS.
+2. Conventional SU repeated to SU — a Fixed Station repeats the location on a second frequency to the receiving SU.
+3. Conventional or Trunked SU to Fixed Data Host — SU sends via RFSS over UDP/IP to FDH. Supports SU-to-SU routing through fixed data network. Supports roaming via ISSI (Visited RFSS → Home RFSS → FDH).
+4. MDP-augmented variants — MDP inserts as GPS source (LIS→MDP→SU) or as LSHS host (SU→MDP/LSHS), or both.
+
+PROTOCOL STACKS
+
+Eleven protocol stack configurations are fully described. Tier 1 stacks use NMEA 0183 over Um SAP 0x30. Tier 2 stacks use LRRP over UDP/IP, with SCEP (Conventional) or SNDCP (Conventional/Trunked) as the lower air interface protocol. On the fixed-network side, Ed (to FDH), A (to MDP), and G/ISSI (across RFSSs) all carry LRRP/UDP/IP without compression. Dedicated SAP and SCEP are mutually incompatible even for Conventional Direct/Repeated mode — agencies must choose one approach.
+
+KEY INTERFACES
+
+- LIS→SU/MDP: Unstandardized by design; physical connections limited to RS-232 and USB per TIA-102.BAEB.
+- SU air interface: Dedicated SAP 0x30 (Tier 1, NMEA 0183) or Packet Data SAPs via SCEP/SNDCP (Tier 2, LRRP/UDP/IP).
+- RFSS→FDH: UDP over Ed interface (Ethernet/802.x), same application protocol as air interface.
+- SU/FDH→LSHS: Unstandardized API; uncompressed LRRP for Tier 2.
+- ISSI: No changes needed; transparently carries IP packets between RFSSs.
+
+LIMITATIONS AND SCOPE NOTES
+
+Group-oriented Location Services are explicitly out of scope — transport mechanisms for group data were not complete at time of publication; a future revision is anticipated. Trunking control-channel location reporting (for systems without packet data support) is also out of scope; reserved for a future trunking document suite addendum. IP V6 support for Tier 2 is listed as "for further study." The Fixed Station Interface (TIA-102.BAHA) did not support data transmission at time of publication, precluding a FS→RFSS location forwarding architecture.
+
+DOCUMENT RELATIONSHIPS
+
+This overview sits at the top of a three-document Location Services suite:
+- TSB-102.BAJA-A (this document) — Architecture overview, informative
+- TIA-102.BAJB — Tier 1 normative spec (Dedicated SAP, NMEA 0183)
+- TIA-102.BAJC — Tier 2 normative spec (LRRP protocol)
+
+Underlying P25 infrastructure standards referenced: TIA-102.BAAA-A (CAI), TIA-102.BAAC-B (CAI Reserved Values/SAPs), TIA-102.BAEB-A (Packet Data), TIA-102.BACF (ISSI for Packet Data). External protocols: NMEA 0183 v3.01, RFC 768 (UDP), RFC 791 (IP), EXI (W3C), OMA LIF TS 101, JSR-179.

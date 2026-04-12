@@ -1,0 +1,69 @@
+TIA-102.BAED — Project 25 Packet Data Logical Link Control Procedures
+ANSI/TIA-102.BAED-2013 | Approved: September 26, 2013 | Published: October 2013
+Original (1st edition) — supersedes Annex E of TIA-102.BAAD-A
+
+WHAT THIS DOCUMENT IS
+
+This document defines the Logical Link Control (LLC) procedures for the P25 Packet Data Service. The LLC layer sits above the Common Air Interface (CAI) packet format layer (specified in TIA-102.BAAA-A) and below the network-layer services (SNDCP, CMS). Its responsibilities are limited but precise: it governs how CAI data packets are conveyed between endpoints across the Um Interface, and how logical messages (PDUs from an upper-layer SAP) are segmented into data packets and reassembled at the receiver.
+
+The document is compact — 19 pages of normative content — but dense with procedural detail. It contains no wire-format definitions; those are in TIA-102.BAAA-A. It references but does not restate the CAI packet structure, CRC algorithms, or addressing field formats.
+
+SCOPE AND APPLICABILITY
+
+The LLC procedures apply to all four P25 packet data configurations defined in TIA-102.BAEA-B:
+  - Direct Data (SU-to-SU, no infrastructure)
+  - Repeated Data (SU-to-SU via fixed station repeater)
+  - Conventional FNE Data (SU-to-FNE via conventional channel)
+  - Trunked FNE Data (SU-to-FNE via trunked channel)
+
+The primary roles are Subscriber Unit (SU), Fixed Network Equipment (FNE), and Fixed Station Repeater (FS_R). Sender and receiver procedures are defined for SU and FNE. FS_R sender/receiver processing is handled as part of repeater operation defined in TIA-102.BAAD-A.
+
+ADDRESSING
+
+Two addressing modes are defined. Symmetric addressing (two LLIDs: source + destination) is used in Direct Data and Repeated Data configurations where packets travel between SUs. Asymmetric addressing (one LLID identifying the SU) is used in Conventional FNE Data and Trunked FNE Data configurations. The format of the LLID fields within the CAI packets is specified in TIA-102.BAAA-A.
+
+RECEIVER PREPROCESSING
+
+Before any LLC procedure acts on a data packet, the receiver performs qualification checks: Frame Sync and NID are decoded; the Data Unit ID indicates a Packet Data Unit; the NAC is qualified (against TIA-102.BAAD-A for conventional or TIA-102.AABD-A for trunked); the header block is decoded and passes the Header CRC; the MFID is qualified (FS_R passes without checking; others require a standard value per TIA-102.BAAA-A or a locally-accepted manufacturer-specific value); addressing is qualified per receiver role; and sufficient time has elapsed for the BTF-indicated data blocks to be buffered (SU/FNE only, not FS_R). Packets failing any check are silently discarded.
+
+CONFIRMED DATA PACKET CONVEYANCE
+
+The confirmed method uses a stop-and-wait protocol. The sender transmits one data packet and waits for a response (ACK, NACK, or SACK) before proceeding. Three response types are defined:
+  - ACK (Class=%00, Type=%001): all blocks received; sender proceeds to next packet
+  - NACK (Class=%01, Type=%001): CRC_PACKET failure; sender retransmits full packet
+  - SACK (Class=%10, Type=%000): some blocks lost; sender retransmits only missing blocks
+
+Sequence numbers V(S) (sender) and V(R) (receiver) are 3-bit values incremented modulo 8. The sender increments V(S) for each new packet. The receiver uses N(S) comparison against V(R) for duplicate detection: N(S)=V(R)+1 is normal; N(S)=V(R) triggers a CRC_PACKET/CRC_LAST comparison to detect duplicates; any other value indicates lost packets and the receiver resets its V(R) to N(S). Duplicate detection support is optional for receivers; V(R) and CRC_LAST handling is only normative for receivers that implement it.
+
+Resynchronization: The sender asserts the SYN bit to reset both sides' V(S) and V(R) to zero. Required cases include the SU's first inbound packet after power-up or channel change (when using Static Packet Data Registration per TIA-102.BAEJ), or when the same payload is being transmitted multiple times.
+
+Fragmentation: Logical messages larger than one data packet are broken into fragments using the Fragment Sequence Number Field (FSNF). The FSNF is a 4-bit field: the high-order bit is the Last-In-Chain (LIC) flag; the lower 3 bits are the Fragment Sequence Number (FSN). FSN starts at 0 for the first fragment, increments before each subsequent fragment, and wraps from 7 back to 1. An only-in-chain message has LIC=1 and FSN=0. The receiver uses the FSNF to detect lost fragments in a multi-packet message.
+
+Data block size for confirmed packets: 16 octets per block. BTF = floor((L + 4 + P_MAXC) / 16), where L is the logical message fragment length in octets and P_MAXC = 15 pad octets (suggested). Pad Octet Count = BTF×16 − L − 4.
+
+The sender procedure is a 6-step state machine: (1) wait for logical message, (2) construct full data packet including encryption, chained headers, sequencing, CRC computation, (3) transmit and start T_RETRY timer, (4) wait for valid response, (5) full retry on NACK or timeout, (6) selective retry on SACK. Maximum transmissions: TX_MAX = 4 (suggested). Retry timer: T_RETRY = 2 seconds (suggested). After TX_MAX attempts, delivery is aborted.
+
+The receiver procedure is a 13-step state machine handling: initial FMF=0 edge case (selective retransmission received out of context — ACK and discard), data block CRC_BLOCK checking, selective-retry flagging for missing blocks, full-retry request on CRC_PACKET failure, duplicate detection and ACK generation, decryption and decryption-failure notification, and FSNF-based fragment reassembly. The CMS function (per TIA-102.BAEJ) is notified on decryption failure to support the Packet Data Supplementary Encryption Info function.
+
+UNCONFIRMED DATA PACKET CONVEYANCE
+
+The unconfirmed method is fire-and-forget: no sequence numbering, no fragmentation, no responses. The sender constructs the data packet (encrypting if needed, chaining headers, computing CRCs) and transmits once. Data blocks are 12 octets each. BTF = floor((L + 4 + P_MAXU) / 12), P_MAXU = 11 pad octets (suggested). The receiver checks CRC_PACKET; on failure it silently discards. On success it extracts and decrypts the logical message and forwards it to the SAP (SNDCP if active, otherwise CMS if the SAP is Packet Data Scan Preamble).
+
+KEY PARAMETERS
+
+  P_MAXC   = 15 pad octets (max padding, confirmed)
+  P_MAXU   = 11 pad octets (max padding, unconfirmed)
+  TX_MAX   = 4 transmissions (max attempts, confirmed)
+  T_RETRY  = 2 seconds (retry timer, confirmed)
+  Sequence number range: 0–7 (3-bit, modulo 8)
+  FSN range: 0 (only/first-in-chain), 1–7 (subsequent), wraps 7→1
+  Confirmed block size: 16 octets
+  Unconfirmed block size: 12 octets
+
+RELATIONSHIP TO OTHER DOCUMENTS
+
+This document depends heavily on TIA-102.BAAA-A (CAI packet formats, CRC definitions, FSNF structure, header block layouts). It was originally published as Annex E of TIA-102.BAAD-A (Conventional Procedures) and was extracted into a standalone document in 2013 to apply to all four data configurations rather than conventional only. TIA-102.BAEA-B (Data Overview and Specification) defines the four data configurations and the Um Interface framing within which LLC operates. TIA-102.AAAD-A governs the encryption protocol referenced for Auxiliary Headers. TIA-102.BAEJ (Conventional Management Service Specification for Packet Data) defines the CMS function used for decryption failure notification and the Static Packet Data Registration channel-change trigger for SYN assertion.
+
+LIMITATIONS
+
+Some aspects of the specifications may not have been fully operationally tested (per the foreword). No patents were identified at time of publication. The document acknowledges that duplicate detection at the receiver is optional.

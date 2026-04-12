@@ -1,0 +1,79 @@
+TSB-102-BAJA-B: Project 25 Location Services Overview
+TIA Telecommunications Systems Bulletin | November 2017 | 12 pages (body)
+Revision B — cancels and replaces TSB-102.BAJA-A (2010)
+
+WHAT THIS DOCUMENT IS
+
+This bulletin provides a non-normative architectural overview of P25 Location Services for land mobile radio (LMR) systems. It is the umbrella document for a three-document suite that together specify how subscriber units report their physical position to mapping and dispatch applications. The bulletin itself contains no wire formats, message opcodes, state machines, or algorithms — those are delegated to the two normative companion specifications. Its purpose is to orient implementers to the two-tier service model, the entities involved, the supported system configurations, and which specification governs each interface.
+
+WHY IT EXISTS
+
+Location awareness is operationally critical for public safety. Dispatchers need to track field units in real time, emergency activations must automatically broadcast position, and incident commanders need perimeter and waypoint mapping during search-and-rescue or tactical operations. The specifications in the TIA-102 Location Services suite enable SUs and infrastructure elements from different manufacturers to interoperate when providing these services. This bulletin provides the architectural context that ties the normative specifications together and explains the design rationale for interface decisions.
+
+THE TWO-TIER MODEL
+
+Location Services are structured into two tiers with increasing capability and complexity:
+
+Tier 1 is designed for simple field deployments where no fixed network infrastructure is available. It supports only the Direct Data and Repeated Data air interface configurations. An SU sends location information — formatted per NMEA 0183 — directly to another SU that hosts the Location Service Host System on a portable device. No IP addressing, fixed host routing, or configurable triggering is required. This is appropriate for mobile command post scenarios or small-team field operations. Tier 1 messages and procedures are specified in TIA-102.BAJB-A.
+
+Tier 2 supports all four air interface configurations: Direct Data, Repeated Data, Conventional FNE Data, and Trunked FNE Data. It uses UDP/IP addressing for routing through fixed networks, enabling location information to reach a host system on a data network. Triggering and reporting are configurable from the fixed host. The transport protocol is LRRP (Location Request/Response Protocol), an XML-based protocol carried over the IP Data Bearer Service. Because XML is verbose, a compression method is mandatory for efficient use of the radio channel. Tier 2 messages, compression, and procedures are specified in TIA-102.BAJC-A.
+
+ARCHITECTURAL ENTITIES
+
+Six entity types participate in Location Services:
+
+- Location Information System (LIS): The external system that provides raw position data to the SU. This is typically GPS but may be LORAN or another technology. It may be physically integrated into the SU (e.g., an embedded GPSR chipset) or connected externally. The LIS-to-SU interface is intentionally not standardized by TIA-102.
+
+- Subscriber Unit (SU): The LMR radio that obtains position from the LIS and transmits it over the air. The SU is the central actor in Location Services. It supports configurable triggering (timed intervals, PTT events, emergency activation) and reporting conditions (batch reporting, freshness checking). In Direct/Repeated Data configurations, a receiving SU relays location from a sending SU to the LSHS.
+
+- Fixed Station Repeater (FS_R): Passes location data traffic transparently; no special Location Services behavior beyond its standard CAI or IP Data Bearer Service role.
+
+- Fixed Network Equipment (FNE): Passes location data traffic transparently in trunked or conventional FNE configurations; no special Location Services behavior.
+
+- Fixed Data Host (FDH): A fixed IP-addressed host that may contain the LSHS. In Tier 2 it receives UDP datagrams from the SU via the FNE, decompresses them, and delivers to the LSHS. It also compresses and forwards LSHS commands back to the SU.
+
+- Mobile Data Peripheral (MDP): An IP-addressed device connected to the SU. It may relay LIS data to the SU, host the LSHS, or both. In Tier 2 it handles UDP/IP encapsulation and LRRP compression.
+
+- Location Service Host System (LSHS): The application that consumes SU position data — typically mapping or dispatch software. It may reside in the FDH, on an MDP, or be integrated into the SU itself. The LSHS-to-SU and LSHS-to-FDH/MDP interfaces are not standardized by TIA-102.
+
+SUPPORTED SYSTEM CONFIGURATIONS
+
+Four data configurations from TIA-102.BAEA-C underpin Location Services:
+
+1. Direct Data — Two SUs communicate directly on the same frequency. The reporting SU sends position to the receiving SU which hosts the LSHS. Supported by both Tier 1 and Tier 2.
+
+2. Repeated Data (Conventional) — An FS_R repeats transmissions between two SUs. The reporting SU sends to the FS_R, which repeats to the receiving SU hosting the LSHS. Supported by both tiers.
+
+3. Conventional FNE Data — An FNE routes packets between SUs and fixed hosts. The SU sends location to the FNE, which routes to an FDH or to a destination SU via the fixed data network (FDN). Tier 2 only.
+
+4. Trunked FNE Data — Same routing role as Conventional FNE Data but on a trunked system. In trunking, an SU may target another SU in fixed host mode, with the FNE routing the IP packet back to the destination SU. Tier 2 only.
+
+An MDP may be inserted in any of these configurations to bridge the LIS to the SU, to host the LSHS, or both.
+
+INTERFACES AND STANDARDIZATION SCOPE
+
+Of the six interfaces defined architecturally, only some are standardized:
+
+- LIS to SU/MDP (4.3.1): NOT standardized. Rationale: LIS may be embedded in SU hardware; LIS industry is separate from LMR industry; manufacturer-specific certification handles this; leaving it open allows innovation. Manufacturers must disclose what protocols their SUs support for this interface.
+
+- SU to SU / SU to FS_R / SU to FNE (4.3.2): Standardized. Tier 1 in [2], Tier 2 in [3].
+
+- SU to LSHS (4.3.3): NOT standardized. Rationale mirrors 4.3.1 — LSHS may be embedded, LSHS industry is separate, manufacturer certification handles it.
+
+- SU to MDP (4.3.4): Tier 2 only, specified in [3].
+
+- FNE to FDH (4.3.5): Tier 2 only, specified in [3].
+
+- FDH to MDP or LSHS (4.3.6): Tier 2 only, specified in [3].
+
+TRIGGERING AND REPORTING
+
+The SU supports multiple triggering conditions that can initiate a location report: timed periodic intervals, each PTT press, emergency mode activation (with automatic repeat without manual PTT), and others. All triggers must be individually configurable (enable/disable) by the agency. Tier 1 triggers are defined in TIA-102.BAJB-A; Tier 2 triggers in TIA-102.BAJC-A. Two reporting conditions also apply: batch reporting (buffer location messages and report on request) and freshness (verify the position has changed before sending on trigger).
+
+LIMITATIONS
+
+Group-oriented Location Services (location tracking of talkgroups) are explicitly out of scope. The document acknowledges that some aspects of the specifications may not have been fully operationally tested. No patents have been identified as covering this document's content.
+
+DOCUMENT HISTORY
+
+Originally published February 2009. Revision A (February 2010) added Tier 2 references including the compression method. Revision B (November 2017) realigned with the latest Tier 1 and Tier 2 specification revisions (BAJB-A and BAJC-A) and updated to current TR-8 editorial practices. There are no annexes.

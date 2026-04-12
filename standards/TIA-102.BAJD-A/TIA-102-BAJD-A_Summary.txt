@@ -1,0 +1,129 @@
+TIA-102.BAJD-A: Project 25 TCP/UDP Port Number Assignments
+Summary
+==========================================================
+
+DOCUMENT IDENTITY
+-----------------
+Standard:    TIA-102.BAJD-A
+Title:       Project 25 TCP/UDP Port Number Assignments
+Revision:    Revision A (supersedes TIA-102.BAJD, original August 2010)
+Published:   January 2019 (adopted by P25 Steering Committee October 18, 2018)
+Committee:   TIA TR-8.5 Subcommittee on Signaling and Data Transmission
+Pages:       ~7 normative pages (small focused document)
+
+WHAT THIS DOCUMENT SPECIFIES
+------------------------------
+TIA-102.BAJD-A is the authoritative reference for TCP/UDP port number
+assignments used by TIA-102 (Project 25) standard data applications. It
+establishes a reserved block of port numbers drawn from the IANA
+"dynamic/private" range (49152-65535) specifically for P25 IP-based
+applications, ensuring interoperability among manufacturers while preventing
+conflicts with non-P25 applications using the same range.
+
+The document assigns specific port numbers to named TIA-102 data applications
+and carves out additional reserved ranges for future P25 data applications.
+Assigned port numbers serve as the default destination port for each named
+application, though implementers are required to support configurability of
+these defaults to accommodate network-specific conflicts and security policy.
+
+WHY IT EXISTS
+-------------
+The P25 standard increasingly relies on IP transport for its inter-subsystem
+interfaces (OTAR, KMF, location services, key fill operations). Without
+centrally coordinated port assignments, different manufacturers would
+independently choose arbitrary ports from the IANA dynamic/private range,
+preventing interoperability. By reserving a sub-range and publishing specific
+assignments, TIA-102.BAJD-A allows any two compliant P25 systems to connect
+using IP without out-of-band port negotiation.
+
+The document was created at the direction of the P25 Steering Committee under
+the 1992/1993 MOU between APCO/P25 and TIA.
+
+KEY PORT ASSIGNMENTS
+---------------------
+The normative Table 1 spans the full 16-bit port space. The most important
+entries in the TIA-102-reserved sub-range are:
+
+  Port 49198  — TIA-102 Tier 2 Location Service
+  Port 49199  — TIA-102 Inter-KMF (Key Management Facility) Interface
+  Port 49200  — TIA-102 Key Fill Security Type: Radio Authentication
+  Port 49201  — TIA-102 Key Fill Security Type: End-to-End Encryption
+  Port 49202  — TIA-102 Key Fill Security Type: Link Layer Encryption
+  Port 64414  — TIA-102 OTAR (Over-The-Air Rekeying)
+
+Reserved ranges for future TIA-102 data applications (not yet assigned to a
+specific named application):
+  49203-49213, 49226-49249, 49257-49279, 49281-49291
+
+Ports 49200-49202 (Key Fill Security Types) were the primary addition in
+Revision A; the original document (2010) did not include these three
+assignments. Revision A also addressed several errata in the original.
+
+STRUCTURAL CONTEXT
+------------------
+Port 64414 (OTAR) was the original flagship assignment from the 2010 version,
+enabling IP-based delivery of cryptographic key material to P25 radios. The
+TIA-102.AACA series (OTAR messages and procedures) depends on this port as its
+default transport endpoint.
+
+Ports 49199 (Inter-KMF) and 49198 (Tier 2 Location) support the P25 IP-based
+infrastructure interfaces defined in the TIA-102.BAxx series documents
+covering ISSI and CSSI.
+
+The three new Key Fill ports (49200-49202) support the TIA-102.BAJB / BAJC
+series documents covering Key Fill Device interfaces, allowing cryptographic
+key material to be loaded into P25 subscriber radios over IP with security-
+type-specific channels.
+
+RELATIONSHIPS TO OTHER DOCUMENTS
+----------------------------------
+This document is referenced by (or closely related to):
+  - TIA-102.AACA series: OTAR Messages and Procedures (uses port 64414)
+  - TIA-102.BACA series: ISSI Voice and Mobility (uses IP transport)
+  - TIA-102.BAJB-A / BAJC-A: Key Fill Device Interface (uses ports 49200-49202)
+  - TIA-102.BACD: Inter-KMF Interface (uses port 49199)
+  - TIA-102.BAEE series: Tier 2 Location Services (uses port 49198)
+
+Normative dependency:
+  - IANA Port Number Assignments registry [1] — the authoritative source
+    defining the dynamic/private range from which P25 draws its sub-range.
+
+Informative dependencies:
+  - RFC 768 (UDP)
+  - RFC 793 (TCP)
+  - RFC 2780 (IANA allocation guidelines)
+
+DESIGN RULES AND CONSTRAINTS
+------------------------------
+1. All assigned port numbers SHALL be used as default destination port numbers
+   for the named TIA-102 applications.
+2. Assigned port numbers SHOULD be configurable to allow for network conflicts
+   and security policy.
+3. Manufacturers SHOULD NOT use TIA-102-reserved port numbers as defaults for
+   non-P25 applications.
+4. Manufacturers MAY use ports outside the TIA-102-reserved blocks for non-P25
+   applications without restriction.
+5. Port numbers are 16-bit values (0-65535), consistent with TCP/UDP header
+   fields.
+
+LIMITATIONS
+-----------
+- The document is purely an assignment registry; it contains no protocol
+  message format definitions, session establishment procedures, or security
+  specifications. Those are defined in the referenced application-specific
+  TIA-102 documents.
+- The scope is limited to default port values. It does not define negotiation
+  mechanisms, service discovery, or firewall traversal strategies.
+- The reserved blocks contain gaps labeled "Available," meaning those ports
+  remain unassigned within the TIA-102 namespace but are not prohibited for
+  general use by IANA rules.
+- The document does not specify whether TCP, UDP, or both protocols apply to
+  each port assignment; the referenced application documents govern that choice.
+
+REVISION SUMMARY
+-----------------
+Original (2010): Assigned ports for OTAR (64414), Inter-KMF (49199), and Tier
+2 Location Service (49198), plus reserved blocks.
+
+Revision A (2019): Added ports 49200, 49201, 49202 for three Key Fill Security
+Types, corrected errata in the port table layout and descriptions.

@@ -1,0 +1,151 @@
+TIA-102.BAKA — Project 25 KMF to KMF Interface
+Summary
+
+DOCUMENT IDENTIFICATION
+  Title:      Project 25 KMF to KMF Interface
+  Number:     TIA-102.BAKA
+  Published:  April 19, 2012
+  Pages:      160
+  Status:     Final Publication (superseded by TIA-102.BAKA-A)
+  Series:     TIA-102 Series B (Infrastructure)
+
+PURPOSE AND SCOPE
+  This document defines the Inter-KMF Interface (IKI) — the protocol and
+  procedures used when two Key Management Facilities (KMFs) need to exchange
+  encryption keys and manage shared key material. It covers the message format,
+  transport options, security architecture, and XML schema for all IKMF Protocol
+  Data Units (PDUs).
+
+  A KMF is the system responsible for generating, storing, and distributing
+  encryption keys to P25 subscriber units and infrastructure. When agencies with
+  separate KMFs must communicate securely, their KMFs use the IKI to share keys
+  ahead of or during joint operations.
+
+SYSTEM ARCHITECTURE
+  The IKI supports three Concepts of Operations (CONOPS):
+    1. Key Dissemination — one KMF pushes keys to a peer KMF
+    2. Interoperability Key Management — KMFs use named Encryption Objects to
+       manage shared key sets across agency boundaries
+    3. Peer-to-Peer Key Sharing — a KMF requests specific keys from a peer
+
+  Each KMF is identified by a 3-byte hex RSI (RF Subsystem Identifier). The
+  source-RSI and destination-RSI appear in every IKMF message header.
+
+  An Encryption Object is a named container in a KMF that aggregates multiple
+  keys for a given interoperability context (e.g., joint operation). Objects can
+  be created, modified, and deleted by a peer KMF via the IKI.
+
+TRANSPORT
+  Two transport mechanisms are defined:
+    - Real-time: TLS 1.0 (RFC 2246) over TCP/IP. Provides transport-layer
+      authentication and encryption. Used when both KMFs are online.
+    - Non-real-time: S/MIME (RFC 3851) over SMTP email. Provides message-level
+      signing and encryption. Used when KMFs may not be simultaneously online.
+
+  In both cases, IKMF messages are encoded as MIME objects. A PDU may contain
+  a single IKMF message (single-part MIME) or multiple messages (multipart/mixed).
+
+SECURITY ARCHITECTURE (TWO LAYERS)
+  Layer 1 — Inner-layer key encryption:
+    Each symmetric key is RSA-encrypted using the recipient KMF's public key
+    before being embedded in the IKMF XML. This provides end-to-end key
+    confidentiality independent of transport security.
+    OpenSSL command: openssl rsautl -encrypt -certin -inkey cert.pem
+
+  Layer 2 — Outer-layer PDU security:
+    The MIME PDU is signed with the sender's private key (S/MIME signing) and
+    optionally encrypted for the recipient (S/MIME encryption using AES-256).
+    This provides authentication and integrity of the overall message.
+    OpenSSL commands:
+      openssl smime -sign ... (sender authenticates)
+      openssl smime -encrypt -aes256 ... (recipient confidentiality)
+
+  PKI requirements: Each KMF needs two X.509 certificates — one for signing
+  (digitalSignature key usage) and one for encryption (keyEncipherment key usage).
+
+MESSAGE FORMAT
+  Every IKMF message has two parts:
+    1. ikmf-header: mf-ID, protocol-version (fixed=1), source-RSI,
+       destination-RSI, msg-ID, optional ctag (correlation tag), time
+    2. ikmfContent: one of the 9 defined message types (see below)
+
+  The ctag (correlation tag) is a (source, tag-number) pair used to correlate
+  request/response messages across multi-step coordinated procedures.
+
+MESSAGE TYPES (9 total)
+  KeyDis         — Key Dissemination: push one key to peer KMF
+  KeyReq         — Key Request: pull/request a key from peer KMF
+  KeyAct         — Key Activation: activate a previously disseminated key
+  KeyActReq      — Key Activity Request: request status in coordinated procedure
+  KeyProg        — Key Activity Progress: peer KMF reports GO/NO-GO readiness
+  KeyDel         — Key Delete: delete a key from peer KMF
+  ObjCre         — Object Create: create or update an Encryption Object
+  ObjDel         — Object Delete: delete an Encryption Object
+  RetReceipt     — Return Receipt: acknowledgment/result of any operation
+
+PROCEDURES
+  Uncoordinated:
+    - Push Key: send KeyDissemination → receive ReturnReceipt
+    - Pull Key: send KeyRequest → receive KeyDissemination or ReturnReceipt
+
+  Object Management:
+    - Create/Modify Object: send ObjectCreate → receive ReturnReceipt
+    - Delete Object: send ObjectDelete → receive ReturnReceipt
+
+  Coordinated (multi-step, uses ctag):
+    - Distribute Key: KeyDissemination → ReturnReceipt(S_PROGRESSING) →
+      periodic KeyActivityProgress(GO/NO-GO) → KeyActivation or KeyDelete
+    - Progress interval: configurable, default 15 minutes
+
+KEY MATERIAL
+  Key classes: KEK (Key Encryption Key), TEK (Traffic Encryption Key),
+               AUTHK (Authentication Key)
+  Algorithms: AES (32 bytes), DES (8 bytes), TDEA (24 bytes)
+  Key ID: 2-byte hex, compatible with P25 OTAR key numbering
+
+RETURN CODES
+  Positive (success): S_SUCCESS(0), S_PROGRESSING(1), S_THANKS_AGAIN(2),
+                       S_KEYS_RETAINED(3), S_KEY_IN_USE(4)
+  Negative (failure): F_KEY_UNKNOWN(-1), F_KEY_IN_USE(-2),
+                       F_POLICY_VIOLATION(-3), F_KEYID_REQUIRED(-4),
+                       F_INCONSISTENT(-5), F_OBJECT_UNKNOWN(-6),
+                       F_NOT_SUPPORTED(-7), F_NOT_READY(-8),
+                       F_KEY_NOT_PRESENT(-9)
+
+XML SCHEMA (Section 7, normative)
+  The complete XSD is normative. Key types: RSI (3-byte hexBinary), msgID enum,
+  Algorithm enum (AES/DES/TDEA), keyClass enum (KEK/TEK/AUTHK), readiness enum
+  (GO/NO-GO), Ctag complex type, KeyDissemination complex type (includes
+  object-name, key-name, key-class, key-ID, algorithm, key-length, key, dates).
+
+RELATIONSHIP TO OTHER SPECS
+  Depends on:
+    TIA-102.AAAA-B  — P25 Security Services Overview (key types and concepts)
+    TIA-102.AACA-C  — P25 OTAR Messages (key ID format compatibility)
+    ITU-T X.509     — PKI certificates
+    RFC 3851        — S/MIME v3.1
+    RFC 2246        — TLS 1.0
+  Superseded by:
+    TIA-102.BAKA-A  — Revised version
+    TIA-102.BAKA-A-1 — Addendum adding TLS 1.3 support
+
+IMPLEMENTATION NOTES
+  - RSA key wrapping is mandatory; plaintext keys must never appear in XML
+  - S/MIME signing is mandatory for non-real-time transport; encryption optional
+    but strongly recommended for all transports
+  - KMFs should validate certificate chains, check revocation (CRL/OCSP), and
+    verify peer identity before accepting any IKMF message
+  - Coordinated procedures require the originator to maintain ctag state across
+    potentially many Key-Activity-Progress messages (each 15 min interval)
+  - Multi-part MIME allows batching multiple key distributions in one network
+    transaction, which may be preferable for non-real-time email transport
+
+PHASE 3 FLAG (FOLLOW-UP REQUIRED)
+  A PROTOCOL-type implementation spec should be produced for this document in a
+  follow-up processing run. It should cover:
+    - Rust struct definitions for all IKMF message types (serde XML)
+    - State machine for coordinated key distribution (ctag tracking)
+    - Two-layer encryption/decryption pipeline (RSA inner + S/MIME outer)
+    - KMF identity and RSI management
+    - Return code handling and error recovery
+    - Transport abstraction (TLS vs. S/MIME email)

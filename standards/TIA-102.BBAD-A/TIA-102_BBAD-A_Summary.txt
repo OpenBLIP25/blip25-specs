@@ -1,0 +1,38 @@
+TIA-102.BBAD-A Summary
+======================
+Two-Slot TDMA MAC Layer Messages — November 2019
+Revision A (Revision of TIA-102.BBAD, August 2017)
+Published by the Telecommunications Industry Association (TIA)
+Developed by TIA TR-8.12 Two Slot TDMA Subcommittee
+
+WHAT THIS DOCUMENT SPECIFIES
+
+TIA-102.BBAD-A defines the Media Access Control (MAC) layer protocol data units (PDUs) and message formats for logical channels on the Um2 interface — the air interface used by Project 25 (P25) Phase 2 two-slot Time Division Multiple Access (TDMA) land mobile radio systems. It is a component of the broader Two-Slot TDMA document suite that defines a common air interface for trunked voice and data services using two TDMA time slots within a single 12.5 kHz bandwidth radio channel. The document covers both the Logical Control Channel (LCCH) and the Voice Channel (VCH), specifying every PDU structure and MAC message that travels over these channels.
+
+WHY THIS DOCUMENT EXISTS
+
+P25 Phase 2 doubles the spectrum efficiency of Phase 1 FDMA systems by fitting two simultaneous voice channels into the same 12.5 kHz bandwidth using TDMA. This requires a precisely defined MAC layer to manage signaling, call setup, registration, authentication, channel grants, power control, and status messaging across both time slots. TIA-102.BBAD-A provides the normative message-level specification that equipment manufacturers need to build interoperable P25 Phase 2 infrastructure (base stations, repeaters) and subscriber units (portable and mobile radios). Without this specification, radios from different manufacturers would be unable to exchange the signaling messages that coordinate trunked voice calls, data sessions, and system management.
+
+Revision A restructured the document suite: the original TIA-102.BBAD combined MAC messages, bursts, coding, and procedures in a single document. Revision A extracts the MAC layer messages into this standalone document, while bursts and coding moved to TIA-102.BBAC-A (MAC Layer Specification) and procedures moved to TIA-102.BBAE (MAC Layer Procedures). This document cancels and replaces the original TIA-102.BBAD.
+
+DOCUMENT STRUCTURE AND KEY CONTENT
+
+The document is organized into four main sections plus one informative annex:
+
+Section 1 (Introduction) defines scope, references, acronyms, definitions, and conventions including bit numbering (MSB = bit 7, transmitted left-to-right, top-to-bottom), binary/hex notation using % and 0x prefixes, and the O/B labeling convention for PDU format figures.
+
+Section 2 (MAC PDUs) specifies the structure of all MAC PDUs. Every PDU begins with a common 8-bit MAC PDU Header containing a 3-bit Opcode (identifying PDU type: MAC_SIGNAL, MAC_PTT, MAC_END_PTT, MAC_IDLE, MAC_ACTIVE, MAC_HANGTIME, or reserved), a 3-bit Offset (voice frame timing), a Reserved bit, and a Protected bit (clear vs. encrypted). LCCH PDUs use a 16-bit CRC (CRC-16) trailer; outbound LCCH PDUs additionally carry a 12-bit Color Code. VCH PDUs use a 12-bit CRC (CRC-12) trailer. The section defines OECI (outbound LCCH, 22.5 octets), IECI (inbound LCCH, 17 octets), I-OEMI (outbound VCH without sync, 22.5 octets), S-OEMI (outbound VCH with sync, 19.5 octets), and IEMI (inbound VCH with sync, 19.5 octets) burst formats. Fixed-content PDUs (MAC_PTT for call setup, MAC_END_PTT for call teardown) carry Message Indicator, Algorithm ID, Key ID, and source/group addresses. Variable-content PDUs (MAC_IDLE, MAC_ACTIVE, MAC_HANGTIME, MAC_SIGNAL) carry one or more generic MAC messages identified by B1, B2, and MCO fields.
+
+Section 3 (MAC Messages) is the bulk of the document, defining 98 distinct MAC messages (subclauses 3.1 through 3.98) across voice services, data services, control/status services, MAC-specific functions, and dynamic regrouping. Messages are partitioned into four groups via B1/B2 bits: unique TDMA messages (B1=0, B2=0), abbreviated FDMA-derived messages (B1=0, B2=1), manufacturer-specific messages (B1=1, B2=0), and extended/explicit FDMA-derived messages (B1=1, B2=1). Key message categories include: group and unit-to-unit voice channel grants and updates; telephone interconnect grants, requests, and responses; SNDCP data channel grants and requests; registration (unit, location, deregistration); authentication (demand, response, mutual authentication, SU demand); status and message updates; call alerts; extended function commands; adjacent/network/RFSS/system service broadcasts; synchronization broadcasts; power control signal quality; individual and group paging; roaming address management; and Motorola MFID90/MFIDA4 dynamic regrouping messages. Many messages have abbreviated, extended VCH, and extended LCCH variants. Multi-fragment messages spanning consecutive bursts are supported on the LCCH with a Multi-Fragment CRC-16 for integrity.
+
+Section 4 (MAC Fields) defines each field used in PDUs and messages: Opcode, Offset (voice frame timing with five defined scenarios), Protected bit, RF Level (16 values from unknown through S+27 dBm), BER (16 ranges from 0% through 12.5%+), CRC-12 polynomial (x^12 + x^11 + x^7 + x^4 + x^2 + x + 1), CRC-16 polynomial (x^16 + x^12 + x^5 + 1 with inversion polynomial), Unforced/Forced preemption, Call Preemption/Audio, Color Code, Length, Data Length, SUID (WACN ID + System ID + Unit ID = 56 bits), SGID (WACN ID + System ID + Group ID = 48 bits), Avoid Zero Bias (0x88 fill), Service Type, and a cross-reference table mapping approximately 80 field names to their definitions in companion FDMA documents.
+
+Annex A (informative) maps FDMA ISP/OSP opcodes from the trunking control channel messages standard to their TDMA MAC message counterparts, plus dynamic regrouping opcode mappings.
+
+PARAMETERS AND REQUIREMENTS
+
+Message lengths range from 5 to 40 octets. New messages added after the initial publication must include a length octet to ensure forward compatibility with older subscriber units. The Null Information or Null Avoid Zero Bias Information message must always be the last message in a PDU. Manufacturer-specific messages must appear after standard messages and before null fill. On the inbound LCCH, only one request expecting a response may appear per PDU.
+
+LIMITATIONS
+
+This document specifies message formats only — it does not define MAC layer procedures (see TIA-102.BBAE), burst structures or coding (see TIA-102.BBAC-A), or physical layer modulation (see TIA-102.BBAB). Some aspects may not have been fully operationally tested at time of publication. Annex A is informative and not normative. The document acknowledges that an addendum (TIA-102.BBAD-A-1) for Location on PTT and User Alias was called for interest in October 2024, indicating ongoing evolution of the specification.

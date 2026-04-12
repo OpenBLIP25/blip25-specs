@@ -1,0 +1,90 @@
+TIA-102.BAEA-C — Project 25 Data Overview and Specification
+ANSI/TIA-102.BAEA-C-2015 | Approved December 9, 2015 | Revision of TIA-102.BAEA-B
+
+WHAT THIS DOCUMENT IS
+
+TIA-102.BAEA-C is the master architectural overview and top-level specification for all Project 25 (P25) data services operating over TIA-102 FDMA infrastructure. It functions as the entry point and roadmap for the entire P25 packet data document suite (BAEA through BAEJ), defining what data services exist, which system interfaces support them, which bearer services and protocol configurations are standardized, and how those configurations map to protocol stacks. It does not define low-level wire formats or detailed procedures — those are delegated to companion documents. Its role is to establish the taxonomy, the interface matrix, and the architectural overview that the rest of the suite builds upon.
+
+This is the fourth edition (Revision C) of the document, a maintenance revision to address errata comments and align with current TIA TR-8.5 practices. It was adopted by the Project 25 Steering Committee in October 2015. It cancels and replaces TIA-102.BAEA-B (February 2012).
+
+WHAT IT DEFINES
+
+Three tiers of TIA-102 data services are identified:
+
+1. Low Speed Data Service — four octets of data payload embedded in each voice superframe, defined in TIA-102.BAAA-A (FDMA CAI). The use of this payload is not yet standardized by any TIA-102 document.
+
+2. Supplementary Services — non-packetized data services including Emergency Alarms, Radio Inhibit, Status Update, Short Message, and Status Query. Defined in the AABC/AABD/AABG/BAAD family of documents and ISSI equivalents BACD/BACE. Beyond the scope of this document except for the cross-reference table.
+
+3. Packet Data Service — the primary focus of this document. Fully specified by the BAEA–BAEJ document suite.
+
+PACKET DATA INTERFACE MATRIX
+
+Eleven interfaces are defined in the TIA-102 Open System Interface Model (TSB-102.B). This document classifies each by its relevance to Packet Data:
+
+- Um (FDMA CAI): Packet Data defined in the BAEA–BAEJ suite. Supports clear and encrypted data in four configurations, using FDMA CAI PHY/MAC (BAAA-A) and LLC (BAED).
+- Ed (Data Host Network): Multi-drop interface for IPv4 between FNE and Data Host Network. Supports IPv4 over Ethernet or IEEE 802.3 (per BAEF).
+- A (Mobile Data Peripheral): Serial interface between SU and MDP. Supports IPv4 over PPP or SLIP, over USB or TIA-232 (per BAEG). Also used for MDP/SU management via BAEE radio management protocols.
+- G (ISSI): Packet Data over the inter-RFSS interface is defined in the ISSI wireline document suite (TSB-102.BACC-B).
+- Ef (Fixed Station), Ec (Console), Um2 (TDMA): Packet Data support on these interfaces is identified as future work.
+- Et, En, KFD-MR, IKI: Not relevant for Packet Data.
+
+PACKET DATA BEARER SERVICES
+
+Two bearer services are standardized:
+
+- CAI Data Bearer Service: Payload can be any format. Operates on Direct Data, Repeated Data, and Conventional FNE Data configurations. Not supported on Trunked FNE Data.
+- IP Data Bearer Service: Payload is IPv4 datagrams, routable by standard IP. Operates on all four configurations. Preferred over CAI when possible. UDP and TCP can be used above IPv4.
+
+PACKET DATA CONFIGURATIONS
+
+Four configurations define the physical topology and channel type:
+
+1. Direct Data (SU to SU): Both endpoints are SUs communicating directly over the Um air interface. Supports up to MDP-to-MDP scenarios via the A interface.
+
+2. Repeated Data (SU to FSR to SU): A Fixed Station Repeater (FSR) relays packets between SUs. The FSR only operates at the PHY/MAC layer — it has no LLC or IP awareness.
+
+3. Conventional FNE Data (SU to FNE via conventional channel): SUs communicate to a Fixed Network Equipment node over a conventional (non-trunked) channel. The FNE connects to a Data Host Network via the Ed interface. Supports up to DH-to-MDP and MDP-to-DH scenarios (12 total endpoint combinations). Introduces the Conventional Management Service (CMS) for channel management functions.
+
+4. Trunked FNE Data (SU to FNE via trunked channel): SUs communicate to an FNE over a trunked channel using SNDCP for data conveyance. Uses a separate control channel stack (TMS over FDMA CAI PHY/MAC) for registration and channel management, and a traffic channel stack (IPv4/SNDCP/LLC/FDMA CAI PHY/MAC) for data delivery. Shares the same 12-scenario endpoint matrix with Conventional FNE Data.
+
+PROTOCOL STACK ARCHITECTURES
+
+The document maps all valid bearer service / configuration combinations (Table 11):
+
+- CAI + Direct Data and CAI + Repeated Data: PHY/MAC → LLC → Payload. Supports confirmed (mandatory) and unconfirmed (optional) delivery with symmetric addressing.
+- CAI + Conventional FNE Data: PHY/MAC → LLC → CMS → Payload. CMS functions include static/dynamic packet data registration, SU location tracking, scan mode, and supplementary encryption info. Uses asymmetric addressing (SU address differs from FNE address).
+- IP + Direct Data and IP + Repeated Data: PHY/MAC → LLC → SCEP → IPv4 → Payload. SCEP (Simple CAI Encapsulation Protocol) provides static/dynamic IP address binding and IPv4 conveyance.
+- IP + Conventional FNE Data: PHY/MAC → LLC → CMS + (SCEP or SNDCP) → IPv4 → Payload. SCEP provides FNE/SU IP address binding; SNDCP (Subnetwork Dependent Convergence Protocol) provides context management, confirmed/unconfirmed datagram conveyance, header compression, data user authentication, data host network selection, and scan mode.
+- IP + Trunked FNE Data: Control channel uses PHY/MAC → TMS. Traffic channel uses PHY/MAC → LLC → SNDCP → IPv4 → Payload. TMS handles unit registration, location registration, deregistration, and SNDCP packet data channel management. No SCEP option; SNDCP only.
+
+KEY PARAMETERS AND CONSTRAINTS
+
+- IPv4 (not IPv6) is the IP layer specified throughout. IPv6 is not addressed.
+- IP Data Security Service (IP-layer confidentiality and authentication) is identified as a future work item (clause 6.2.3.6) for all configurations.
+- Packet Data Test Suite (Section 7) is a placeholder — "subject of future work."
+- BAEC designator is withdrawn. BAEI is "not used." BAEH (IP Data Security) is reserved for future publication.
+- Multipoint A Interface is not defined.
+- Packet Data over Ef, Ec, and Um2 is deferred to future work.
+
+RELATIONSHIPS TO OTHER DOCUMENTS
+
+This document is the root of the BAEA packet data suite. Immediate dependencies include:
+- TIA-102.BAAA-A: FDMA CAI PHY/MAC (air interface physical/MAC layer)
+- TIA-102.BAEB-B: IP Data Bearer Service Specification (SCEP, SNDCP details)
+- TIA-102.BAED: Packet Data Logical Link Control Procedures (LLC layer)
+- TIA-102.BAEE-C: Radio Management Protocols (A interface management)
+- TIA-102.BAEF: Packet Data Host Network Interface (Ed interface)
+- TIA-102.BAEG: Mobile Data Peripheral Interface (A interface data)
+- TIA-102.BAEJ: Conventional Management Service Specification for Packet Data (CMS)
+- TIA-102.AAAD-A: Block Encryption Protocol (encrypted Um data)
+- TIA-102.AABA-B: Trunking Overview (TMS context)
+
+LIMITATIONS
+
+The document explicitly notes several areas outside its scope or deferred:
+- Circuit data bearer service was removed in Revision B (2012)
+- Low Speed Data payload use is not standardized
+- Supplementary Services are referenced but not specified here
+- IP Data Security Service is future work
+- TDMA (Um2), Fixed Station (Ef), and Console (Ec) Packet Data interfaces are future work
+- The Packet Data Test Suite section is a placeholder

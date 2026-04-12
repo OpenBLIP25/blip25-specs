@@ -1,0 +1,85 @@
+=====================================================================
+PROMPT FOR PART 1 OF 5 — Front Matter (pages 1–20)
+=====================================================================
+
+This is Part 1 of 5 of TIA-102.BBAD-A (Two-Slot TDMA MAC Layer Messages, November 2019). This chunk covers pages 1–20: cover page, foreword, patent identification, table of contents, list of figures, list of tables, and revision history.
+
+Extract all text in order as a .md file. Skip the Notice page and the "Don't Violate the Law" copyright page — I handle disclaimers separately. Preserve the table of contents, list of figures, and list of tables as markdown. Include the revision history table as a markdown table. Use proper markdown heading levels.
+
+Read every page visually from the images in your context — do NOT fall back to programmatic text extraction.
+
+Save as: Part1_Front_Matter.md
+
+
+=====================================================================
+PROMPT FOR PART 2 OF 5 — Intro & MAC PDUs (pages 21–36)
+=====================================================================
+
+This is Part 2 of 5 of TIA-102.BBAD-A (Two-Slot TDMA MAC Layer Messages, November 2019). This chunk covers pages 21–36: Section 1 (Introduction, Scope, References, Acronyms, Definitions, Conventions) and Section 2 (MAC PDUs — PDU structure, LCCH PDUs, VCH PDUs, PDU definitions).
+
+Extract all text in order as a .md file with proper markdown heading levels. For every bit-field diagram (Figures 1–17), reproduce it as a markdown table showing the O\B (octet\bit) header row with bit positions 7–0, and each data row with the octet number(s) and field name(s) with their exact bit spans. Include the B1/B2/MCO assignment line below each figure. For Tables 1 and 2 (LCCH and VCH MAC Messages), reproduce as full markdown tables with all columns.
+
+Read every page visually from the images in your context — do NOT fall back to programmatic text extraction. These bit-field diagrams require visual reading to capture which fields span which bit positions.
+
+Save as: Part2_Intro_MAC_PDUs.md
+
+
+=====================================================================
+PROMPT FOR PART 3 OF 5 — MAC Messages first half (pages 37–80)
+=====================================================================
+
+This is Part 3 of 5 of TIA-102.BBAD-A (Two-Slot TDMA MAC Layer Messages, November 2019). This chunk covers pages 37–80: Section 3 MAC Messages, approximately clauses 3.1 through 3.45. This is the densest section for bit-field diagrams.
+
+Extract all text in order as a .md file with proper markdown heading levels. For every bit-field diagram, reproduce it as a markdown table showing the O\B header row with bit positions 7–0, and each data row with the octet number(s) and field name(s) with their exact bit spans. Include the B1/B2/MCO assignment line below each figure. For any data tables (Table 3 MCO Partitioning, Table 4 MAC Message Lengths, etc.), reproduce as full markdown tables.
+
+Read every page visually from the images in your context — do NOT fall back to programmatic text extraction.
+
+Save as: Part3_MAC_Messages_A.md
+
+
+=====================================================================
+PROMPT FOR PART 4 OF 5 — MAC Messages second half (pages 81–130)
+=====================================================================
+
+This is Part 4 of 5 of TIA-102.BBAD-A (Two-Slot TDMA MAC Layer Messages, November 2019). This chunk covers pages 81–130: Section 3 MAC Messages continued, including authentication messages, roaming address messages, MFID90 dynamic regrouping messages, and MFIDA4 explicit encryption regrouping messages.
+
+Extract all text in order as a .md file with proper markdown heading levels. For every bit-field diagram, reproduce it as a markdown table showing the O\B header row with bit positions 7–0, and each data row with the octet number(s) and field name(s) with their exact bit spans. Include the B1/B2/MCO assignment line below each figure. For any data tables (Table 8 Roaming Address Response Length Fields, etc.), reproduce as full markdown tables.
+
+Read every page visually from the images in your context — do NOT fall back to programmatic text extraction.
+
+Save as: Part4_MAC_Messages_B.md
+
+
+=====================================================================
+PROMPT FOR PART 5 OF 5 — MAC Fields & Annex (pages 131–150)
+=====================================================================
+
+This is Part 5 of 5 of TIA-102.BBAD-A (Two-Slot TDMA MAC Layer Messages, November 2019). This chunk covers pages 131–150: Section 4 (MAC Fields — Opcode, Offset, Protected, RF Level, BER, CRC-12, CRC-16, and all other field definitions) and Annex A (MAC Message Mapping tables).
+
+Extract all text in order as a .md file with proper markdown heading levels. For the CRC-12 and CRC-16 sections: reconstruct all mathematical formulas into readable code-block notation with proper exponent syntax (e.g., x^12 not x12). Use the surrounding prose to verify correct reconstruction. Flag any formulas where extraction was ambiguous. For Tables 9–13 and Tables 14–17, reproduce as full markdown tables. For the Offset Field Usage figure and the Example Outbound Fragment figures, reproduce as markdown tables with exact bit spans. For the SUID and SGID field format figures, reproduce as markdown tables.
+
+Read every page visually from the images in your context — do NOT fall back to programmatic text extraction. The CRC formula pages have superscript exponents that will be lost in text extraction.
+
+Save as: Part5_MAC_Fields_Annex.md
+
+
+=====================================================================
+PROMPT FOR FINAL COMBINATION (6th conversation)
+=====================================================================
+
+I'm uploading 5 markdown files that are sequential extractions of TIA-102.BBAD-A (Two-Slot TDMA MAC Layer Messages, November 2019). They were extracted part-by-part using visual reading of the PDF pages. Please combine them and produce three final deliverables:
+
+1. **Combined Full Text (.md file):** Concatenate all 5 parts into a single .md file in order. Deduplicate any content that overlaps at chunk boundaries (e.g., if a section heading appears at the end of one part and the start of the next). Ensure heading levels are consistent throughout. Verify the table of contents entries in Part 1 match the actual section headings in Parts 2–5. Save as: TIA-102_BBAD-A_Full_Text.md
+
+2. **1,000-Word Summary (.txt file):** Write a ~1,000 word summary of the complete document suitable for inclusion in search results. Cover what the document specifies, why it exists, what it tests or defines, key parameters and requirements, and any limitations it acknowledges. You have the full extracted text to work from. Save as: TIA-102_BBAD-A_Summary.txt
+
+3. **Related Resources & Context (.md file):** Search the web for resources that reference or use this spec. Produce a .md file covering:
+   - **Status** — Is this document active, expired, or superseded? What replaced it?
+   - **Standards Family** — Where does this document fit in the broader TIA-102 suite? List related companion documents with their document numbers and what each covers.
+   - **Practical Context** — How does this standard apply in real-world equipment and systems?
+   - **Key Online Resources** — Websites, archives, and vendor pages with relevant content (include URLs).
+   - **Open-Source Implementations** — Any open-source projects that implement or relate to what this document specifies (include GitHub URLs).
+   - **Standards Lineage** — Show the document hierarchy as an ASCII tree.
+   Keep all references neutral — refer to the uploaded document as "this document" rather than by title. Do not include any personal context about me.
+
+Please deliver all three files for download.

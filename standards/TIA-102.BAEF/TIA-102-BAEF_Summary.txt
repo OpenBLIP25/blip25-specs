@@ -1,0 +1,113 @@
+TIA-102.BAEF — Project 25 Packet Data Host Network Interface
+ANSI/TIA-102.BAEF-2013 | Approved: November 26, 2013 | 1st Edition (Original)
+Developed by: TIA TR-8.5 Signaling and Data Transmission Subcommittee
+
+OVERVIEW
+
+TIA-102.BAEF specifies the Packet Data Host Network Interface for Project 25
+(P25) digital public safety radio systems. This interface is formally designated
+the "E_d Interface" within the P25 architecture and connects the Fixed Network
+Equipment (FNE) — the P25 infrastructure side — to the Data Host Network (DHN),
+which is the external IP network that hosts data applications serving P25
+subscribers. The document is the standalone successor to the E_d-related content
+previously embedded in TIA-102.BAEB-A; it cancels and replaces that material.
+
+PURPOSE AND SCOPE
+
+The purpose of this document is narrow and precise: it specifies which protocol
+combinations are mandatory on the E_d Interface and provides normative references
+to the IETF and IEEE standards that govern those protocols. It does not define
+higher-layer application protocols, address assignment methods, transport-layer
+protocols, or data application formats — all of which are deferred to local
+policy or to other documents in the TIA-102 suite. The scope is explicitly
+limited to the link-layer and network-layer protocol stack on the E_d Interface
+between the FNE and DHN.
+
+PROTOCOL COMBINATIONS
+
+The document mandates exactly two protocol combinations on the E_d Interface:
+
+1. IPv4 over Ethernet (RFC 894 encapsulation)
+   - Governed by RFC 894 (IP over Ethernet) and RFC 791 (IPv4).
+   - The FNE and DHN each implement a stack of: Ethernet with RFC 894
+     encapsulation / IPv4 / Payload.
+
+2. IPv4 over IEEE 802.3 (RFC 1042 encapsulation)
+   - Governed by IEEE 802.2-1998 (LLC), IEEE 802.3-2000 (CSMA/CD physical
+     layer), RFC 1042 (IP over IEEE 802 Networks), and RFC 791 (IPv4).
+   - The FNE and DHN each implement a stack of: IEEE 802.3/802.2 with RFC 1042
+     encapsulation / IPv4 / Payload.
+
+Both variants use IPv4 exclusively (no IPv6 provision is made in this edition).
+The two stack variants are illustrated in two protocol stack diagrams showing the
+FNE on the left, the DHN on the right, and the E_d Interface in between.
+
+NETWORK LAYER BEHAVIOR
+
+The E_d Interface network layer conveys IPv4 datagrams per RFC 791. The
+document explicitly places IP address binding (e.g., ARP, DHCP) outside its
+scope, treating this as a matter of local policy governed by the DHN operator.
+ARP (RFC 826) is cited informatively as a common method.
+
+The IPv4 payload carried across the E_d Interface may be:
+- Data Application Information: application-layer data whose format and header
+  fields are transport- or application-specific and therefore beyond scope.
+  TCP and UDP are cited as intended transport protocols above IPv4.
+- Control Signaling: network-layer exceptions (e.g., unreachable notifications)
+  forwarded by the FNE back to IPv4 datagram sources. The mapping logic is
+  beyond scope; ICMP (RFC 792) is cited informatively as a common mechanism.
+
+KEY PARAMETERS AND REQUIREMENTS
+
+- Mandatory encapsulations: RFC 894 (Ethernet) and RFC 1042 (IEEE 802.3).
+- Network protocol: IPv4 only (RFC 791).
+- IP address binding: local policy (ARP per RFC 826 is informative).
+- FNE-to-DHN control exceptions: local policy (ICMP per RFC 792 is informative).
+- Transport above IPv4: TCP and UDP are intended (informative).
+- No explicit MTU, QoS, VLAN, or security requirements are stated.
+
+RELATIONSHIP TO OTHER DOCUMENTS
+
+This document sits within the TIA-102 BAE-series Packet Data documents:
+
+- TIA-102.BAEA-B (P25 Data Overview and Specification, June 2012) — normative
+  parent; defines the E_d Interface concept, DHN, FNE, and Local Policy terms.
+  This document assumes familiarity with BAEA-B.
+- TIA-102.BAEB-A (predecessor) — the material in BAEF was originally part of
+  BAEB-A. BAEF cancels and replaces the E_d-specific content of BAEB-A.
+- TIA-102.BAEC / BAED / BAEE — sibling packet data interface documents in the
+  BAE series covering other P25 data interfaces (e.g., Eu, Eb, Ec, Eh).
+
+Broader TIA-102 context:
+- The BA-series covers the P25 system infrastructure (trunking, data, ISSI).
+- BAEF is one of several interface-specific documents extracted from BAEB-A as
+  the packet data standards matured from combined to standalone specifications.
+
+LIMITATIONS AND DEFERMENTS
+
+The document is deliberately minimal. It defers:
+- IP address assignment/binding to local policy.
+- Application-layer data format to application providers.
+- Transport protocol specifics (TCP, UDP port numbers, etc.) to applications.
+- FNE control signaling exception mapping to local policy.
+- Physical-layer specifics to IEEE 802.3-2000.
+- IPv6 is not addressed.
+
+Some aspects of the specifications had not been fully operationally tested at
+publication, per the document's own foreword.
+
+PRACTICAL SIGNIFICANCE
+
+In operational P25 systems, the E_d Interface is the attachment point where a
+P25 FNE (such as a P25 Zone Controller or Data Gateway) connects to the agency's
+IP network or data application servers. By specifying this interface as standard
+Ethernet/IEEE 802.3 carrying IPv4, the standard ensures that P25 data
+infrastructure can interoperate with commodity network equipment and standard IP
+data applications without proprietary physical or network-layer adaptations.
+This is architecturally significant for agencies deploying P25 alongside existing
+IP infrastructure.
+
+DOCUMENT STATUS
+
+Active as of its 2013 publication. No subsequent revision has been identified.
+No patents identified by TIA in connection with this document.

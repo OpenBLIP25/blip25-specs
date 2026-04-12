@@ -1,0 +1,130 @@
+TSB-88.3-C Summary: Performance Verification for Wireless Communications Systems
+in Noise and Interference-Limited Situations
+================================================================================
+
+Document: TIA TSB-88.3-C (PN3-4744.3-RV3)
+Title: Wireless Communications Systems - Performance in Noise and Interference -
+       Limited Situations, Part 3: Performance Verification
+Published: January 2008 (Draft Issue K)
+Committee: TR-8.18 (Subcommittee of TIA Committee TR-8)
+Author: Bernie Olson, Motorola
+Status: Telecommunications Systems Bulletin (informative, not normative)
+Supersedes: TSB-88-B Section 8 and Annex E
+
+WHAT THIS DOCUMENT SPECIFIES
+
+TSB-88.3-C is Part 3 of a three-part bulletin series that provides recommended
+methods for technology-independent performance verification of land mobile radio
+(LMR) systems operating below 1 GHz. While Parts 1 and 2 cover performance
+modeling and propagation modeling respectively, Part 3 focuses on empirical
+validation -- the methods used to confirm that a deployed system actually achieves
+its predicted coverage and performance in the presence of noise and interference.
+
+The document addresses three core areas: Coverage Acceptance Testing (CATP) for
+both voice and data systems, Local Conformance Measurements for interference
+dispute resolution, and Interference Effects analysis including intermodulation
+modeling and identification techniques.
+
+TSB-88 SERIES CONTEXT
+
+The TSB-88-C series was developed in response to requests from APCO International,
+the Land Mobile Communications Council (LMCC), and the National Coordination
+Committee (NCC, later NPSTC). The series addresses the increasing complexity of
+spectrum management as wireless systems migrate to narrowband and bandwidth-
+efficient technologies under FCC Spectrum Refarming mandates. It covers channel
+spacings from 6.25 kHz to 30 kHz and frequency bands including VHF, UHF, 700 MHz,
+800 MHz, and 900 MHz.
+
+The three parts are:
+  - TSB-88.1-C: Technology Independent Performance Modeling
+  - TSB-88.2-C: Propagation Modeling, including Noise
+  - TSB-88.3-C: Performance Verification (this document)
+
+KEY METRICS AND THRESHOLDS
+
+Channel Performance Criterion (CPC): The central metric is expressed as either
+Cf/N (faded carrier to noise ratio) or Cf/(I+N) (faded carrier to interference
+plus noise ratio) at a specified vehicular Doppler rate for a given DAQ level.
+Systems are classified as either "Noise Limited" (dominated by the noise component)
+or "Interference Limited" (dominated by the interference component).
+
+DAQ (Delivered Audio Quality): Referenced throughout as the quality target for
+voice systems. For public safety, DAQ 3.4 is recommended; for non-public-safety,
+DAQ 3.0. DAQ is defined as a reference similar to Circuit Merit with additional
+definitions for digitized voice and a static SINAD equivalent intelligibility
+when subjected to multipath fading.
+
+Coverage Reliability Targets: The document recommends 97% service area reliability
+for public safety systems and 90% for commercial systems. A 99% confidence level
+is recommended for conformance testing. The "estimate of proportions" formula
+determines the minimum number of test tiles needed -- for example, 790 tiles for
+a 99% confidence, 2% sampling error, 95% reliability target.
+
+Standard BER: 5% is the standard bit error rate threshold per TIA-102.CAAA.
+
+Reference Sensitivity: 12 dB SINAD is the standard reference for analog systems.
+For P-25 digital (C4FM), the reference sensitivity with a Cs/N of 5 dB produces
+a 5% BER at the standard reference level.
+
+VOICE AND DATA COVERAGE ACCEPTANCE TESTING
+
+Voice CATP (V-CATP): Tests are performed using either carrier power (RSSI) or BER
+measurements. The service area is divided into uniform test tiles (recommended size
+100-lambda by 100-lambda, not exceeding 2 km x 2 km). At each tile, a test sample
+of at least 50 subsamples is collected over a distance of 40 wavelengths. The
+document provides a comprehensive VCATP Test Matrix covering digital and analog
+systems in single-site, simulcast, and multi-site configurations for both talk-out
+and talk-in directions.
+
+Data CATP (D-CATP): Two criteria are defined -- Message Success Rate (MSR) for
+narrowband systems (<25 kHz) and Data Throughput Rate (DTR) for wideband and
+broadband systems. MSR testing confirms message delivery in 90-95% of the service
+area. DTR testing measures application throughput using UDP packets at multiple
+speed ranges.
+
+INTERFERENCE EFFECTS AND INTERMODULATION
+
+The document provides extensive treatment of receiver intermodulation (IM) effects,
+particularly relevant to sites with receiver multicouplers and tower-top amplifiers.
+Key concepts include:
+
+- Cascaded Noise Figure calculation using Friis' equation for multicoupler chains
+- Third Order Intercept Point (IP3) determination and its relationship to IMR
+- The Symbolic Method for computing absolute IM levels through gain chains
+- Non-coherent power addition methods for combining noise and interference sources
+- Noise-Adjusted Faded Performance Threshold (FPT_Adj) accounting for environmental
+  noise above kT0b
+
+NARROWBAND VS. WIDEBAND INTERMODULATION
+
+A significant finding is that wideband data systems (e.g., SAM 50 kHz) exhibit
+approximately 12.8 dB lower measured IMR than P-25 narrowband systems with the
+same IP3, due to the wider receiver ENBW (42.6 kHz vs. 5.5 kHz) and higher C/N
+requirements (16 dB vs. 7.6 dB). This has direct implications for frequency
+coordination near wideband data sites.
+
+INTERFERENCE IDENTIFICATION
+
+The document provides a practical three-test methodology for local median
+determination in interference disputes (originally developed for the 800 MHz
+rebanding process). The tests progressively isolate the desired signal (C),
+interference plus noise (I+N), and noise (N) components, with specific criteria
+for public safety and commercial systems.
+
+BUILDING PENETRATION
+
+Generalized medium building penetration loss follows the formula:
+  a = 36.6 - 7.6404 * log10(F_MHz)
+with a slope of approximately -2.3 dB/octave. The document provides detailed
+methods for measuring exterior wall loss and estimating in-building coverage,
+noting that building loss generally decreases with height and varies significantly
+with construction materials.
+
+PRACTICAL SIGNIFICANCE
+
+TSB-88.3-C bridges the gap between theoretical coverage prediction and real-world
+system performance. For P25 system designers and frequency coordinators, it
+provides the standardized measurement methodology needed for acceptance testing,
+interference resolution, and spectrum management. Its technology-neutral approach
+allows direct comparison between analog FM, P25 Phase 1 (C4FM/CQPSK), and
+wideband data systems operating in shared or adjacent spectrum.

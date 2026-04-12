@@ -1,0 +1,45 @@
+TSB-102.BBAA — Project 25 Two-Slot TDMA Overview
+Summary for Search Index
+
+DOCUMENT IDENTITY
+TSB-102.BBAA is a Telecommunications Systems Bulletin published by the Telecommunications Industry Association (TIA) in March 2010. It was developed under TR-8.12, the Subcommittee on Two Slot TDMA, with input from the TIA Project 25 Interface Committee (APIC), the APIC TDMA Task Group, and TIA industry members. It is an informative (non-normative) document that serves as the umbrella overview for the entire P25 Phase 2 Two-Slot TDMA standard suite.
+
+PURPOSE AND MOTIVATION
+The document exists because the FCC required public safety radio systems to achieve spectrum efficiency equivalent to 6.25 kHz per voice channel. P25 Phase 1 systems use 12.5 kHz FDMA channels — one voice call per channel. Phase 2 doubles that efficiency by fitting two simultaneous voice calls into a single 12.5 kHz channel using two-slot TDMA, achieving an effective 6.25 kHz per voice path (designated "6.25e" in P25 terminology). This bulletin describes how Phase 2 TDMA works at a high level, catalogues the full suite of companion standards that define the normative technical details, and explains the migration and interoperability strategy between Phase 1 FDMA and Phase 2 TDMA equipment.
+
+WHAT THE DOCUMENT DEFINES
+This document does not itself contain normative protocol specifications. Instead, it provides a roadmap and architectural overview covering the following areas:
+
+Air Interface Architecture: Phase 2 introduces a new Common Air Interface designated Um2 (distinct from the Phase 1 Um interface). The Um2 interface operates within a 12.5 kHz occupied channel using two 30 ms time slots at a gross bit rate of 12 kb/s. Two different modulation schemes are specified for asymmetric operation: H-CPM (Harmonized Continuous Phase Modulation) for the inbound link from subscriber to infrastructure, and H-DQPSK (Harmonized Differential Quadrature Phase Shift Keying) for the outbound link from infrastructure to subscriber. H-CPM is a constant-envelope modulation that allows subscriber portables to use efficient class-C amplifiers, maximizing battery life. H-DQPSK is a linear modulation chosen specifically because its large excess bandwidth ratio improves simulcast delay spread tolerance compared to the C4FM modulation used in Phase 1.
+
+Protocol Layering: The TDMA CAI is split into a Physical Layer (PHY) defined in TIA-102.BBAB and a Media Access Control (MAC) layer defined in TIA-102.BBAC. The MAC layer organizes twelve 30 ms time slots into a 360 ms superframe. Dedicated signaling slots occur every 360 ms without interrupting voice traffic. An Inter-slot Signaling Channel (ISCH) appears between slots on the outbound link for synchronization and channel supervision.
+
+Vocoder: Phase 2 uses a dual-rate vocoder. The full rate operates at 7.2 kb/s gross (same as Phase 1 IMBE/AMBE+2), and the half rate operates at 3.6 kb/s for TDMA operation. Both rates share the same fundamental speech processing algorithm, enabling parametric rate conversion between them for Phase 1/Phase 2 interoperability. The vocoder also includes tone encoding capability for sending signaling tones through the voice path. The half rate vocoder annex is specified in TIA-102.BABA-1.
+
+Trunking Control: The Phase 1 FDMA trunking control channel is extended with new TSBK and LCW messages so the system can identify radio FDMA/TDMA capabilities during registration, assign TDMA traffic channels, and optionally synchronize the FDMA control channel timing with TDMA traffic channel slot boundaries. This enables incremental migration — TDMA traffic channels can be added to an existing FDMA trunked system without replacing the control channel.
+
+Encryption: Phase 2 reuses Phase 1 encryption architecture. The Encryption Synchronization Signal (ESS) — comprising the Message Indicator (MI), Algorithm ID (ALGID), and Key ID (KID) — is transmitted every 360 ms in TDMA just as it is in FDMA, preserving late-entry performance. The clocking schedule is modified for 49-bit half-rate vocoder frames (versus 88-bit full-rate frames). OTAR follows the Phase 1 standard. A critical limitation is noted: end-to-end encrypted voice calls spanning both FDMA and TDMA radios require decryption before parametric vocoder rate conversion and re-encryption afterward, because the encrypted bit streams differ between the two vocoder rates.
+
+KEY PARAMETERS
+- Channel bandwidth: 12.5 kHz occupied
+- Gross bit rate: 12 kb/s
+- Slot duration: 30 ms
+- Superframe: 360 ms (12 slots)
+- Inbound modulation: H-CPM (constant envelope)
+- Outbound modulation: H-DQPSK (linear, improved simulcast tolerance)
+- Full rate vocoder: 7.2 kb/s gross
+- Half rate vocoder: 3.6 kb/s gross
+- ESS transmission interval: 360 ms
+- Spectrum efficiency: 6.25e (one voice per 6.25 kHz equivalent)
+
+INTEROPERABILITY AND MIGRATION
+The document defines three equipment categories that must coexist: Phase 1 FDMA-only, Phase 2 FDMA-only (understands new messages but lacks TDMA hardware), and Phase 2 FDMA/TDMA (full dual-mode). Radios report their capabilities during registration and location updates. When a call involves mixed equipment, the infrastructure can either force the entire call to FDMA or run FDMA at some sites and TDMA at others with parametric vocoder conversion in between. The radio simply follows whatever channel assignment it receives and does not need to know which method the infrastructure chose.
+
+COMPANION STANDARDS
+Table 4-1 in the document maps the full Phase 2 standards suite. Key normative documents include TIA-102.BBAB (Physical Layer), TIA-102.BBAC (MAC Layer), TIA-102.BABA-1 (Half Rate Vocoder), TIA-102.AABC-B-4 (Trunking Messages for TDMA), TIA-102.AAAD (Block Encryption with half-rate addendum), TIA-102.CBAA (Measurement Methods), and TIA-102.BACA (ISSI additions for Phase 2). Several documents listed were still works in progress at publication time.
+
+FUTURE WORK IDENTIFIED
+The document lists planned but not-yet-standardized items: H-D8PSK modulation (8-level DQPSK for even better simulcast delay spread), slotted TDMA control channels (single-slot, composite, and full TDMA CCH), slotted data channels for OTAR, TDMA CCH/DCH scrambling, vehicular repeater TDMA support, and a four-slot TDMA standard.
+
+LIMITATIONS
+This is an informative overview only — it contains no normative requirements. Two of the referenced documents (TIA-102.CBAA and TIA-102.CXXX) were flagged as works in progress at publication. The document explicitly notes that the choice of which interoperability method to use for mixed FDMA/TDMA calls is outside the scope of the standard. TDMA-only sites and radios with no FDMA capability are acknowledged but not discussed, as they are not interoperable with Phase 1.

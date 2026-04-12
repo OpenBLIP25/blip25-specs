@@ -1,0 +1,52 @@
+J-STD-200 Summary
+Study of Interworking between Land Mobile Radio (LMR as defined by TIA-102 series and TIA-603 series standards) and 3rd Generation Partnership Project (3GPP) Mission Critical Services
+
+Approved: February 12, 2025
+Joint Standard by: ATIS and TIA
+Developed by: JLMRLTE Subcommittee (ATIS WTSC) and TR-8.8 Subcommittee (TIA TR-8)
+
+WHAT THIS DOCUMENT IS
+
+J-STD-200 is an ATIS/TIA joint study document that examines how a 3GPP Release 15 Interworking Function (IWF) can be used to bridge mission critical communications between 3GPP LTE-based systems (MCPTT, MCData, MCVideo) and three categories of TIA-based Land Mobile Radio (LMR) systems: TIA-102 trunking (P25), TIA-102 digital conventional, and TIA-603 analog conventional FM. It is the first published joint standard addressing LMR-to-LTE mission critical interworking in a comprehensive, multi-service-type manner. It was approved in February 2025 and represents several years of joint ATIS/TIA standards activity under the JLMRLTE subcommittee.
+
+PURPOSE AND SCOPE
+
+The document serves as a study and architectural reference — not a specification of message formats or wire protocols. It identifies which services can interwork, under what architectural model, and what the fundamental limitations are. All wire-format message definitions, interface specifications for the IWF's reference points (L102-T for trunking, L102-C for digital conventional, L603 for analog conventional, and IWF-1/2/3 for the 3GPP side), and detailed procedures are explicitly scoped out to companion documents — primarily 3GPP TS 23.283 and various TIA-102 specifications.
+
+The motivations for LMR/3GPP MC interworking identified by this document include: gradual migration from P25 to LTE, agencies needing to assign LMR and LTE to different personnel, cross-agency communications between systems, and the operational need for the same user to access both technologies for optimal coverage.
+
+SYSTEM TYPES EXAMINED
+
+The document examines three distinct TIA-based LMR systems: (1) TIA-102 trunking — a controller-based system with centralized channel assignment, group affiliation, and full mobility management supporting the full suite of P25 supplementary services; (2) TIA-102 digital conventional — infrastructure-less or repeater-based digital operation with no registration or affiliation, limited supplementary services; and (3) TIA-603 analog conventional FM — non-digital, largely non-standardized with very few interworkable services. The 3GPP side is represented by Release 15 MCPTT for push-to-talk, MCData for data services (including status), and MCVideo.
+
+ARCHITECTURAL MODEL
+
+The central element is the InterWorking Function (IWF), which appears to the 3GPP MC system as a peer MCPTT/MCData system and to the LMR system as a peer LMR infrastructure entity. The IWF performs protocol translation and identity mapping between the two domains. Group and user identities must be pre-configured in the IWF; the IWF handles group affiliation and de-affiliation on behalf of one system when communicating with the other. When an interworking group is "homed" in the 3GPP MC system, the 3GPP system is the controlling home for that group's calls; when homed in the LMR system, the LMR system is the controlling home.
+
+KEY SERVICE COVERAGE AND INTERWORKABILITY
+
+Voice services: Group call (non-emergency and emergency), broadcast group call, and individual call (private call) are all supported between 3GPP MCPTT and both TIA-102 trunking and digital conventional systems. Announcement group call is unique to TIA-102 trunking and cannot interwork. System group call interworking is not currently supported. Individual call interworking is supported for TIA-102 trunking and digital conventional with 3GPP MCPTT private calls, with both automatic and manual commencement modes covered.
+
+Supplementary services: Emergency alarm/alert interworking is supported. Emergency alarm cancel and group emergency cancel interworking are supported. Call alert has a potential 3GPP MCPTT equivalent (private call call-back request) but is not yet standardized for interworking. Status update interworking between TIA-102 trunking/digital conventional and 3GPP MCData is supported (with code value translation by the IWF). Short message, status query, radio unit monitor, radio check, radio detach, radio inhibit, and radio uninhibit are all LMR-specific features with no 3GPP equivalent and thus cannot interwork.
+
+Call control: Priority interworking is possible via IWF translation. Message trunking should be the default configured mode for interworking calls. Transmission trunking does not interwork. Individual regrouping does not interwork (fundamental difference between LMR dynamic assignment and 3GPP preconfigured temporary groups). Group regrouping is ongoing standardization work.
+
+Security: Two interworking encryption architectures are defined: end-to-end (E2EE), where the IWF only handles addressing and the media encryption passes through intact; and IWF transencryption, where the IWF decrypts and re-encrypts at a boundary point (less secure, requires all keys at the IWF). For E2EE interworking, the LMR and 3GPP systems must use compatible codecs, algorithms, algorithm modes, and keys. P25 OTAR key management via the LMR KMF can extend to 3GPP MC clients through the IWF. Three standardized methods for delivering key material to 3GPP devices are discussed: P25 OTAR Proxy (MC OTAR Proxy/MOP), Key Fill Device (KFD), and manufacturer-specific methods.
+
+Location services: Interworking of location services is described as ongoing work in 3GPP as of Release 17. TIA-102 supports both tier 1 (CAI data bearer) and tier 2 (UDP/IP) location services; 3GPP MC tracks location via native GPS or network-derived methods.
+
+ADDRESSING
+
+TIA-102 trunking uses hierarchical addressing: 20-bit WACN ID + 12-bit System ID + 24-bit Unit ID = 56-bit SUID; groups use 48-bit SGIDs (WACN+System+16-bit GID). TIA-102 digital conventional uses the 24-bit UID portion of the trunking SUID. TIA-603 and analog systems have no standardized addressing. 3GPP uses URIs (Uniform Resource Identifiers) for both user and group identifiers. The IWF maps between these disparate identity spaces.
+
+SUPPORTED SCENARIOS (SECTION 9)
+
+Section 9 provides approximately 80 detailed message sequence diagrams organized by LMR system type, service, and direction of initiation. Scenarios cover: group affiliation and de-affiliation in both group-homed-in-LMR and group-homed-in-3GPP configurations; supplementary services registration; group call setup/continuation/termination with control channel and direct methods; individual call setup; emergency alarm/alert and cancellation; group emergency cancel; status update; audio takeover (console priority) by LMR CSU; and OTAR key management flows initiated by both the LMR KMF and a 3GPP MC system.
+
+RELATIONSHIPS TO OTHER DOCUMENTS
+
+This document relies on 3GPP TS 23.283 (LMR interworking) as its primary companion specification for the IWF interface toward the 3GPP system. It references TIA-102.AABD-B (trunking procedures), TIA-102.BAAD-B (conventional procedures), TIA-102.AACA-A (OTAR), TIA-102.AACD-A (KFD interface), TIA-102.BAKA (inter-KMF interface), and TIA-102.AACE-A (link layer authentication). It supersedes and formalizes work initially documented in the NPSTC LMR/LTE Interoperability Final Report (January 2018).
+
+LIMITATIONS
+
+This document explicitly does not define: message formats, detailed procedures, or protocols for any of the LMR-IWF reference points (L102-T, L102-C, L603); the IWF-to-3GPP interfaces beyond referencing 3GPP TS 23.283; non-standardized key management methods; how the IWF performs identity resolution or authorization; or how the 3GPP system determines interworking group home policies. Interworking with TETRA-based LMR systems is out of scope.

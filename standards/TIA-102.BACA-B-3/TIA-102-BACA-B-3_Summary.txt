@@ -1,0 +1,62 @@
+TIA-102.BACA-B-3: Project 25 ISSI Messages and Procedures — Addendum 3 — Interworking with an IWF
+Summary (~1,000 words)
+April 2021 | TIA TR-8.19 | Addendum to TIA-102.BACA-B (November 2012)
+
+WHAT THIS DOCUMENT SPECIFIES
+
+TIA-102.BACA-B-3 is a normative addendum to the Project 25 Inter-RF Subsystem Interface (ISSI) voice services and mobility management standard (TIA-102.BACA-B). Its entire substantive contribution is a single new Annex J, titled "Interworking with an IWF." All other sections of the parent document (Sections 1–8, Annexes A–I) are explicitly carried forward unchanged — the addendum marks each with "No change from [102BACA]."
+
+Annex J defines how a 3GPP Mission Critical Push-to-Talk (MCPTT) Interworking Function (IWF) may operate as a peer Radio Frequency Subsystem (RFSS) on the P25 ISSI G-interface. It specifies the reference architecture, functional model applicability, mobility management procedures, call control procedures, and PTT management applicable when the ISSI is used to connect a TIA-102 RFSS to an IWF rather than to another TIA-102 RFSS.
+
+WHY THIS DOCUMENT EXISTS
+
+The emergence of 3GPP Mission Critical services (3GPP Rel-14 and later) created a practical need for public safety agencies operating TIA-102 (P25) LMR systems to interwork with agencies or users equipped with LTE/5G MCPTT devices. Rather than redesigning the ISSI, the approach adopted is an Interworking Function that presents itself to the TIA-102 RFSS as a standard RFSS peer on the G-interface. This addendum defines, from the TIA-102 perspective, exactly which behaviors of the parent BACA-B specification apply in that scenario, which are inapplicable, and what new clauses must be introduced. The document was developed jointly by TIA TR-8.19 and the ATIS WTSC JLMRLTE study group between 2019 and 2021.
+
+WHAT THE DOCUMENT DEFINES
+
+Architecture and Reference Points: The IWF connects to a TIA-102 RFSS via the standard ISSI G-interface. The IWF then connects to the 3GPP MC System via a separate IWF-x reference point (which is explicitly out of scope for this annex). Five system topology figures illustrate: (1) basic RFSS-to-IWF connectivity, (2) RFSSs with embedded consoles connecting via ISSI, (3) Console Subsystems (CSS) connecting to the IWF via CSSI, and (4–5) combined topologies where both RFSS-embedded consoles and CSS are present.
+
+Functional Model: The IWF takes on the following ISSI functional roles:
+  - Group Mobility Management Function (GMMF): for group affiliation/tracking and group supplementary data interest.
+  - Unit Call Control Function (UCCF): for SU-to-SU call setup and teardown (Calling Home and Called Home roles only; unit roaming is out of scope).
+  - Group Call Control Function (GCCF): full scope including Group Emergency Cancellation.
+  - Master Media Function (MMF) and Subordinate Media Function (SMF): for talk spurt arbitration and RTP fanout.
+  - RFSS Service Capability Polling Function (RCPF): mandatory response to SIP OPTIONS.
+
+The IWF does NOT take on the Unit Mobility Management Function (UMMF), the Packet Data Mobility Management Function (PDMMF), or the roles of Calling Serving RFSS or Called Serving RFSS (because unit roaming is not in scope).
+
+Vocoder Mode Negotiation: A key complexity addressed is multi-mode vocoder operation. Because TIA-102 supports both FDMA Full Rate (IMBE) and TDMA Half Rate (AMBE+2) air interfaces, and because the MCPTT system may use AMR vocoders, the IWF must negotiate vocoder mode on a talk-spurt-by-talk-spurt basis on the ISSI. Supported negotiation modes are Full Rate, Half Rate, and Native. The document notes (in an informational note attributed to ongoing JLMRLTE study) that the full implications of transcoding and trans-encryption between AMBE and AMR vocoders require further study.
+
+Call Models: Both group calls and SU-to-SU calls are supported. The IWF may act as Home RFSS for groups homed in the MCPTT system (fanning out audio to TIA-102 Serving RFSSs) or as Serving RFSS for groups homed in the TIA-102 RFSS (reporting affiliation and vocoder capabilities to the home). Confirmed and unconfirmed group call modes both apply. The "losing audio" concept (when two talk spurts overlap on the TIA-102 side, marking the non-selected stream as "losing") carries over to IWF interworking.
+
+SIP/SDP/RTP Applicability: The addendum specifies, section by section, which clauses of the parent document's SIP message definitions apply to the IWF scenario. Substantially all SIP header fields and SDP sections apply as written. Key exclusions include: snc-id and nsapi-id radical names (packet data), the x-tia-p25-sndcp body type, SU registration (SUID registration), and any unit roaming-related call flow examples. The numplan-params applicable to IWF interworking are: ";user=TIA-P25-SU", ";user=TIA-P25-SG", ";user=TIA-P25-SD-SG", and ";user=TIA-P25-RFSS". The document also errata-notes that TIA-102.BACA-B itself contains incorrect uses of ";user=TIA-P25-SU" in some group call examples.
+
+Mobility Management: Only group mobility (Class 2) and group supplementary data (Class 4) mobility objects apply. The five mobility procedures (Serving Registration, Serving Query, Home Query, Serving Deregistration, Home Deregistration) apply with the exception that Serving Query does not apply because SU mobility objects and packet data are out of scope.
+
+Call Control: SU-to-SU call procedures apply only for the Calling Home–Called Home segment. The four call types not applicable are: Calling Serving, Called Serving, and all in-call roaming variants. Group call control applies in full, including Group Emergency Cancellation (per BACA-B Addendum B-1). The IWF's GCCF is fully described in its Home and Serving roles, including late-entry, preemption, confirmed call resource management, and emergency cancel propagation.
+
+PTT Management: The full PTT management clause of the parent document applies to the IWF scenario. The IWF's supported vocoder modes in PTT context reflect both its own capabilities and those of the connected MC system.
+
+RFSS Capability Polling: Mandatory response to SIP OPTIONS polling applies. Detailed capability transfer is optional.
+
+KEY PARAMETERS AND REQUIREMENTS
+
+  - IWF appears as a standard RFSS peer on the G/ISSI interface.
+  - Unit roaming (SU/UE physically crossing system boundaries) is explicitly out of scope.
+  - Packet Data interworking is out of scope (see TIA-102.BACF).
+  - IWF must respond to SIP OPTIONS capability polling requests.
+  - SDP offer/answer negotiation applies; IWF reflects MC system vocoder capabilities.
+  - Group call confirmed/unconfirmed mode is driven by the group home RFSS configuration.
+  - ISSI hangtime is independent of RF resource hangtime.
+
+RELATIONSHIPS TO OTHER DOCUMENTS
+
+This addendum amends TIA-102.BACA-B (November 2012) and its prior addendums B-1 (July 2013, Group Emergency Cancellation) and B-2 (November 2016). It was developed in parallel with addendums addressing group emergency behaviors and error/omission fixes; care is required when merging all addendums into a future consolidated revision of BACA-B. The document references TIA-102.BACF (ISSI Packet Data, October 2019) for packet data mobility management, and a series of ATIS WTSC JLMRLTE liaison documents (2019–2020) representing the joint P25/3GPP interworking study effort.
+
+LIMITATIONS
+
+The document explicitly defers study of: (1) vocoder mode negotiation limitations when the RFSS is an IWF, (2) transcoding and trans-encrypting between MCPTT AMR vocoders and TIA-102 AMBE vocoders, (3) the mapping between LMR console SUs and LTE console UEs, and (4) the case of more than one LMR Serving system in the interworking topology. These are flagged as requiring further JLMRLTE study. The structure of the IWF itself and the IWF-x interface to the MC system are entirely out of scope.
+
+DOCUMENT STATUS
+
+Active as of April 2021. This is an addendum to TIA-102.BACA-B; it does not supersede but rather amends the parent document. No subsequent revision or superseding document has been identified as of the processing date (April 2026).

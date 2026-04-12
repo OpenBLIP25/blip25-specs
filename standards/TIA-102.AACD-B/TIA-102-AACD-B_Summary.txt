@@ -1,0 +1,193 @@
+TIA 102.AACD-B: Key Fill Device Interface for Project 25
+Summary
+=======================================================
+
+Document ID:     TIA 102.AACD-B
+Full Title:      Key Fill Device Interface for Project 25
+Published:       October 21, 2025
+Supersedes:      TIA-102.AACD-A
+Standards Body:  TIA Engineering Committee TR-8
+Classification:  Protocol / Key Management
+Pages:           ~51 body pages + annexes (~158 PDF pages total)
+
+---
+
+WHAT THIS DOCUMENT IS
+
+TIA 102.AACD-B specifies the interface between a Key Fill Device (KFD) and P25
+subscriber units (SUs), Key Management Facilities (KMFs), and Authentication
+Facilities (AFs). It is the definitive specification for how encryption keys,
+RSIs, authentication keys, and operational parameters are loaded into P25 radios
+and key management infrastructure — both via a physical 3-wire connection and
+over TCP/UDP networks.
+
+This is a revision of TIA-102.AACD-A, updated in 2025 to add new procedures and
+clarify message formats introduced in the intervening years (notably KMM
+Forwarding, paired/unpaired authentication key procedures, and OTAR provisioning
+over the KFD interface).
+
+---
+
+KEY CONCEPTS
+
+KFD (Key Fill Device): A physical device that connects to P25 radios to load
+keys. The KFD is always the initiator of all transactions. Commercial examples
+include Motorola's KVL series (KVL 3000, 3000+, 4000) and Harris's KFD products.
+
+SU (Subscriber Unit): The P25 radio receiving key material. The SU is the most
+common target in daily operations.
+
+KMM (Key Management Message): The application-layer unit of exchange. KMMs carry
+specific operations: Modify-Key-Command (load keys), Change-RSI-Command (set
+radio identity), Zeroize-Command (erase all keys), Inventory-Command (query),
+Session-Control (session management), and many others.
+
+KF Datagram: The transport container. Each KF Datagram wraps a KMM Preamble +
+Message ID + Source/Destination RSI + (optional) Message Number + KMM body +
+(optional) MAC. In Version 1 over TCP/UDP, the entire datagram may be outer-layer
+encrypted using a WSTEK.
+
+---
+
+TWO INTERFACE VERSIONS
+
+Version 0 Exchange: The legacy three-wire physical interface (K/F line, Keyload*,
+GND). Limited to KFD↔SU. No transport security. Still widely deployed on legacy
+P25 infrastructure and older radios.
+
+Version 1 Exchange: TCP/UDP network transport supporting KFD↔SU, KFD↔KMF, and
+KFD↔AF. Adds optional transport-layer encryption (Warm Start establishes a WSTEK)
+and MAC authentication. Supports advanced use cases including KMM Forwarding,
+where the KFD acts as an intermediary to deliver KMF-originated key material to
+SUs that have no direct network path to the KMF.
+
+---
+
+VERSION 1 EXCHANGE PROCEDURE (8 STEPS)
+
+1. Establish Connection — Session Control Ready Req / Ready General Mode (no MAC)
+2. Warm Start (optional) — KFD generates random WSTEK, encrypts it under the
+   target's pre-provisioned UKEK, sends it; target decrypts and responds with
+   Rekey-Ack; WSTEK now used for all subsequent outer-layer encryption
+3. Begin Session — negotiates session type (Key Fill, KMM Forwarding, etc.)
+4. KFD→Target KMM transfer — one at a time, each acknowledged by target
+5. KFD sends Transfer Done
+6. Target→KFD KMM transfer (typically empty; target sends Transfer Done)
+7. End Session — End Session / End Session Ack
+8. Disconnect — Disconnect / Disconnect Ack; WSTEK discarded by both parties
+
+---
+
+KFD APPLICATION PROCEDURES (24 TOTAL)
+
+The KFD application layer defines 24 specific procedures:
+- Key Operations: Keyload, Key Erase, Erase All Keys (Zeroize)
+- RSI/Config: Load Individual RSI, Load KMF RSI, Load MNP
+- View/Inventory: View Key Info, View Individual RSI, View KMF RSI, View MNP,
+  View Keyset Info, View SUID Info, View Active SUID
+- Keyset Management: Activate Keyset
+- Authentication Keys: Load Authentication Key, Delete Authentication Key,
+  Load and Report Paired Auth Keys, Transfer Unpaired Auth Keys,
+  Transfer Paired Auth Keys, Report Delete Auth Key
+- Key Material Transfer: Transfer of Encryption Key Material (KFD↔KMF)
+- Advanced: KMM Forwarding (3 sub-procedures), OTAR Provisioning, Warm Start
+
+---
+
+KMM MESSAGE FORMATS
+
+The document defines complete wire formats for all KMMs used in the KFD interface.
+Key message types include:
+- Modify-Key-Command: carries TEKs; supports multiple keys per message; uses
+  Extended Decryption Instruction Format to indicate algorithm, key ID, SLN,
+  keyset ID, and delete/rekey flag
+- Session-Control v1: carries SCO (operation), SDT (destination type), ST
+  (session type) fields for full session lifecycle management
+- Key-Fill-Envelope-Command/Response/Report: KMM Forwarding containers that wrap
+  target KMMs with sequence numbers for correlation across 3 separate procedures
+- Status codes (Table 45): Complete $00-$FF status code table covering success,
+  key not found, storage full, algorithm unsupported, RSI not found, and ~50 other
+  result codes
+
+---
+
+SECURITY ARCHITECTURE
+
+Three independent security layers:
+
+1. Outer Layer (Transport) — WSTEK-based encryption of the entire KF Datagram.
+   Established via Warm Start. Session-scoped: new WSTEK per connection.
+
+2. MAC — Message Authentication Code appended to each KF Datagram when transport
+   protection is active (i.e., after Warm Start completes).
+
+3. Inner Layer — KEK-based encryption of key material fields within the KMM body
+   (e.g., TEKs inside Modify-Key-Command). Encryption format per [AACA]. Applied
+   independently of transport protection; TEKs in transit are inner-layer protected
+   regardless of whether Warm Start is used.
+
+Anti-replay: 16-bit Message Numbers (MN) embedded in KF Datagram headers. MNinit
+is computed via XOR of a seed and offset derived from session state. Receivers
+reject messages outside the expected MN window.
+
+---
+
+THREE WIRE HALF DUPLEX INTERFACE (ANNEX B)
+
+Physical layer: K/F line at 4 kbps (250 µS/bit), VIL_max=1.3V, VIH_min=3.7V.
+Byte format: Start bit + 8 data bits (MSB first) + even parity + ≥1mS low.
+Key Signature: 100mS low + 5mS pause initiates a session.
+Flow control: BUSY/IDLE states on K/F line gate byte-by-byte transmission.
+Timeouts: tout1 = tout2 = 5 seconds for lost connection detection.
+
+KFD Interface Protocol (3WI application layer): 6 opcodes (Table 47):
+- $C0 Ready Req, $D0 Ready General Mode, $C1 Transfer Done, $C2 KMM (data frame),
+  $92 Disconnect, $90 Disconnect ACK.
+
+KMM Frame over 3-wire: [Opcode=$C2][Length 2B][Control 1B][Dest RSI 3B][Esync opt][KMM][CRC 2B].
+Control b1 is the encryption flag; Esync block (13 bytes: MI+AlgID+KeyID+SAP)
+precedes encrypted KMM body when outer-layer encryption is applied.
+Max KMM frame size: 512 bytes.
+
+CRC (Annex A): CRC-16-CCITT, polynomial X^16+X^12+X^5+1, init $FFFF, LSB-first,
+byte-swap result. Test vector: $DEAD → CRC = $7C4B.
+
+---
+
+WHAT CHANGED FROM AACD-A
+
+Key additions and clarifications in the -B revision:
+- Expanded KMM Forwarding procedures (now 3 sub-procedures with complete message
+  flows in Section 3.7.22 and illustrated in Annex C)
+- Added paired/unpaired authentication key procedures
+- Added OTAR Provisioning over KFD interface
+- Added View Active SUID procedure
+- Clarified transport protection model and WSTEK lifecycle
+- Expanded Status code table (Table 45)
+- Annex C (KMM Forwarding worked example) is new in this revision
+
+---
+
+PHASE 3 IMPLEMENTATION SPECS FLAGGED (NOT PRODUCED IN THIS RUN)
+
+The following Phase 3 implementation specification documents should be produced
+from this extraction:
+
+1. KFD Protocol State Machine Implementation Spec — covers Version 1 exchange
+   state machine (8-step session lifecycle), Warm Start WSTEK management, session
+   type negotiation, and error/timeout handling for both initiator (KFD) and
+   responder (SU/KMF/AF) roles.
+
+2. KF Datagram and KMM Message Format Parsing Spec — complete wire-format
+   definitions for all KMM types (Table 5 opcodes through Table 45 status codes),
+   KF Datagram header, inner-layer key material encryption, and CRC-16-CCITT
+   calculation for 3-wire frames.
+
+3. Three Wire Half Duplex Physical/Link Layer Implementation Spec — Annex B
+   electrical characteristics, byte format (TXBYTE/RXBYTE procedures), flow
+   control, line turnaround, timeout logic, KFD Interface Protocol opcode
+   handling, KMM frame encoding/decoding over 3-wire.
+
+4. KMM Forwarding State Machine Spec — the 3-procedure forwarding sequence
+   (KFD↔KMF, KFD↔SU, KFD↔KMF), KF-Env-Cmd/Rsp/Rpt sequence number correlation,
+   and WSTEK management across three independent sessions.

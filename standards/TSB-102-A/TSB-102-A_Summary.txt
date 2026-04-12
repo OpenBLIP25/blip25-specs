@@ -1,0 +1,64 @@
+TSB-102-A -- APCO Project 25 System and Standards Definition
+Summary for Search Index
+
+DOCUMENT IDENTITY
+TSB-102-A is a Telecommunications Systems Bulletin published by the Telecommunications Industry Association (TIA) in November 1995. It is a revision of the original TSB-102, first published in March 1994. It was developed under TIA Project No. 3591 by the TR-8 Mobile and Personal Private Radio Standards Committee, with input from the APCO Project 25 / TIA Interface Committee (APIC) and the APCO Project 25 Ad Hoc Interface Committee. The document is dedicated to the memory of Stuart Meyer, who served as chairman of APIC. TSB-102-A is an informative (non-normative) document -- it is the foundational architecture definition for the entire APCO Project 25 digital public safety radio system.
+
+PURPOSE AND MOTIVATION
+APCO Project 25 was created to define a new generation of digital land mobile radio (LMR) systems for public safety. The driving requirements came from the APCO Project 25 Steering Committee's Statement of Requirements (included as Appendix C), which articulated the need for interoperable digital voice and data communications across agencies, jurisdictions, and manufacturers. TSB-102-A exists to provide the architectural blueprint that ties together the entire P25 family of standards. It defines the system model, names the open interfaces, establishes the document numbering taxonomy, catalogues all planned standards in the suite, and translates the user-level Statement of Requirements into a Technical Requirements Specification (TRS) that serves as the starting point for all subsequent protocol and interface specifications.
+
+WHAT THE DOCUMENT DEFINES
+
+System Architecture and Open Interfaces: The core contribution of TSB-102-A is the definition of the P25 system as a set of open interfaces surrounding an RF Subsystem (RFSS). The document defines six primary open interfaces:
+
+1. Common Air Interface (CAI / Um) -- The most critical interface, defined between subscriber units (mobiles/portables) and base stations. Any manufacturer's subscriber unit that implements the CAI can operate on any manufacturer's RFSS. The CAI is the only open interface tied to specific RF transmission technology; the other five are independent of it.
+
+2. Inter-RF Subsystem Interface (ISSI / G) -- Connects RF Subsystems from any manufacturer into wide-area networks. Enables interoperability between systems using different technologies (FDMA, TDMA), different manufacturers, and even different RF bands.
+
+3. Telephone Interconnect Interface (Et) -- Connects the RFSS to the PSTN, supporting both analog and ISDN telephone interfaces for voice telephone interconnect service.
+
+4. Data Peripheral Interface (A) -- An open port on subscriber units for connecting laptops, terminals, or other data peripherals. Protocols on this interface are transparently passed into X.25, SNA, or TCP/IP networks on the fixed side.
+
+5. Network Management Interface (En) -- A uniform network management interface to all RF Subsystems regardless of manufacturer, supporting all five classical network management elements under a single selected management scheme.
+
+6. Host and Network Interfaces (Ed) -- Interfaces for host computer and data network connectivity, supporting native host connections plus three standard network protocols (SNA, X.25, TCP/IP).
+
+General System Model: Section 3 defines a formal system model based on CCITT architectural conventions (as used for ISDN and OSI). The model uses four core concepts: reference configurations (conceptual arrangements of physical equipment), functional groups (sets of functions like Mobile Radio, Base Radio, Console, etc.), functions (the actions performed by functional groups), and reference points (conceptual points between functional groups where open interface standards apply).
+
+Two reference configurations are defined in detail:
+- Repeater Configuration: The full infrastructure model with Mobile End System (MES), Mobile Radio (MR), Mobile Routing Control (MRC), Mobile Data Peripheral (MDP), Base Radio (BR), Base Audio (BA), Base Control (BC), RF Subsystem Control (RFC), RF Subsystem Switch (RFS), RF Subsystem Gateways (RFG), Console (CON), Mobile Service Switching Center (MSC), Home Location Register (HLR), and Visitor Location Register (VLR).
+- Non-Repeater Configuration: The talk-around (direct) model using only subscriber-side functional groups (MR, MRC, MES, MDP).
+
+Specification Format: All interface specifications follow CCITT layered communications models with seven layers (Physical, Data Link, Network, Transport, Session, Presentation, Application), though not all layers need be present for every interface.
+
+Standards Organization and Taxonomy: Section 4 defines the document numbering system for the entire P25 family. All documents carry the form ***102.XXXX where *** may be TSB, IS, or TIA. The digits 102 indicate the APCO Project 25 group. The remaining characters assign category and subject:
+- ***102 (no suffix): This System and Standards Definition document
+- ***102A___: Services category (encryption, trunking, conventional control, OTAR, link control, network management)
+- ***102B___: Systems category (CAI, vocoder, ISSI, PSTN interconnect, data, radio control)
+- ***102C___: Equipment category (transceiver measurements and performance)
+
+Technical Requirements Specification: Section 5 is the largest section, translating the Statement of Requirements into technical requirements covering services and facilities, interoperability levels (mutual aid, predefined roaming, full roaming, systems interworking), backwards compatibility with analog systems, telecommunications services (bearer services, teleservices, supplementary services), subscriber services, network procedures (registration, authentication, roaming, disable terminal, network management), performance requirements, man-machine interfaces, security (traffic channel, control channel, network management, electronic serial number), and conformance testing.
+
+KEY SERVICES DEFINED
+Bearer Services: Circuit Switched Unreliable Data (9.6 kbps), Circuit Switched Reliable Data, Packet Switched Confirmed Delivery Data, Packet Switched Unconfirmed Delivery Data.
+Teleservices: Broadcast Voice Call, Unaddressed Voice Call, Group Voice Call, Individual Voice Call, Circuit/Packet Switched Data Network Access, Pre-programmed Data Messaging.
+Supplementary Services: Encryption, Priority Call (5 levels), Preemptive Priority Call, Call Interrupt, Voice Telephone Interconnect, Discreet Listening, Silent Emergency, Radio Unit Monitoring, Talking Party Identification, Call Alerting.
+
+KEY REFERENCE POINTS
+- Um: Air Interface (subscriber to base)
+- G: ISSI (between RF Subsystem Gateways)
+- Et: Telephone Interconnect (RFSS to PSTN)
+- En: System Maintenance Interface / Network Management
+- Ed: Host and Data Network Interface
+- A: Radio Data Peripheral Interface
+- B: Console User Interface to System
+- C: User Interface to Subscriber Unit
+
+STATEMENT OF REQUIREMENTS (APPENDIX C)
+Appendix C contains the APCO Project 25 Statement of Requirements, divided into General Requirements and Detailed Requirements covering system requirements, RF subsystem interface requirements, and Common Air Interface requirements. It also includes the originally proposed standards suite structure covering bandwidth, FS-1024, interface standards, host interface, and encryption standards.
+
+APPENDIX A: NAMING DEFINITIONS
+Defines the hierarchical naming structure for P25 infrastructure: WACN (Wide Area Communications Network) at the top level, Systems within a WACN, RF Subsystems within a System, and Interfaces between elements.
+
+LIMITATIONS
+TSB-102-A was written when many of the standards it catalogues were still incomplete (marked with *** for documents whose designation type had not yet been determined). The document explicitly states it will be updated as implementation requirements become available. As a 1995 document, it predates Phase 2 TDMA, the CSSI (Console Subsystem Interface), IP-based networking, and many other later additions to the P25 suite. Some sections reference "[TBD]" for procedures and document numbers not yet finalized. The Technical Requirements Specification in Section 5 does not provide implementation details -- it defines requirements from a system perspective that are meant to be implementation-independent.

@@ -1,0 +1,116 @@
+TIA-102.BBAD: Project 25 Two-Slot TDMA Control Channel MAC Layer Specification
+August 2017 | 174 pages | TR-8.12 Two-Slot TDMA Working Group
+
+OVERVIEW
+
+TIA-102.BBAD specifies the Media Access Control (MAC) layer protocol for a logical
+control channel operating on the Project 25 Phase 2 two-slot TDMA Common Air
+Interface (CAI) within a 12.5 kHz bandwidth radio channel. Where TIA-102.BBAC
+describes the MAC layer for voice traffic channels (VCH), this document focuses
+exclusively on the control channel (CCH) function — the logical channel on which
+subscriber units register, request calls, and receive system broadcasts. It is the TDMA
+counterpart to the FDMA control channel messages defined in TIA-102.AABC-D.
+
+The Um2 interface (two-slot TDMA) supports two logical channels (LCH 0 and LCH 1)
+within a single 12.5 kHz frequency pair, each operating on 30 ms timeslots. This
+document defines how one or both of those logical channels may be configured as a
+Logical Control Channel (LCCH) and specifies the complete signaling protocol that runs
+on it.
+
+WHAT THE DOCUMENT SPECIFIES
+
+Channel Architecture. Four LCCH deployment configurations are defined: Single LCCH
+(one LCH as CCH, other as TCH or idle), Dual LCCH (both LCHs as CCH for higher
+throughput), Multiple LCCHs (across multiple physical channels), and Composite Control
+Channel (TDMA LCCH coexisting with an FDMA CCH on the same trunked system).
+LCCH encryption is supported using the block encryption protocol in TIA-102.AAAD-B,
+with encryption sync conveyed in the I-ISCH field of each outbound burst.
+
+Burst Types. The LCCH uses two burst types not used on the VCH: the Inbound Encoded
+Control Information (IECI) burst for SU-to-FNE transmissions, and the Outbound Encoded
+Control Information (OECI) burst for FNE-to-SU transmissions. IECI provides 17 octets
+(136 bits) of payload plus 2 reserved bits and a 16-bit CRC, coded with RS(46,23) over
+GF(2^6) — providing 11 symbol error correction. OECI provides 22.5 octets of payload
+with RS(57,29) coding. The stronger RS coding and 16-bit CRC for the LCCH (vs.
+CRC-12 on the VCH) matches the reliability of FDMA TSBKs, as detailed in Annex C.
+
+Inter-Slot Signaling Channel (ISCH). Every outbound burst carries a 40-bit ISCH split
+across adjacent bursts (20 bits from the previous burst, 20 bits for the next burst). Two
+ISCH types are used: S-ISCH (carries NAC and synchronization, transmitted once per
+superframe) and I-ISCH (carries Color Code, CCH/TCH flag, encryption sync, present on
+all other outbound bursts). Notably, the S-ISCH sync pattern is identical on both VCH and
+CCH — the CCH/TCH flag in the I-ISCH distinguishes them (Annex C rationale).
+
+MAC PDU Structure. All MAC PDUs begin with an 8-bit MAC Header comprising a 3-bit
+Opcode, 3-bit Offset, and 2-bit Reserved field. Opcodes distinguish: MAC_SIGNAL (LCCH),
+MAC_PTT (VCH call start), MAC_END_PTT (call end), MAC_IDLE, MAC_ACTIVE, and
+MAC_HANGTIME. The LCCH uses only the MAC_SIGNAL PDU type; it carries one or more
+MAC messages in its payload, each identified by B1/B2/MCO fields. Multiple messages
+may be packed into a single PDU (bin-packing). VCH PDUs carry MAC_PTT (equivalent
+to HDU in FDMA), MAC_END_PTT (equivalent to ETDU), and the variable-content
+MAC_IDLE/MAC_ACTIVE/MAC_HANGTIME PDUs.
+
+MCO Partitioning. The 6-bit MAC Opcode (MCO) combined with B1 and B2 bits selects
+the specific MAC message. The 2-bit {B1,B2} prefix divides the opcode space into four
+partitions: TDMA-unique messages (00), abbreviated FDMA-derived messages (01),
+manufacturer-specific messages (10), and extended/explicit FDMA-derived messages (11).
+This design reuses FDMA OSP/ISP opcodes as-is for abbreviated messages while
+providing extension space for TDMA-specific fields.
+
+MAC Messages. A total of 98 MAC messages are defined (sections 6.2.1–6.2.98), spanning:
+voice service (grants, requests, channel users), data service (SNDCP), registration and
+deregistration, status/paging, authentication, roaming, dynamic regrouping (MFID90 and
+MFIDA4), and MAC-layer housekeeping. Most FDMA OSP/ISP messages have direct TDMA
+counterparts at the same opcode, in abbreviated form (without MFID, CRC, and some
+reserved fields) or in extended form. Several messages gained LCCH-specific extended
+formats with additional fields not needed on the bandwidth-constrained VCH (e.g., Unit to
+Unit Voice Service Channel Grant – Extended LCCH at 32 octets vs. 15 octets for VCH).
+
+Message Lengths. Fixed-length messages use Table 8 for length lookup (no length field
+needed). New messages added after initial publication must include an explicit length octet
+(least significant 6 bits of the B1/B2/MCO-following octet) for forward compatibility — this
+allows older SUs to skip unknown messages in the same PDU. A small number of messages
+(Individual Paging with Priority, Indirect Group Paging without Priority, Roaming Address
+Response, variable-length dynamic regrouping commands) use parsed internal fields for
+length.
+
+CCH Procedures. Section 5 defines: CCH acquisition (SU scans for S-ISCH sync, verifies
+NAC, begins decoding); LCH transition from LCCH to TCH (FNE grants channel, SU
+tunes to VCH); LCH transition from TCH back to LCCH; scrambling enable/disable; and
+Composite Control Channel operation. Multi-fragment messages (too large for one PDU)
+are supported on the LCCH only, transmitted in consecutive LCH bursts.
+
+CRC Fields. CRC-12 (G(x) = x^12+x^11+x^3+x^2+x+1, init=0xFFF, XOR-out=0xFFF) is
+used on all VCH PDUs. CRC-16 (CRC-16/CCITT, G(x) = x^16+x^12+x^5+1,
+init=0xFFFF, XOR-out=0xFFFF) is used on all LCCH PDUs.
+
+Burst Bit Allocations. Annex A (Normative) provides precise two-bit-per-symbol placement
+tables for IECI (Table 18, 180 symbols) and OECI (Table 19, 180 symbols), including the
+interleaved positions of IECI/OECI payload bits, RS parity bits, DUID segments, sync
+pattern, ISCH halves, pilot symbols, and guard zones.
+
+RELATIONSHIPS TO OTHER DOCUMENTS
+
+TIA-102.BBAD sits within the Phase 2 TDMA document suite:
+
+- TIA-102.BBAB: Physical layer — modulation, burst timing, frequency structure
+- TIA-102.BBAC / BBAC-1: VCH MAC layer — defines MAC PDU types, superframe structure,
+  SACCH/FACCH, all VCH procedures; BBAD reuses and extends many definitions from here
+- TIA-102.AABC-D: Source of all FDMA OSP/ISP messages that BBAD abbreviates/adapts
+- TIA-102.AABD-B: FDMA trunking procedures (CCH acquisition, registration, etc.)
+- TIA-102.AABH: Dynamic regrouping messages (MFID90 family) adapted in sections 6.2.86–98
+- TIA-102.AAAD-B: Block encryption protocol providing ALGID/KID/MI used in MAC_PTT
+- TSB-102.BBAA: Two-slot TDMA overview; TSB-102-C: full TIA-102 suite overview
+
+LIMITATIONS AND SCOPE BOUNDARIES
+
+This document does not define: the physical layer (TIA-102.BBAB), voice channel MAC
+procedures (TIA-102.BBAC), FDMA air interface (TIA-102.BAAA-B), encryption algorithms
+(TIA-102.AAAD-B), or inter-RF subsystem interface (ISSI/CSSI). Individual message
+field definitions (Service Options, Channel fields, address formats) are inherited from
+TIA-102.AABC-D and TIA-102.AABD-B rather than re-defined here.
+
+STATUS
+
+Active standard, original publication August 2017. Approved by the Project 25 Steering
+Committee June 22, 2017. No known superseding document as of 2026.

@@ -1,0 +1,76 @@
+TIA-102.AACD-A: Project 25 Digital Land Mobile Radio – Key Fill Device (KFD) Interface Protocol
+Published: September 2014 | Status: Active | Supersedes: TIA-102.AACD
+Standards Body: Telecommunications Industry Association, TR8.3 Subcommittee on Encryption
+
+WHAT THIS DOCUMENT SPECIFIES
+
+TIA-102.AACD-A defines the interface protocol between a Key Fill Device (KFD) and a P25 Mobile Radio (MR) for the purpose of loading, erasing, and managing encryption keys and provisioning parameters. It is the authoritative wire-level specification for direct-connect key management in the P25 ecosystem — covering both legacy 3-Wire Interface (3WI) physical connections and modern IP-based connections over USB or RS-232.
+
+The document specifies the full protocol stack for both transport paths, the exchange session state machine that governs every KFD-MR interaction, 33 Key Management Message (KMM) types with complete byte-level field layouts, timing requirements, CRC computation details, and the behavioral rules for 16 manual rekeying features. It is the implementation contract for any compliant KFD or for the MR firmware that services the KFD port.
+
+WHY THIS DOCUMENT EXISTS
+
+P25 systems rely on symmetric encryption (DES, TDES, AES) to protect voice and data traffic on the air interface. Encryption keys must reach radios by some secure means. Over-the-Air Rekeying (OTAR, defined in TIA-102.AACA-A) handles key distribution during normal operations over the radio channel, but it requires the radio to already have a Unit Key Encryption Key (UKEK) loaded — a bootstrapping problem. The KFD fills this gap: it is a physically secured device that connects directly to the radio's accessory port and injects the initial keying material before any radio transmission occurs.
+
+Beyond initial keying, the KFD interface supports day-to-day key management for agencies that operate without a Key Management Facility (KMF): loading Traffic Encryption Keys (TEKs), erasing individual or all keys, viewing key inventory, managing KMF RSI addresses, configuring the Mobiles Network Point (MNP), and managing authentication keys (SUID-based link-layer authentication per TIA-102.AACE-A).
+
+KEY PARAMETERS AND REQUIREMENTS
+
+Exchange Session (IP path, 5 steps):
+  1. KFD sends Ready Request; MR responds Ready General Mode
+  2. KFD-to-MR transfer phase (required)
+  3. MR-to-KFD transfer phase (optional; skipped for keyload-only operations)
+  4. KFD sends End Session; MR sends End Session Ack
+  5. KFD sends Disconnect; MR sends Disconnect Ack
+
+Exchange Session (3WI path, 4 steps):
+  1. KFD sends Ready Request [$C0]; MR responds Ready General Mode [$D0]
+  2. KFD-to-MR transfer phase
+  3. MR-to-KFD transfer phase
+  4. KFD sends Disconnect [$92]; MR sends Disconnect Ack [$90]
+
+Key Fill Inactivity Timer (KIT): MR maintains a session inactivity timer. Default = 15 seconds; minimum = 5 seconds; maximum = 30 seconds. Timer resets each time the MR sends a KMM. If KIT expires before the session terminates normally, the MR abandons the session and returns to idle.
+
+IP Transport: UDP port 49165 (assigned per TIA-102.BAJD). KFD source port is in the range 49165–65535. Protocol stack: RS-232 or USB physical → PPP link layer → IPv4 → UDP → KFD Interface Protocol → Manual Rekeying application.
+
+3WI Physical: K/F line, half-duplex, 4 kbps. Key signature = 100 ms low + 5 ms pause. Logic levels: V_ILmax = 1.3 V, V_IHmin = 3.7 V. Byte format: start bit + 8 data bits (MSB first) + even parity + 1 ms low gap. Session initiation timeout t_out1 = t_out2 = 5 seconds. Maximum KMM frame size: 512 bytes.
+
+3WI Opcodes: Ready Req = $C0, Ready General Mode = $D0, Transfer Done = $C1, KMM = $C2, Disconnect Ack = $90, Disconnect = $92.
+
+KMM Frame (3WI): KFD Opcode (1) | Length (2) | Control (1) | Destination RSI (3) | [Encryption Sync, optional] | KMM body | CRC-16 (2). Maximum DLI KMM size: 478 octets.
+
+Destination RSI: If the KFD does not know the MR's individual RSI, it uses $FFFFFF. An MR must always accept messages addressed to $FFFFFF.
+
+CRC: CRC-16-CCITT, G(X) = X^16 + X^12 + X^5 + 1, initialized to $FFFF. Final CRC byte-swapped before transmission. Test vector: input $DEAD → CRCi = $4B7C → transmitted CRC = $7C4B.
+
+Algorithm identifiers: $80 = Unencrypted (Type I clear), $85 = AES-128. DES keys are 8 octets (7 data + 1 parity per byte). TDES and AES keys use 8-bit data bytes with no check vectors.
+
+SUID (Subscriber Unit Identity): 56-bit field = WACN ID (20 bits) || System ID (12 bits) || Subscriber ID (24 bits). Used for link-layer authentication key association.
+
+Keyset initialization rules: The first keyset loaded is automatically enabled and activated. Subsequent keysets are enabled-not-activated; they become active only after a Changeover command. At most one keyset can be active at a time; the enabled keyset is always treated as active if no explicit activation has occurred.
+
+KFD-BASED VS. KMF-BASED OPERATION
+
+A KFD-only system (no KMF) supports four basic features: keyload, key erase, erase all keys, and view key info. A KMF-based system extends this with UKEK management, RSI configuration, MNP provisioning, and keyset operations — enabling the radio to subsequently use OTAR for ongoing key distribution. TIA-102.AACD-A covers both operational modes through the same 16-feature taxonomy.
+
+RELATIONSHIPS TO OTHER DOCUMENTS
+
+TIA-102.AACA-A — OTAR Messages and Procedures: KFD loads the UKEK that OTAR requires; the KMM wire format defined here is a transport layer for OTAR KMMs exchanged directly via the KFD port rather than over the air.
+
+TIA-102.AACE-A — Link Layer Authentication: Defines the SUID structure and authentication keys managed through the KFD View SUID Info and View Active SUID Info features.
+
+TIA-102.BAJD — IP Port Assignments: Assigns UDP port 49165 to KFD Interface Protocol; referenced normatively for the IP transport configuration.
+
+TIA-102.BAEG — MDPI: Mobile Data Peripheral Interface; provides the underlying IP connectivity framework for IP-based KFD sessions over USB.
+
+TIA-102.AACD (original, 2003): This document is a revision; AACD-A updates field widths, adds the IP transport path, and incorporates corrections from implementation experience.
+
+LIMITATIONS AND SCOPE BOUNDARIES
+
+The document is explicitly limited to the interface between a KFD and a single MR. It does not define KMF-to-KFD protocols, KFD internal key storage, or key generation. Some procedures described are noted as not yet having developed conformance test standards at time of publication. The document acknowledges that interoperability with legacy AACD implementations may require negotiation of transport mode. Conformance testing criteria are deferred to a companion document not yet published as of 2014.
+
+PHASE 3 FLAG
+
+This document warrants two follow-up implementation specs:
+1. KFD Message Parsing Spec — opcode dispatch table, all 33 KMM body decoders with field offsets, CRC validation routine, 3WI frame framer/deframer.
+2. KFD Protocol State Machine Spec — exchange session FSM for both IP and 3WI paths, KIT timer management, keyset initialization rules, Destination RSI fallback logic.

@@ -1,0 +1,69 @@
+TIA-102.BAEG-A: Project 25 Mobile Data Peripheral Interface
+Summary
+ANSI/TIA-102.BAEG-A-2019 | Approved: March 8, 2019 | ~1,000 words
+
+WHAT THIS DOCUMENT SPECIFIES
+
+This document specifies the Mobile Data Peripheral Interface, designated the "A Interface" in the P25 Data architecture. The A Interface connects a P25 Subscriber Unit (SU) — typically a portable or mobile radio — to a Mobile Data Peripheral (MDP), typically a laptop computer, ruggedized tablet, or vehicle-mounted data terminal. The specification defines which protocol stacks may be used on this interface, how IP addresses are assigned to the endpoints, and what types of payloads (data application traffic and control signaling) may flow across it.
+
+WHY IT EXISTS
+
+P25 public safety radios routinely carry both voice and packet data. In a mobile deployment, a radio may simultaneously serve as a wireless WAN gateway — forwarding IP data between a laptop in a patrol car and the P25 network — while also conducting voice calls on its air interface. The A Interface standardizes how that laptop or data terminal connects to the radio, ensuring interoperability between radios from different manufacturers and data peripherals from different vendors. Without this standard, each manufacturer would use proprietary cable pinouts, protocols, and addressing conventions, preventing mix-and-match deployment across a public safety agency's fleet.
+
+This document is a revision (Revision A, 2019) of the original TIA-102.BAEG (2013). The original was itself derived from earlier P25 data documents TIA-102.BAEA-A and TIA-102.BAEB-A. Revision A adds two new protocol combinations: IPv4 over RNDIS/USB and IPv4 over Ethernet, bringing the supported protocol combinations from four to six.
+
+PROTOCOL COMBINATIONS DEFINED
+
+The A Interface supports six protocol stack combinations, all carrying IPv4 as the network layer:
+
+1. IPv4 over SLIP/TIA-232 — Classic serial port using SLIP framing
+2. IPv4 over PPP/TIA-232 — Classic serial port using PPP framing
+3. IPv4 over SLIP/USB — USB physical layer with SLIP framing
+4. IPv4 over PPP/USB — USB physical layer with PPP framing
+5. IPv4 over RNDIS/USB — USB with RNDIS (Windows networking-over-USB) — new in Revision A
+6. IPv4 over Ethernet (RFC 894 encapsulation) — new in Revision A; also supports IEEE 802.3/802.2 with RFC 1042 encapsulation
+
+Each combination represents a complete three-layer stack: a physical/serial or network interface layer, an optional point-to-point framing layer, and the IPv4 network layer. In all USB combinations, the SU is the USB Device and the MDP is the USB Host. In the RNDIS combination, the SU is the RNDIS Device and the MDP is the RNDIS Host.
+
+PHYSICAL INTERFACE REQUIREMENTS
+
+For TIA-232, the document specifies a minimal subset of signals. Three signals are required (Common/C, Transmitted Data/TD, Received Data/RD); six are optional (DSR, DTR, RFR/CTS direction control, TDC, CTS, RDC). Voltage levels per TIA-232-F and ITU-T V.24 are recommended but conformance to physical connector specifications is not required, acknowledging that P25 radios use non-standard ruggedized connectors. The TDC (transmit data clock) and RDC (receive data clock) optional signals support synchronous clocked operation.
+
+For USB, any speed defined in USB Revision 3.1 is acceptable (low speed 1.5 Mb/s, full speed 12 Mb/s, high speed 480 Mb/s), and any USB Device Class capable of supporting networking per the USB Communications Device Class specification is permitted. Physical connector conformance is not required.
+
+IP ADDRESS BINDING
+
+The specification defines four methods for how the SU and MDP discover each other's IP addresses:
+
+- Static: IP addresses are pre-configured on both endpoints before connectivity is established. Appropriate for SLIP (which has no address negotiation).
+- Passive: The SU learns the MDP's address by inspecting the source address of the first IP datagram the MDP sends. The SU cannot send first.
+- Active: The SU sends an ICMP Information Request with destination IP set to 0 ("this network"); the MDP replies with its IP address as the source address.
+- Dynamic (DHCP): Mandatory for RNDIS/USB. The SU acts as DHCP Server; the MDP is the DHCP Client. Only the "dynamic allocation" DHCP mechanism is required. The server must support Subnet Mask, Router Option, DHCP Message Type, Server Identifier, and Parameter Request List options. DHCP Message Type must be present in all messages.
+
+KEY DHCP CONSTRAINT: Several DHCP fields have specific restrictions in this context. The "hops" and "siaddr" fields must always be set to zero. The "htype" and "hlen" fields, normally used to specify the hardware address type, are ignored by the DHCP server and may be set to Ethernet values (1 and 6 respectively). The "sname" and "file" fields are also ignored by the server and always set to zero in server-to-client messages.
+
+NETWORK LAYER PAYLOAD
+
+Two types of IPv4 payload are defined:
+
+1. Data Application Information — Upper-layer protocols such as TCP and UDP carrying application data. Header fields follow RFC 791. Application-specific header fields are beyond scope. This is the "normal" data path.
+
+2. Control Signaling — Two sub-types:
+   - Error Reporting via ICMP (RFC 792): Destination Unreachable (network, host, or port not reachable), Parameter Problem (bad checksum, IP version ≠ 4, MTU exceeded without fragmentation, IP header too short), and Echo Request/Reply (SU's Echo Reply response capability must be configurable on/off).
+   - Radio Management: Uses protocols from TIA-102.BAEE-C. The IPv4 Type of Service field must be zero; the Protocol field must be set to identify the specific radio management transport protocol.
+
+RELATIONSHIP TO OTHER DOCUMENTS
+
+This document is part of the P25 data interface family:
+- TIA-102.BAEA-C — Data Overview and Specification: defines the A Interface conceptually and defines terms used here
+- TIA-102.BAEE-C — Radio Management Protocols: defines the radio management protocols carried over the A Interface
+- TIA-102.BAEF-A — Packet Data Host Network Interface: defines the network-side (host) interface, complementing this document's radio-side interface
+- TIA-102.BAEG (original, 2013) — predecessor to this document
+
+LIMITATIONS ACKNOWLEDGED
+
+The document explicitly scopes out several topics as "local policy" or "beyond the scope": application-layer protocol specifics, transport-layer header fields, IP fragmentation behavior, ICMP error handling policy, and the mapping of exceptions to ICMP messages. It also does not address IPv6, multicast, or QoS marking beyond requiring ToS=0 for radio management traffic. The document does not define the cable harness or connector pinouts, explicitly stating that physical connector conformance for TIA-232 is not required.
+
+STATUS
+
+Active. Approved March 8, 2019 as ANSI/TIA-102.BAEG-A-2019. Supersedes TIA-102.BAEG (2013). No known successor as of the knowledge cutoff.

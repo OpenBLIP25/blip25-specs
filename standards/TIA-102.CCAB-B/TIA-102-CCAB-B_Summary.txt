@@ -1,0 +1,135 @@
+TIA-102.CCAB-B: Two-Slot Time Division Multiple Access Transceiver Performance Recommendations
+Published: July 2022 | Supersedes: TIA-102.CCAB-A (March 2014)
+Developed by: TIA TR-8.1 Equipment Measurement Procedures Subcommittee
+
+DOCUMENT PURPOSE
+
+TIA-102.CCAB-B defines minimum performance limits — receiver sensitivity floors,
+transmitter modulation accuracy bounds, rejection ratios, timing margins, and
+environmental survivability thresholds — for P25 Phase 2 Two-Slot TDMA transceivers
+operating at or below 1 GHz. It is a companion to TIA-102.CCAA-C, which specifies how
+each characteristic is measured. CCAB-B supplies the pass/fail thresholds; CCAA-C
+supplies the test procedures. Neither document is complete without the other.
+
+The document is developed under APCO/NASTD/Industry (ANI) coordination and defines
+interoperability floors for public safety land mobile radio equipment submitted for P25
+Compliance Assessment Program (CAP) testing.
+
+RADIO TECHNOLOGY COVERED
+
+P25 Phase 2 Two-Slot TDMA operates on 12.5 kHz channels at 6000 symbols per second,
+carrying two simultaneous voice or data traffic slots. The inbound (subscriber-to-base)
+link uses Harmonically Companded PSK (H-CPM) modulation; the outbound (base-to-subscriber)
+link uses Harmonically Companded DQPSK (H-DQPSK) modulation. Both are spectral
+efficiency improvements over Phase 1 C4FM/CQPSK. All limits in this document apply to
+equipment operating at or below 1 GHz; separate TIA documents cover >1 GHz bands.
+
+PERFORMANCE CLASSES
+
+All receiver and transmitter limits are divided into two performance classes:
+
+  Class A — Stringent limits intended for equipment in demanding RF environments.
+  Class B — Limits comparable to 12.5 kHz digital or analog equipment performance,
+             representing a lower-cost interoperability baseline.
+
+Where FCC regulations (47 CFR) specify more stringent requirements, those supersede the
+recommendations in this document.
+
+RECEIVER CHARACTERISTICS (18 parameters)
+
+Key receiver limits by class (H-CPM, 12.5 kHz channel):
+
+  Reference Sensitivity:            Class A: -116 dBm     Class B: -113 dBm
+  Co-Channel Rejection:             Class A:    +3 dB     Class B:    +6 dB
+  Adjacent Channel Rejection:       Class A:    60 dB     Class B:    50 dB
+  Intermodulation Rejection:        Class A:    75 dB     Class B:    70 dB
+  Blocking Rejection (in-band):     Class A:    90 dB     Class B:    80 dB
+  Blocking Rejection (out-of-band): Class A:    90 dB     Class B:    90 dB
+  Spurious Response Rejection:      Class A:    90 dB     Class B:    80 dB
+  Conducted Spurious Emissions:    < -57 dBm (above 1 GHz: < -47 dBm)
+
+The document also covers conducted/radiated spurious emissions, desensitization,
+audio distortion, hum and noise, and trunking signal timing receiver characteristics.
+
+STRONG SIGNAL INTERMODULATION REJECTION — NEW IN REVISION -B
+
+The primary technical addition in the -B revision is Broadband Strong Signal
+Intermodulation Rejection (SSIR). SSIR addresses scenarios where a broadband amplifier
+simultaneously receives signals from geographically co-located transmitters on different
+bands (e.g., a subscriber unit at a talk site with multiple simulcast infrastructure
+transmitters). Separate SSIR tables are provided for:
+
+  - 700 MHz band
+  - 800 MHz band
+  - 900 MHz band
+
+Each table defines rejection requirements as a function of the offset from channel
+center to the two blocking tones. The addition of SSIR reflects real-world P25
+deployment patterns where multi-band infrastructure creates receiver stress conditions
+not fully captured by conventional single-tone blocking tests.
+
+TRANSMITTER CHARACTERISTICS (18 parameters)
+
+Transmitter limits cover output power range, modulation accuracy (expressed as Error
+Vector Magnitude, or EVM), occupied bandwidth (99% power within 11.25 kHz for H-CPM,
+12 kHz for H-DQPSK), frequency error (±200 Hz), H-CPM power envelope compliance,
+conducted and radiated spurious emissions, and adjacent channel power. Maximum portable
+power is 3 W (35 dBm); maximum mobile power is 35 W (45 dBm) with a minimum of 1 W.
+
+ENVIRONMENTAL AND UNIT TESTS (10 parameters)
+
+Environmental limits define a Degradation from Standard (DFS) — the allowable
+performance change from baseline when the equipment is subjected to:
+
+  - Low temperature: -30°C (Class A) / 0°C (Class B)
+  - High temperature: +60°C
+  - Humidity: 95% relative humidity at 40°C, 24-hour soak
+  - Vibration: 1.5 mm displacement, 10–30 Hz sweep
+  - Shock (drop test): 1.0 m drop, operational surfaces
+
+Unit tests include battery drain, receiver audio output level, and audio bandwidth
+(300–3000 Hz passband for voice traffic channels).
+
+TRUNKING TIMING
+
+One trunking timing characteristic is specified: the time from receipt of a valid
+trunking assignment to the first transmitted symbol on the assigned channel. The
+assigned channel may be the same as or different from the control channel. Test signals
+use TSBK (Trunking Signaling Block) messages: IDEN_UP, NET_STS_BCST, and RFSS_STS_BCST
+with fully specified hex bit patterns (reproduced in Section 9.3 and Annex A of the
+full text extraction).
+
+MEASUREMENT UNCERTAINTY
+
+Annex B provides 37 worked examples of measurement uncertainty calculations using the
+RSS (root-sum-square) method for combining independent systematic errors. Each example
+identifies the uncertainty contributions (mismatch, cable loss calibration, signal
+generator accuracy, etc.) and computes a combined ±U value. These are reference
+examples — the actual test laboratory is responsible for its own uncertainty budget.
+
+Annex A provides receiver performance formulas A1–A20, which define how performance
+ratios and margins are calculated from raw measurement values.
+
+DOCUMENT RELATIONSHIPS
+
+  TIA-102.CCAA-C        — Companion: measurement procedures for all CCAB-B characteristics
+  TIA-102.CCAB-A        — Predecessor: added blocking rejection limits (March 2014)
+  TIA-102.CCAB          — Original: initial Two-Slot TDMA performance limits (October 2011)
+  TIA-102.BBAB          — Physical layer standard (H-CPM/H-DQPSK waveform specification)
+  TIA-102.BBAC-A        — MAC layer standard (Two-Slot TDMA frame/burst structure)
+  TSB-102.BBAA          — Overview: P25 Phase 2 system overview bulletin
+  MIL-STD-810H          — Referenced for environmental test methods (drop, vibration, temperature)
+  47 CFR Parts 22/90    — FCC regulations; supersede where more stringent
+
+REVISION HISTORY
+
+  TIA-102.CCAB    October 2011  — Initial publication
+  TIA-102.CCAB-A  March 2014    — Added blocking rejection recommendations
+  TIA-102.CCAB-B  July 2022     — Added SSIR (700/800/900 MHz) recommendations
+
+CLASSIFICATION NOTE
+
+This document is classified as MEASUREMENT. It defines performance limits for
+compliance testing and interoperability assessment. It does not specify implementation
+algorithms, vocoder coding, packet formats, or encryption. No Phase 3 implementation
+specification is applicable or appropriate for this document.

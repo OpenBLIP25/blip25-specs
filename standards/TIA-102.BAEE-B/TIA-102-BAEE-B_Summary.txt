@@ -1,0 +1,134 @@
+TIA-102.BAEE-B: Project 25 Radio Management Protocols
+ANSI/TIA-102.BAEE-B | Approved: May 7, 2010 | Supersedes: TIA-102.BAEE-A
+
+WHAT THIS DOCUMENT SPECIFIES
+
+This document defines two optional application-layer radio management protocols for use on
+the Project 25 "A" Reference Point interface between a Mobile Data Peripheral (MDP) and a
+Mobile Radio Controller (MRC). The two protocols are the Radio Control Protocol (RCP) and
+the Simple Network Management Protocol (SNMP). Both protocols serve the same three
+management functions: (1) MDP-initiated configuration of the MRC, (2) MDP-initiated
+requests for information from the MRC, and (3) unsolicited MRC-generated event reporting
+to the MDP. Implementors choose one protocol or the other; both are encapsulated within
+UDP/IP on the "A" interface. RCP uses UDP port 469.
+
+WHY IT EXISTS
+
+The document originated as a Radio Control Protocol specification (Issue A, 1995) and has
+been through numerous revisions. Revision B supersedes ANSI/TIA-102.BAEE-A, primarily
+incorporating addendum ANSI/TIA-102.BAEE-1-2002 (PPP/USB support), eliminating
+terminology ambiguities, and adding SNMP as a formally defined alternative to RCP on the
+A interface. The standard exists to enable Mobile Data Peripherals (laptop computers,
+MDTs, and similar devices attached to a P25 radio via a serial or USB link) to manage the
+radio subsystem (the MRC) through a standardized protocol interface, regardless of
+manufacturer.
+
+RADIO CONTROL PROTOCOL (RCP)
+
+RCP is a multithreaded, transaction-based application protocol. Its design allows multiple
+outstanding requests simultaneously — the MDP does not wait for one response before
+issuing the next. Each request carries a unique SDU Tag, and the matching response echoes
+that tag. The special SDU Tag value $FFFF is reserved for unsolicited MRC-generated Report
+SDUs, which have no corresponding request.
+
+All RCP messages are Service Data Units (SDUs) with a common 6-octet header: Type (1
+octet), Length (2 octets, data field size), SDU Tag (2 octets), MFID (1 octet, $00 for
+standard). Three SDU classes are defined:
+
+  - RQST ($43, ASCII 'C'): Request, sent MDP-to-MRC
+  - RESP ($52, ASCII 'R'): Response, sent MRC-to-MDP
+  - RPRT ($45, ASCII 'E'): Report, asynchronous MRC-to-MDP event
+
+Seven request operators are defined:
+
+  GET_INFO    ($47): Retrieve information block (SW version, manufacturer, CAI LLI,
+                     MTU, serial number, registration status, channel quality,
+                     signal strength, battery level)
+  GET_CONFG   ($33): Retrieve configuration block (power mode, data delivery,
+                     encryption, data config mode)
+  RST_DFLT    ($34): Restore default configuration from non-volatile memory
+  SET_CONFG   ($35): Set configuration (volatile memory)
+  SAVE_DFLT   ($36): Save configuration to non-volatile memory
+  RESET_STATS ($4C): Reset operational statistics counters
+  GET_STATS   ($4D): Retrieve operational statistics (sent/received packet counts)
+
+Responses carry a result code of SUCCESS ($53/'S') or FAIL ($46/'F'). An Unknown Command
+response ($55/'U' in the info field) is returned for unrecognized requests.
+
+Three Report SDUs are defined:
+  POWER_UP          ($50/'P'): Radio just powered up
+  RADIO_REGISTRATION($4E/'N'): Registration status changed (REGISTERED/$41 or NOT/$42)
+  DATA_SVC_AVAILABILITY ($44/'D'): Data service now available ($31) or not ($30)
+
+KEY PARAMETERS
+
+MRC Information Block (returned with GET_INFO):
+  SW_version:         4 octets, ASCII
+  Radio_Manufacturer: 1 octet (same values as CAI MFID)
+  Radio_CAI_LLI:      3 octets, hexadecimal (CAI Logical Link ID)
+  MRC_MTU:            2 octets (max 2028 octets; restricts MDP IP datagram generation)
+  Serial_Number:      10 octets, ASCII
+  Registration_Status: integer; 0 = registered, 1-100 = error codes, -1 = unknown
+  Channel_Quality:    0 (no contact) to 100 (perfect), -1 = unknown
+  Signal_Strength:    0 (none) to 100 (perfect), -1 = unknown
+  Battery_Level:      0 (empty) to 100 (full), -1 = unknown
+
+MRC Configuration Block (GET/SET_CONFG):
+  POWER_MODE:       $30=High, $31=Low, $32=Adaptive
+  DATA_DELIVERY:    $33=Confirmed, $34=Unconfirmed
+  ENCRYPTION:       $35=Disable, $36=Enable
+  DATA_CONFIG_MODE: $37=Repeated (RFG implied), $38=FNE (non-enhanced), $39=Direct
+
+SIMPLE NETWORK MANAGEMENT PROTOCOL (SNMP)
+
+Section 4 defines how to achieve the same radio management functions using standard IETF
+SNMPv2. The Project 25 SNMP support is built around a custom MIB registered under IANA
+Private Enterprise Number 17405 (TIA TR8dot5). The OID base is 1.3.6.1.4.1.17405.
+
+The MIB hierarchy (TR8dot5RmpMIB) has four subtrees:
+  TR8dot5RmpInfoObjs   (.1): Read-only radio information (maps to RCP INFO_BLOCK)
+  TR8dot5RmpConfigObjs (.2): Read-write configuration (maps to RCP CONFIG_BLOCK)
+  TR8dot5RmpStatsObjs  (.3): Read/write statistics (maps to RCP STATS_BLOCK)
+  TR8dot5RmpEvents     (.0): Notifications (maps to RCP RPRT SDUs)
+
+Table 4-1 provides an explicit RCP-to-SNMP equivalency mapping: GET_INFO/GET_CONFG/
+GET_STATS use Get-Request; RST_DFLT/SET_CONFG/SAVE_DFLT/RESET_STATS use Set-Request;
+POWER_UP/RADIO_REGISTRATION/DATA_SVC_AVAILABILITY use Snmpv2-trap.
+
+The rmpConfigStatusMode object (read-write enumeration: Default/Modified/Stored) provides
+volatile/non-volatile memory management semantics equivalent to the RCP
+RST_DFLT/SET_CONFG/SAVE_DFLT command trio. Annex A provides the normative ASN.1 MIB
+definition (module TR8dot5-RMP-MIB).
+
+PHYSICAL/TRANSPORT LAYER CONTEXT
+
+Both RCP and SNMP operate over UDP/IP. The transport below IP may be PPP, SLIP,
+USB, or RS-232 per TIA-102.BAEB-A (Packet Data Specification). RCP uses UDP port 469.
+SNMP uses standard SNMP UDP ports. The "A" reference point is the interface between the
+mobile host (MDP) and the mobile gateway (MRC/MR) — distinct from the radio air interface
+(Um).
+
+RELATIONSHIPS TO OTHER DOCUMENTS
+
+This standard is part of the TIA-102.BAE series governing P25 data services. Key
+companions include:
+  - TIA-102.BAEA-A: P25 Data Overview (scope and architecture)
+  - TIA-102.BAEB-A: P25 Packet Data Specification (IP/PPP/SLIP transport)
+  - TIA-102.BAAA-A: P25 FDMA Common Air Interface (CAI definitions)
+  - TSB102-A: APCO P25 System and Standards Definition
+
+NORMATIVE SNMP REFERENCES: RFC1155/1157/1212/1213 (SNMPv1), RFC2578/2579/2580 (SMIv2),
+RFC3412-3418 (SNMPv3 framework, though SNMPv2 community-based operations are described).
+
+LIMITATIONS AND STATUS
+
+The standard was reaffirmed after a 5-year review (2009-2010). The document acknowledges
+that some specifications may not have been fully operationally tested. DATA_DELIVERY
+(confirmed/unconfirmed) is noted as "future support" in some tables. The document does not
+define all possible radio management protocols; additional ones may be added or removed in
+subsequent releases. Annex B (Network Management Mapping to the five OSI FCAPS areas) is
+informative only and not part of the standard.
+
+DOCUMENT STATUS: Active ANSI/TIA standard as of approval date May 7, 2010. Formed from
+Standards Proposal No. 3-4631-RV2 under TIA TR-8.5 Subcommittee on Signaling and Data
+Transmission.

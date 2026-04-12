@@ -1,0 +1,133 @@
+NTIA Technical Report TR-01-386
+Voice Quality Assessment of Vocoders in Tandem Configuration
+Authors: Christopher Redding, Nicholas DeMinco, Jeanne Lindner
+Institute for Telecommunication Sciences (ITS), Boulder, Colorado
+Published: April 2001
+U.S. Department of Commerce / National Telecommunications and Information Administration
+
+OVERVIEW
+
+This report documents objective voice quality testing of six vocoders operated
+both individually and in pairwise tandem configurations. Tandem vocoding occurs
+when speech is decoded from one vocoder back to analog (or PCM), then
+immediately re-encoded by a second vocoder -- the scenario that arises whenever
+two different digital radio systems are bridged together. The study was
+performed by ITS for the National Communications System's Office of Standards
+and Technology under reimbursable order DNRO 66008.
+
+The central question is straightforward: how much does voice quality degrade
+when vocoders are cascaded? The answer has direct consequences for P25 system
+design, where ISSI bridging, console patching, and Phase 1 to Phase 2
+conversion all create tandem vocoding opportunities.
+
+VOCODERS TESTED
+
+Six vocoders representing the major digital radio systems of the era were
+evaluated:
+
+  CELP   - FS-1016, 4.8 kbps, military, DSP board (single vocoder only)
+  VSELP  - TIA/EIA/IS-54 TDMA, 8.0 kbps, DSP board
+  QCELP  - TIA/EIA/IS-95 CDMA, 9.6 kbps variable rate, computer expansion board
+  IMBE   - Project 25 (APCO), 7.2 kbps (4.4 speech + 2.8 FEC), DSP board
+  AMBE   - Satellite systems, 4.8 kbps, DSP board
+  ACELP  - TETRA, 7.2 kbps, software implementation
+
+A 64 kbps PCM waveform coder (G.711) and a straight bypass (no coding) were
+included as reference benchmarks. The CELP vocoder was tested only as a single
+vocoder, not in tandem pairs. All other vocoders were tested in every pairwise
+combination, with order reversed (A-B and B-A), yielding a comprehensive matrix
+of tandem configurations.
+
+TANDEM CONFIGURATIONS
+
+Each tandem test connected two vocoders end-to-end: the analog output of
+Vocoder A fed directly into the analog input of Vocoder B (decode then
+re-encode through PCM). This is exactly the signal path that occurs in a
+real-world bridge or gateway. Each pair was tested in both orderings. PCM
+tandems (vocoder-PCM and PCM-vocoder) were also measured to isolate the effect
+of adding a waveform coding stage. In total, the study covered 7 single
+vocoders, 1 bypass reference, and approximately 30 tandem pair configurations.
+
+MEASUREMENT METHODOLOGY
+
+Voice quality was measured using the Audio Play, Record, and Estimate (APRE)
+objective testing tool developed at ITS. APRE uses the Measuring Normalizing
+Block (MNB) algorithm standardized in ITU-T Recommendation P.861. The algorithm
+computes an Auditory Distance (AD) between the input and output speech signals
+by analyzing spectral differences across multiple time and frequency scales,
+emulating human perceptual adaptation. AD is transformed via a logistic function
+into L(AD), which ranges from 0 (severe distortion) to 1 (transparent). L(AD)
+is then mapped to an estimated Mean Opinion Score (MOS) using the formula
+MOS = 4*L(AD) + 1, placing results on the standard 1-5 MOS scale.
+
+Test material consisted of 40 Harvard Sentences (IEEE Standard Publication
+No. 297) spoken by two male and two female English-language speakers. All tests
+used simulated error-free channels, representing best-case performance.
+
+KEY FINDINGS
+
+Single vocoder estimated MOS scores:
+  Bypass (no coding):  4.60
+  PCM (64 kbps):       4.32
+  QCELP:               3.46
+  VSELP:               3.35
+  IMBE:                3.32
+  AMBE:                3.30
+  ACELP:               3.28
+  CELP:                3.03
+
+All single vocoders scored between 3.0 and 3.5 -- communications grade quality.
+The IMBE vocoder used by P25 Phase 1 scored 3.32, consistent with "Fair" on the
+MOS scale.
+
+Tandem vocoder-vocoder estimated MOS scores (selected):
+  IMBE-IMBE:           2.59
+  IMBE-AMBE:           2.63
+  IMBE-VSELP:          2.75
+  IMBE-ACELP:          3.01
+  VSELP-QCELP:         2.54
+
+Tandem vocoder-PCM estimated MOS scores (selected):
+  IMBE-PCM:            3.19
+  PCM-IMBE:            3.19
+  VSELP-PCM:           3.37
+
+Critical degradation pattern: Single vocoders score in the 3.0-3.5 range. In
+vocoder-vocoder tandem, MOS drops to 2.5-3.0 -- a loss of approximately 0.5 to
+0.8 MOS points. This moves quality from "Fair" toward "Poor." For PCM tandems,
+the degradation is smaller (scores between 3.0 and 3.6), since PCM is nearly
+transparent. The MOS decrease of approximately 0.5 points for tandem
+configurations represents a perceptually significant degradation -- a decrease
+in voice quality that is noticeable and objectionable to the untrained listener.
+
+An unexpected result was that VSELP-PCM tandems actually showed slightly higher
+L(AD) values than VSELP alone, likely because the PCM bandpass filtering
+produced a signal slightly easier for the VSELP vocoder to encode. This may
+also reflect a limitation of the objective estimator.
+
+SIGNIFICANCE FOR P25 SYSTEMS
+
+This study provides the empirical foundation for a critical P25 design
+principle: avoid tandem vocoding wherever possible. Every time a P25 voice call
+passes through a bridge, gateway, console patch, or cross-system link that
+decodes to PCM and re-encodes, quality drops by roughly half a MOS point. Chain
+two such transitions and the signal approaches unusable quality.
+
+This is precisely why TIA-102.BABA-A Section 17 specifies parametric rate
+conversion for Phase 1 (IMBE, FDMA) to Phase 2 (AMBE+2, TDMA) bridging.
+Rather than decoding IMBE to PCM and re-encoding with AMBE+2 (tandem
+vocoding), parametric conversion transfers the vocoder parameters directly --
+pitch, voiced/unvoiced decisions, spectral magnitudes -- from one codec's
+parameter space to the other's. This avoids the decode-to-analog-re-encode
+chain entirely, preserving quality at or near single-vocoder levels.
+
+The same principle applies to ISSI (Inter-RF Subsystem Interface) design per
+the TIA-102.BACA series: when two P25 RFSS nodes bridge calls, passing IMBE
+parameters directly across the ISSI link avoids tandem vocoding. Console
+patches and cross-system gateways that decode to analog and re-encode represent
+the worst case documented in this report.
+
+The report's tests were conducted under ideal error-free channel conditions.
+Real-world performance with channel errors, noise, and multipath would show
+even greater degradation in tandem configurations, making the avoidance of
+unnecessary vocoder cascading even more important in operational P25 systems.

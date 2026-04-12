@@ -1,0 +1,149 @@
+TIA-102.BAHA-A — Project 25 Fixed Station Interface Messages and Procedures
+Published: June 2017 | Supersedes: TIA-102.BAHA | Organization: TIA
+
+OVERVIEW
+
+TIA-102.BAHA-A defines the messages and procedures for the Conventional Fixed
+Station Interface (CFSI) — the link between a Conventional Fixed Station
+Subsystem (CFSS, which contains the RF transmitter/receiver hardware) and a
+Conventional Fixed Station Host (CFSH, a software function inside an RFSS or
+Console Subsystem). The interface carries voice, control, and packet data across
+an IP network, replacing or supplementing legacy analog connectivity.
+
+This revision (-A) adds Protocol Version 2 (PV2), which introduces a dedicated
+Data Conveyance service and expanded receiver/transmitter control messages.
+
+
+INTERFACE TYPES
+
+Two interface variants are defined:
+
+AFSI (Analog Fixed Station Interface): Legacy 4-wire audio with E&M signaling
+(E-pair = PTT from host, M-pair = COR from station) and optional Tone Remote
+Control (TRC). TRC uses in-band tones: a High Level Guard Tone (HLGT) at
+2100/2175/2325 Hz for 120 ms, followed by one of 15 function tones
+(650–2050 Hz) for 40 ms at -10 dB relative to HLGT. A Low Level Guard Tone
+(LLGT) at -30 dB is mixed with speech. Audio range: -30 to +10 dBm.
+
+DFSI (Digital Fixed Station Interface): IP/UDP transport. Three logical
+services: Control Service (UDP, port 50006), Voice Conveyance Service
+(RTP/UDP), and Data Conveyance Service (UDP, PV2 only).
+
+
+DFSI CONTROL SERVICE
+
+All control messages share a 3-octet base header: Message ID, Message Version,
+Message Correlation Tag. The fixed station listens on UDP port 50006. DSCP is
+set to 100010 (AF41) for control traffic.
+
+Seventeen control messages are defined. Ten are common to PV1 and PV2:
+FSC_CONNECT, FSC_HEARTBEAT, FSC_ACK, FSC_SBC, FSC_MAN_EXT, FSC_SEL_CHAN,
+FSC_SEL_RPT, FSC_SEL_SQUELCH, FSC_REPORT_SEL, FSC_DISCONNECT. Seven are PV2
+only: FSC_SCAN, FSC_RCV_CNTRL, FSC_TX_CNTRL, FSC_MBC, FSC_START_DATA,
+FSC_STOP_DATA, FSC_CAI_BUSY_BITS.
+
+FSC_CONNECT establishes a connection and specifies the connection type: Control
+($10), Voice Conveyance ($20), or Data Conveyance ($40). It also negotiates
+Protocol Version and Max_CAI_Data_Blocks parameters. FSC_ACK carries response
+codes: CONTROL_ACK (success), or 11 NAK codes covering conditions such as
+already-connected, unsupported version, bad parameters, busy, and connection
+failure.
+
+The retry protocol uses ControlRetryTimer (default 500 ms) and
+ControlAttemptLimit (default 3). The host state machine progresses through:
+CS Not Connected → CS Connecting → CS Connected → CS Disconnecting → CS Not
+Connected. Heartbeats are exchanged every 30 seconds; connection loss is
+declared after 2 missed heartbeat periods.
+
+In PV2, FSC_RCV_CNTRL replaces the in-band Voter Control block (PT=13) for
+receiver management: REPORT, NORMAL, SELECT, DISABLE, ENABLE. Receiver number 0
+applies to all receivers. FSC_TX_CNTRL provides equivalent transmitter control.
+FSC_START_DATA and FSC_STOP_DATA arbitrate between voice and data on the CAI.
+
+
+DFSI VOICE CONVEYANCE SERVICE
+
+Carried over RTP/UDP. DSCP = 101110 (Expedited Forwarding). RTP parameters:
+PT=100 (dynamic), marker=0, timestamp clock=8 kHz, CC=0, SSRC assigned by host.
+
+Each RTP packet contains a Payload Header (Control Octet + Block Headers)
+followed by one or more Block Payloads. The Control Octet signals presence of
+audio and selects compact (1-byte) or verbose (4-byte) block headers. The
+compact block header encodes an E (end) bit and a 6-bit Block PT.
+
+The core block type is PT=0 (CAI Voice), a fixed 14-octet block carrying one
+IMBE vocoder frame: vectors U0-U7 (U0-U6 Golay/Hamming decoded and error-
+corrected from the CAI, U7 unprotected), plus error counts (Et, Er, E4, E1),
+mute (M) and lost-frame (L) flags, a 2-bit super frame counter (SF), and
+the CAI busy status bit (B).
+
+Eighteen IMBE frame types are defined (Table 14), identified by PID/FT fields
+$62-$73: frames 1, 2, 10, 11 carry only IMBE data; frames 3-8 add Link Control
+code words; frames 9 and 18 add Low Speed Data; frames 12-17 add Encryption
+Sync code words. Each variant appends its extra data and a STATUS field
+encoding Hamming decode error counts for each code word.
+
+PV2 adds four decoded data block types: PT=2 (Decoded Link Control Word,
+full 12 code words decoded into constituent fields), PT=3 (Decoded Encryption
+Sync Word, 80-bit message indicator + algorithm ID + key ID), PT=4 (Decoded Low
+Speed Data, 16-bit LSD + LDU indicator), PT=5 (Decoded Header Word, 72-bit
+message indicator + algorithm ID + key ID + MFID + TGID + NID).
+
+Stream framing uses Start of Stream (PT=8 or PT=9) and End of Stream (PT=10)
+blocks. PT=9 carries the 16-bit NID (NAC+DUID) and a 4-bit error count.
+PV2 adds PT=8 for analog streams with CTCSS or CDCSS squelch codes. The host
+sends SoS repeatedly (with each LDU1) until PT=14 Stream Acknowledge is
+received from the station, ensuring reliable NID delivery.
+
+Voice headers are split into PT=6 (first 18 Golay code words G0-G17 with
+status bits) and PT=7 (last 18 code words G18-G35) to minimize latency.
+
+Analog transparent voice uses G.711 μ-law PCM: 160 samples assembled every
+20 ms, block type = 0, E=0 (PCMU format per RFC 3551).
+
+Stream termination: both ends send 4 End of Stream packets spaced 100 ms apart.
+The station de-keys its transmitter on EoS receipt, or after a timeout
+(typically 4 seconds) with no incoming voice packets.
+
+Receiver Reports (PT=12) carry per-receiver status: NO_SIGNAL, SELECTED,
+GOOD_P25, GOOD_FM, BAD_P25, BAD_FM, NOT_EQUIPPED, FAILED. Multiple receivers
+may be reported in a single RTP packet. Reports are sent on status changes and
+periodically (Voter Reporting Period, default 10 sec). PV2+ adds optional
+Transmitter Reports (PT=20) with analogous per-transmitter status codes.
+
+
+DFSI DATA CONVEYANCE SERVICE (PV2 ONLY)
+
+A separate Data Conveyance connection ($40 type) is established after the
+Control connection is active. Data Conveyance messages carry CAI Packet Data
+blocks across the FSI. The structure is: DC Header (Message ID=$40, Version=$01,
+Correlation Tag, DC Flags) + DC Payload Header (block count, block type octets,
+CAI error count octets) + DC Block Payloads.
+
+DC Flags enable a request/acknowledgement handshake for reliable delivery:
+FSI Transport Request/Ack flags confirm FSI delivery; CAI Bundle Sent
+Request/Ack flags confirm actual CAI transmission; NID flag allows CFSS to
+request that CFSH supply a NID via a SoS block.
+
+Data Conveyance Block Types (Table 19) include: Start of Stream with NID (09),
+End of Stream (10), Receiver Report (12), Transmitter Report (20), Confirmed
+Data Header/Block/Last Block (31/32/33), Confirmed Response (34), Unconfirmed
+Data Header/Block/Last Block (35/36/37). Confirmed and unconfirmed block payloads
+follow the CAI Packet Data formats from TIA-102.BAAA-A.
+
+Max blocks per DC message is negotiated via FSC_CONNECT/FSC_ACK parameters
+(CFSH and CFSS each specify inbound/outbound maximums; the effective limit is
+the minimum of the two). A single packet data message may span up to 128 CAI
+data blocks across multiple DC messages if needed.
+
+CFSS NID management is configurable: self-manage only, use CFSH NID if
+available (else self-manage), or use CFSH NID only (with NID request flag).
+
+
+DOCUMENT POSITION IN THE P25 STANDARD FAMILY
+
+This document is the primary specification for CFSS-CFSH interoperability in
+conventional P25 systems. Related specs: TIA-102.BAAA-A (CAI), TIA-102.BABA
+(conventional channel access), TIA-102.BACE (Console Subsystem Interface which
+reuses the same RTP payload format with additional block types 16-30), and
+TIA-102.BACA-B (ISSI which defines block types 1, 11, 15).

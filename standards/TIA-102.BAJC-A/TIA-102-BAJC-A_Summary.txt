@@ -1,0 +1,224 @@
+TIA-102.BAJC-A: Location Registration and Reporting Protocol (LRRP)
+ANSI/TIA Standard | Published April 10, 2015 | 162 pages
+Classification: PROTOCOL, MESSAGE_FORMAT
+
+=======================================================================
+WHAT THIS DOCUMENT IS
+=======================================================================
+
+TIA-102.BAJC-A defines the Location Registration and Reporting Protocol
+(LRRP) for Project 25 Tier 2 systems. LRRP is an XML-based application
+layer protocol that enables location services over the P25 data
+transport layer. It allows fixed network infrastructure (LSHS —
+Location Service Hosting System) to query subscriber units (SUs) for
+their geographic position, and allows SUs to report their position
+autonomously. The protocol uses EXI (Efficient XML Interchange) binary
+XML encoding for efficient transmission over the P25 air interface.
+
+This document is a revision to TIA-102.BAJC (the base LRRP standard)
+and updates message definitions, conformance requirements, and the
+service notification mechanism.
+
+=======================================================================
+PROTOCOL ARCHITECTURE
+=======================================================================
+
+ROLES:
+  - Requester: Initiates location service (typically LSHS querying SUs,
+    or an SU initiating service notification)
+  - Responder: Provides location information (typically SU or MDP)
+  - Provider: Entity that determines the SU's physical location (may
+    be the Responder or an intermediate network element)
+  - LSHS: Location Service Hosting System — fixed network entity
+  - SU: Subscriber Unit (mobile radio terminal)
+  - MDP: Mobile Data Peripheral (attached data device)
+
+TRANSPORT: UDP/IP over the P25 Tier 2 data bearer. LRRP messages are
+XML documents compressed using EXI with schema-informed mode
+(bit-packed, strict, schemaID=0x00).
+
+COORDINATE SYSTEM: WGS-84 datum. All latitude/longitude/altitude values
+use WGS-84. Latitude: xs:decimal [-90.0, +90.0], 8 significant digits.
+Longitude: xs:decimal [-180.0, +180.0), 8 significant digits.
+
+=======================================================================
+FOUR LOCATION SERVICES
+=======================================================================
+
+1. IMMEDIATE LOCATION SERVICE (Section 6.1)
+   One-shot request/response. The Requester (typically LSHS) sends an
+   Immediate-Location-Request; the SU responds with an
+   Immediate-Location-Report containing the location fix or an error.
+   All fields are optional except the response payload.
+
+2. TRIGGERED LOCATION SERVICE (Section 6.2)
+   Multi-message exchange for event-driven or periodic reporting.
+   Flow: Request → Answer (accepted/rejected) → Reports (repeated) →
+         Stop-Request → Stop-Answer.
+   Supports two trigger types:
+   - Oneshot trigger: fires once at a time or upon an event
+   - Periodic trigger: fires repeatedly at an interval, optionally
+     bounded by start/stop times and/or a distance threshold
+   Triggered reports can be redirected to a different recipient
+   (recipient-addr element: ipv4-udp:XXXXXXXX:XXXX format).
+
+3. UNSOLICITED LOCATION REPORT (Section 6.3)
+   The SU sends a location report without a prior request. Used for
+   autonomous event reporting. 48 reserved single-octet request-id
+   values identify standard events: SU power ON/OFF, emergency,
+   PTT, status, inhibit mode, service entry/exit, car kit connect/
+   disconnect, coverage loss/recovery, periodic report, etc.
+
+4. LOCATION PROTOCOL VERSION SERVICE (Section 6.4)
+   Version negotiation between Requester and Responder. Also serves
+   as the transport for Service Notification (Section 10).
+
+=======================================================================
+MESSAGE TYPES (10 Total)
+=======================================================================
+
+Immediate-Location-Request     Requester → Responder
+Immediate-Location-Report      Responder → Requester
+Triggered-Location-Request     Requester → Responder
+Triggered-Location-Answer      Responder → Requester (accept/reject)
+Triggered-Location-Report      Responder → Recipient (repeated)
+Triggered-Location-Stop-Request  Requester → Responder
+Triggered-Location-Stop-Answer   Responder → Requester
+Unsolicited-Location-Report    SU/MDP → LSHS (autonomous)
+Location-Protocol-Request      Requester → Responder
+Location-Protocol-Report       Responder → Requester
+
+Common fields in requests: request-id, unit-id, application, suaddr,
+query-info. Reports carry either info-data or operation-error.
+
+=======================================================================
+LOCATION DATA STRUCTURES
+=======================================================================
+
+SHAPES (Section 7.69) — the shape element is a choice of:
+  - point-2d: lat + long
+  - point-3d: lat + long + altitude [+ altitude-acc]
+  - circle-2d: lat + long + radius (meters)
+  - circle-3d: circle-2d + altitude [+ altitude-acc]
+  - ellipse-2d: lat + long + angle + semi-major + semi-minor
+  - ellipse-3d: ellipse-2d + altitude [+ altitude-acc]
+  - impl-spec-shape: implementation-defined shape
+
+MOTION DATA in info-data element:
+  - speed-hor: horizontal speed (m/s), uIntOrFloat
+  - speed-vrt: vertical speed (m/s), intOrFloat; positive=upward
+  - direction-hor: direction of movement, lrrpAngle (units of 2°)
+  - heading-hor: direction SU is pointing, lrrpAngle
+  - lev-conf: location confidence 0–100%
+  - info-time: UTC timestamp of location fix
+
+ANGLE ENCODING: lrrpAngle uses units of 2 degrees (value × 2 = actual
+degrees). intAngle fits in a single byte (≤180 → ≤360° actual).
+floatAngle allows fractional: 30.5 = 61°. lrrpAngle = union of both.
+
+=======================================================================
+SUBSCRIBER ADDRESS (suaddr)
+=======================================================================
+
+The suaddr element carries a hex-binary address with a required
+suaddr-type attribute identifying the address format:
+
+  APCO      - 7 bytes: 20-bit WACN + 12-bit system + 24-bit radio ID
+  LTD       - 3 bytes: 24-bit radio ID (APCO SUID short format)
+  TETRA     - 6 bytes: 24-bit country/network + 24-bit SU (ITSI)
+  PLMN      - BCD-encoded phone number (nibble encoding per Table 8)
+  IPV4      - 4 bytes IPv4 address
+  IPV6      - 16 bytes IPv6 address
+  USER-SPECIFIED - begins with unsigned integer type tag
+
+=======================================================================
+EXI ENCODING FOR AIR INTERFACE
+=======================================================================
+
+LRRP XML messages are compressed before air interface transmission:
+1. EXI compression: bit-packed, strict, schemaID=0x00 (schema version)
+2. Header stripping: EXI cookie removed; only 8 bits (dist+presence+
+   version) + 1-byte schemaID transmitted
+3. Receiver reconstructs full EXI header, checks version/schemaID
+4. Decompression using identical EXI options
+
+Unsupported version → result-code 0x08 (UNSUPPORTED VERSION) returned;
+body contains provider's largest supported version number.
+
+=======================================================================
+SERVICE NOTIFICATION (Section 10)
+=======================================================================
+
+Uses Location-Protocol-Request/Report with application-id=0x41 to
+register, re-register, and de-register SUs with the LSHS:
+
+  Register:    application body = 0x524547 (ASCII "REG")
+  Re-register: application body = 0x5245524547 (ASCII "REREG")
+  De-register: application body = 0x4445524547 (ASCII "DEREG")
+  LSHS response: body = 0x(1-9)484F555253 (ASCII "xHOURS", x=1–9)
+
+On successful register: LSHS associates source IP, sends Tier 2 Profile.
+Re-registration must occur before the hours timer expires.
+De-register: LSHS marks SU de-registered; no response sent.
+
+=======================================================================
+RESULT CODES (Table 7)
+=======================================================================
+
+0x00 SUCCESS            0x08 UNSUPPORTED VERSION
+0x01 SYSTEM FAILURE     0x0A SYNTAX ERROR
+0x02 UNSPECIFIED ERROR  0x0B PROTOCOL ELEMENT NOT SUPPORTED
+0x03 UNAUTHORIZED       0x0C SERVICE NOT SUPPORTED
+0x04 UNKNOWN SUBSCRIBER 0x0F QUERY INFO NOT ATTAINABLE
+0x05 ABSENT SUBSCRIBER  0x11 REPORTING WILL STOP
+0x06 CONGESTION/PROV    0x12 TIME EXPIRED
+0x07 CONGESTION/NET     0x15 NO SUCH REQUEST
+0x51 POSITION METHOD FAILURE
+0x200 INSUFFICIENT GPS SATELLITES
+0x201 BAD GPS GEOMETRY
+0x202+ Implementation-specific
+
+=======================================================================
+CONFORMANCE STRUCTURE
+=======================================================================
+
+Annex A defines mandatory (M), optional (O), subrequirement (S), and
+optional-subrequirement (OS) conformance for three entity types:
+  - LSHS: LRRP-SP-LS-xxx requirements
+  - SU: LRRP-SP-SU-xxx requirements
+  - MDP: LRRP-SP-LA-xxx requirements
+
+Document format conformance (LRRP-DF-xxx) covers encoding, location
+data types, per-service message formats, element values, trigger
+time handling, suaddr types, request-id echoing, and query-info
+processing rules.
+
+MANDATORY for all entities: EXI encoding/decoding, WGS-84 lat/long,
+LRRP framework support, correct element value expression.
+
+=======================================================================
+RELATIONSHIP TO OTHER P25 DOCUMENTS
+=======================================================================
+
+  TIA-102.BAJC    — Base LRRP specification (predecessor)
+  TIA-102.BACE    — EXI document format rules for P25 data apps
+  TIA-102.BAAA    — P25 SUID formats (APCO, LTD address structures)
+  TIA-102.BABA    — P25 Tier 2 data transport layer
+  TIA-102.BACA-B  — P25 ISSI (inter-system interface, voice/mobility)
+  TIA-102.AACA    — P25 OTAR (related data application)
+
+=======================================================================
+PHASE 3 IMPLEMENTATION NOTES (not produced in this run)
+=======================================================================
+
+This document warrants the following implementation specs:
+  1. LRRP State Machine Spec: State machines for all four services
+     (Immediate, Triggered, Unsolicited, Version/Notification) from
+     both Requester and Responder perspectives, including timeout
+     handling (SN_SHORT/SN_LONG/SN_MAX retry), trigger lifecycle,
+     and profile management state.
+  2. LRRP Message Codec Spec: Binary-level EXI encoding/decoding
+     implementation guide, including header stripping/reconstruction,
+     schemaID versioning, and schema-informed EXI option configuration.
+  3. LRRP XML Schema: The complete normative XSD (Section 8) as a
+     standalone file for use with validators and code generators.

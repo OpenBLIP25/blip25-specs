@@ -1,0 +1,132 @@
+TIA-102.BABA-A: IMBE Vocoder and Half-Rate Vocoder
+Summary
+
+DOCUMENT OVERVIEW
+
+TIA-102.BABA-A specifies the Improved Multi-Band Excitation (IMBE) voice coder and its half-rate
+variant for Project 25 (P25) land mobile radio systems. Published February 25, 2014, the document
+is normative for P25 Phase 1 FDMA (full-rate, 7.2 kbps) and P25 Phase 2 Two-Slot TDMA (half-rate,
+3.6 kbps). It contains 17 sections, 20 normative annexes (A through T), and 14 informative
+references. The specification is implementation-complete: all quantization tables, FEC generator
+matrices, PN sequences, interleaving tables, and flow charts are normatively specified.
+
+
+SPEECH MODEL
+
+Both vocoders are based on the Multi-Band Excitation (MBE) model, originally developed by Griffin
+and Lim (MIT, 1988). Speech is parameterized per 20 ms frame by: a fundamental frequency ω₀
+(pitch), a set of voiced/unvoiced (V/UV) binary decisions for up to 12 frequency bands, and
+spectral amplitudes M_l for harmonics l = 1..L. The number of harmonics L = floor(π/ω₀),
+constrained to 9 ≤ L ≤ 56. The model enables natural-sounding synthesis with sinusoidal
+overlap-add for voiced components and spectrally-shaped noise for unvoiced components.
+
+
+FULL-RATE VOCODER (7.2 KBPS)
+
+The full-rate vocoder produces 144 bits per 20 ms frame: 88 bits for voice parameters and 56 bits
+for FEC. It is the P25 Phase 1 standard vocoder, used in FDMA systems on 12.5 kHz channels.
+
+The encoder pipeline: (1) pitch estimation via autocorrelation with three-frame look-ahead
+tracking and DFT-based pitch refinement; (2) V/UV band determination using a discriminant
+function D_k compared to adaptive threshold θ_G; (3) spectral amplitude extraction via 256-point
+DFT; (4) log-domain encoding using prediction residuals, DCT over 6 spectral blocks, and a
+6-point gain DCT; (5) 8-bit fundamental frequency quantization (256 levels); (6) bit
+prioritization into 8 vectors û₀..û₇ by significance; (7) FEC encoding using [23,12] Golay codes
+on û₀..û₃ and [15,11] Hamming codes on û₄..û₆; (8) PN sequence bit modulation keyed from the
+quantized pitch û₀; (9) interleaving across 72 TDMA symbols.
+
+Error concealment uses adaptive smoothing: frame repeats (attenuated) triggered when Golay
+syndrome indicates ε₀ ≥ 2 and total errors ε_T ≥ 10+40ε_R, and frame muting when the
+exponentially smoothed error rate ε_R > 0.0875. Spectral amplitude enhancement applies
+psychoacoustic weighting W_l to improve perceived speech quality post-decoding.
+
+
+HALF-RATE VOCODER (3.6 KBPS)
+
+The half-rate vocoder produces 72 bits per 20 ms frame: 49 bits for voice parameters and 23 bits
+for FEC. It is designed for P25 Phase 2 TDMA where two voice channels share one 12.5 kHz channel.
+
+The 49 voice bits are allocated as: b₀ (7 bits, 120-level pitch), b₁ (5 bits, 32-entry V/UV
+codebook), b₂ (5 bits, 32-level gain), b₃ (9 bits, 512-entry PRBA24 VQ), b₄ (7 bits, 128-entry
+PRBA58 VQ), b₅ (5 bits, 32-entry HOC VQ), b₆ (4 bits, 16-entry HOC VQ), b₇ (4 bits, 16-entry
+HOC VQ), b₈ (3 bits, 8-entry HOC VQ). All quantization codebooks are normatively specified in
+Annexes L through R.
+
+V/UV quantization uses a 32-entry codebook (Annex M) rather than per-band encoding. The
+PRBA (Predictive Residual Block Average) vector captures spectral shape in a two-stage vector
+quantizer: first stage (b₃, Annex P, 512 entries) for the low-order DCT block averages G₂-G₄,
+second stage (b₄, Annex Q, 128 entries) for G₅-G₈. Higher-order DCT coefficients are vector
+quantized across four tables in Annex R (b₅..b₈).
+
+Half-rate spectral amplitudes are divided into 4 blocks (J₁..J₄, Annex N table) vs. 6 blocks
+for full-rate. FEC uses a [24,12] extended Golay for the most significant bits and [23,12] Golay
+for remaining vectors. PN modulation uses the same linear congruential generator as full-rate
+(seeded from û₀) but only 23 samples. Interleaving maps to 36 symbols × 2 bits (Annex S).
+
+Error thresholds are tighter than full-rate: frame repeat when ε₀ ≥ 4 or ε_T ≥ 6; frame mute
+when ε_R > 0.096 or after 4 consecutive invalid frames.
+
+
+TONE FRAMES
+
+The half-rate vocoder supports in-band DTMF, KNOX, and call progress tones without requiring
+a separate tone signaling path. Tone frames are identified by an 8-bit tone ID (I_D) with 256
+possible entries (Annex T). The tone is synthesized as an MBE frame with prescribed parameters
+f₀ (fundamental frequency) and shaping indices l₁, l₂. DTMF tones cover digits 0-9, A-D, *, #.
+Silence is signaled by I_D = 255 (f₀ = 250 Hz, l₁ = l₂ = 0).
+
+
+PARAMETRIC RATE CONVERSION
+
+Section 17 defines conversion between full-rate and half-rate frames at the parametric level,
+preserving speech quality by avoiding PCM tandeming. Full-to-half conversion re-quantizes ω₀,
+V/UV, gain, and spectral residuals to the half-rate codebooks. Half-to-full maps the half-rate
+parameters to full-rate quantization tables. Frame type mapping (Table 21) handles voice,
+erasure, silence, and tone frame conversions.
+
+
+ALGORITHMIC PARAMETERS
+
+- Analysis/synthesis delay: 80 ms total (73.75 ms analysis, 6.25 ms synthesis)
+- Sample rate: 8000 Hz, 16-bit PCM
+- Frame duration: 20 ms (160 samples)
+- Pitch range: 21-122 samples (65-381 Hz fundamental frequency)
+- Harmonics L: 9 to 56
+- V/UV bands K: up to 12
+- FIR LPF for autocorrelation: 21 taps (Annex D)
+- DFT size: 256 points
+- Analysis window: 211 samples (Annex B)
+- Synthesis window: 211 samples (Annex I)
+
+
+NORMATIVE ANNEXES SUMMARY
+
+A: Encoder/decoder variable initialization (P₋₁=100, ω̃₀(-1)=0.02985π, ε_R=0.0, S_E=75000)
+B: Analysis window w_A(n), n=-105..105
+C: Voiced speech analysis window
+D: FIR LPF coefficients h_LPF(n), n=-10..10 (21 values)
+E: Full-rate gain quantizer (64 levels)
+F: Full-rate gain bit allocation by L (L=9..56)
+G: Full-rate HOC bit allocation by L (L=9..56, multi-page)
+H: Full-rate bit interleaving table (72 symbols)
+I: Speech synthesis window w_S(n), n=-105..105
+J: Full-rate spectral block lengths J̃₁..J̃₆ by L
+K: Flow charts 1-12 (complete algorithm flow)
+L: Half-rate pitch quantization table (120 entries)
+M: Half-rate V/UV codebook (32 entries, 8-bit V/UV vectors)
+N: Half-rate spectral block lengths J₁..J₄ by L
+O: Half-rate gain quantizer (32 levels)
+P: PRBA24 VQ codebook (512 entries, 3-dimensional)
+Q: PRBA58 VQ codebook (128 entries, 4-dimensional)
+R: HOC VQ codebooks b₅..b₈ (32/16/16/8 entries, 4-dimensional each)
+S: Half-rate bit interleaving table (36 symbols)
+T: Tone frame parameters (256 tone IDs)
+
+
+STANDARDS CONTEXT
+
+TIA-102.BABA-A is one of approximately 130 documents in the TIA-102 (P25) standards suite.
+It specifies the voice coding layer used by P25 Phase 1 (TIA-102.BAAA through BAAC family) and
+Phase 2 (TIA-102.BBAA through BBAC family). The IMBE vocoder technology was patented by DVSI
+(Digital Voice Systems Inc.) and licensed for P25 use. The half-rate variant was developed
+specifically for Phase 2 TDMA to maintain voice quality at half the bit rate.

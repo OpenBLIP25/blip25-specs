@@ -1,0 +1,151 @@
+TIA-102.BAEB-B: Packet Data Specifications for P25 Data Bearer Services
+Published: September 2, 2014
+Document Number: TIA-102.BAEB-B
+
+OVERVIEW
+
+TIA-102.BAEB-B specifies the packet data protocols and message formats used by Project
+25 (P25) subscriber units (SUs) and fixed network equipment (FNEs) to convey IP datagrams
+over P25 radio channels. It defines two IP convergence protocols — SCEP and SNDCP — each
+matched to a specific P25 network configuration, along with the state machines, procedures,
+timers, and PDU formats that govern their operation.
+
+This document is a revision of TIA-102.BAEB-A. Revision B adds SNDCP Version 3 support,
+WAI SNDCP interoperability fields, and an expanded reject code table.
+
+SCOPE AND PURPOSE
+
+P25 radio systems carry IP-based data applications (computer-aided dispatch, AVL, messaging,
+database queries) between Subscriber Units, Mobile Data Peripherals (MDPs), Data Hosts (DHs),
+and Fixed Network Equipment. This document bridges the packet data layer between IP
+networking and the P25 Common Air Interface (CAI), defining exactly how IP datagrams are
+encapsulated, addressed, and conveyed over P25 traffic channels in each of the four P25 data
+configurations:
+
+  - Direct Data: SU-to-SU or SU-to-MDP without FNE involvement (uses SCEP)
+  - Repeated Data: SU-to-SU or SU-to-MDP relayed through a repeater (uses SCEP)
+  - Conventional FNE Data: FNE-mediated conventional channel data (SCEP or SNDCP)
+  - Trunked FNE Data: FNE-mediated trunked channel data (SNDCP only)
+
+SCEP — SIMPLE CONVERGENCE ENCAPSULATION PROTOCOL
+
+SCEP is the IP convergence protocol for Direct Data and Repeated Data configurations, and may
+also be used for Conventional FNE Data. It is a lightweight protocol with no context
+negotiation: an IP datagram is passed directly as a logical CAI message with no additional
+SCEP PDU wrapper. The SAP value is set to Packet Data, the Data Header Offset is set to zero.
+
+SCEP IP Address Binding: SUs may be provisioned with IP addresses or may learn bindings
+dynamically via SCEP ARP. In Conventional FNE Data, an FNE may be provisioned with IP
+bindings for each SU and can learn new bindings during Packet Data Registration.
+
+SCEP ARP: A variant of Ethernet ARP adapted for P25. The Hardware Address Type is set to
+ARP-TYPE_CAI = 33. Hardware Address Length = 3 (LLID is 3 octets). Protocol Address Length
+= 4 (IPv4). ARP Requests are sent with the Destination LLID set to broadcast. ARP Replies
+return the LLID of the responder. The 22-octet ARP message format mirrors Ethernet ARP but
+substitutes LLIDs for MAC addresses. SCEP ARP messages use unconfirmed CAI delivery and
+symmetric addressing.
+
+SCEP IP Datagram Conveyance: SCEP supports IPv4 datagrams of at least 512 octets per the
+maximum CAI fragment length. Datagram conveyance scenarios (Conventional FNE inbound/
+outbound, Direct/Repeated Data) are defined with Message Sequence Diagrams involving MDP,
+SU, FNE, and DH roles.
+
+SNDCP — SUBNETWORK DEPENDENT CONVERGENCE PROTOCOL
+
+SNDCP is the required IP convergence protocol for Trunked FNE Data, and is optional for
+Conventional FNE Data. It is a significantly more capable protocol supporting:
+
+  - Context Management (up to 14 concurrent NSAPI contexts per SU)
+  - IPv4 Address Assignment (static or dynamic)
+  - Header Compression (TCP/IP per Van Jacobsen RFC 1144 for V1+; RFC 2507 for V3+)
+  - Data User Authentication (CHAP for V2+)
+  - Data Host Network Selection (APN for V2+)
+  - Manufacturer Specific Options (V3+)
+  - Payload Compression (reserved, not yet defined)
+
+SNDCP versions: V1 (baseline), V2 (adds APN, PCO/CHAP, DHCP), V3 (adds RFC-2507
+compression, expanded reject codes, MSO, Version Supported field for negotiation).
+
+SNDCP STATE MACHINES
+
+The document defines two independent state machine families:
+
+TDS (Trunked Data Service) — SU has 6 states: Closed, Idle, Ready*, Standby, Ready, Ready
+Roaming. FNE has 5 states (no Ready Roaming). State transitions are triggered by SU
+registration/deregistration, context activation/deactivation, timer expirations, and PDU
+reception. Complete state transition matrices are provided from both SU and FNE perspectives
+(Tables 6 and 7).
+
+CDS (Conventional Data Service) — SU and FNE each have 5 states: Closed, Idle, Ready*,
+Standby, Ready. An SU LLID being allocated/revoked drives the Closed↔Idle transition (rather
+than TMS registration). Complete state transition matrices (Tables 8 and 9).
+
+Key Timers:
+  - Ready* Timer: Initial value 10 seconds; used during first context activation
+  - Ready Timer: Negotiated per-SU; controls time in Ready state after data activity;
+    encoded values from "Not Allowed" to "Always in Ready" (Table 23)
+  - Standby Timer: Negotiated per-SU; controls inactivity before context deactivation;
+    encoded values from "Not Allowed" to "Always in Standby" (Table 25)
+  - Activation Wait Timer: 60 seconds initial; SU waits for FNE response to context request
+
+KEY PDU TYPES AND FORMATS
+
+SNDCP Context Management PDUs (all conveyed using Confirmed CAI delivery, SAP =
+SNDCP Packet Data Control):
+  - SN-Context Activation Request (SU→FNE): Octet-level format defined for V1 (10 octets
+    fixed), V2 (variable, adds APN + PCO fields), V3 (variable, adds HCOMP, RFC-2507 fields,
+    MSO; IPv4 Address conditional based on NAT type)
+  - SN-Context Activation Accept (FNE→SU): V1 (13 octets fixed), V2 (adds APN, PCO),
+    V3 (variable, adds RFC-2507 fields, MSO; IPv4 Address conditional)
+  - SN-Context Activation Reject (FNE→SU): V1/V2 = 2 octets; V3 = 2-4 octets (adds
+    conditional Version Supported field when reject code = 23)
+  - SN-Context Deactivation Request (bidirectional): 2 octets fixed
+  - SN-Context Activation Command (FNE→SU, V2+): Variable, includes APN and IPv4 Address
+
+SNDCP Data PDUs (conveyed using Unencrypted User Data SAP, Data Header Offset = 2):
+  - SN-Data: Confirmed delivery; 2-byte header (PDU Type|NSAPI, PCOMP|DCOMP) + Network PDU
+  - SN-UData: Unconfirmed delivery; same 2-byte header structure (PCOMP added in V3)
+
+NSAPI: 4-bit field (0 = control signaling, 1-14 = dynamically allocated, 15 = reserved).
+Only NSAPI 1 is guaranteed to be supported by all FNE implementations.
+
+KEY FIELD VALUES
+
+SNDCP PDU Type (4 bits): 0=SN-Context Activation Request/Accept, 1=Activation Command,
+2=Context Deactivation Request, 3=Activation Reject, 4=SN-UData, 5=SN-Data, 6-15=Reserved.
+
+Reject Codes (V1/V2, 8 bits, 0-12 defined): Any Reason, SU Not Provisioned, DSUT Not
+Supported, Max Contexts Exceeded, SNDCP Version Not Supported, PDS Not Supported (site/
+system), IP Static Address errors, IPv4 Not Supported, Dynamic Address errors.
+V3 adds: Temporary Rejection (14), User Authentication Failed (20), Activation Rejected by
+External Network (21), APN Incorrect (22), SNDCP Version Not Supported with Version
+Supported field included (23).
+
+MTU (4 bits): 1=296 bytes, 2=510 bytes, 3=1020 bytes, 4=1500 bytes.
+DSUT (4 bits): 0=Trunked Data Only, 1=Alt Trunked Voice+Data, 2=Conv Data Only,
+3=Alt Conv Voice+Data, 4=Trunked+Conv Data Only, 5=Alt Trunked+Conv Voice+Data.
+
+RELATIONSHIPS TO OTHER DOCUMENTS
+
+This document is used alongside:
+  - TIA-102.BAAA / BAAB: Trunking system/MAC procedures (referenced as [1])
+  - TIA-102.BAAA/BBAC: FDMA/TDMA CAI and MAC layer data packet delivery (referenced as [8])
+  - TIA-102.AABC / AABF: Packet data headers, SAP values, LLID designations (referenced as [6], [9])
+  - TIA-102.BACA / BACE: TMS registration procedures (referenced as [3])
+  - TIA-102.AACA: Over-the-air key management (provides encryption for SNDCP, referenced as [9])
+  - RFC 1144 (Van Jacobsen TCP/IP header compression, referenced as [15])
+  - RFC 2507 (IP header compression, referenced as [18])
+  - RFC 1661 (PPP, referenced as [16])
+  - RFC 1994 (CHAP, referenced as [17])
+
+WAI SNDCP interoperability is addressed for 700 MHz wideband systems. SNDCP version field
+values 8-15 are allocated for WAI SNDCP; TIA-102 SUs that also support WAI air interfaces
+may indicate both in the Version Supported field of the SN-Context Activation Reject PDU.
+
+LIMITATIONS
+
+The document does not specify: IPv6 support (IPv4 only throughout), specific timer values
+(Ready and Standby timer values are subject to local policy within the encoded table), actual
+payload compression algorithms (DCOMP reserved for future use), specific routing procedures
+at the FNE (beyond scope), or UDP/IP header compression (anticipated but not specified for V1/V2;
+superseded by RFC 2507 for V3+).

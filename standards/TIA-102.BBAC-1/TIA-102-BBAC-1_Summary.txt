@@ -1,0 +1,59 @@
+TIA-102.BBAC-1 Summary
+=======================
+
+TIA-102.BBAC-1 is Addendum 1 to TIA-102.BBAC, the Project 25 (P25) Phase 2 Two-Slot TDMA Media Access Control (MAC) Layer Description. Published in February 2013 by the Telecommunications Industry Association under the TR-8.12 Two-Slot TDMA subcommittee, this addendum updates information and corrects errata in the base MAC layer specification. The addendum has since been absorbed into the consolidated revision TIA-102.BBAC-A.
+
+PURPOSE AND SCOPE
+
+The base document TIA-102.BBAC defines the MAC layer protocol for P25 Phase 2 trunked voice services operating over a two-slot TDMA common air interface (CAI) within a 12.5 kHz bandwidth physical channel. This addendum modifies specific sections of that base document, with section numbers mapping directly to the parent specification. The changes span synchronization sequences, pilot sequences, scrambling procedures, voice channel access and maintenance procedures, call termination and hangtime behavior, audio preemption signaling, MAC message definitions, and normative burst bit-location tables.
+
+SYNCHRONIZATION AND PILOT SEQUENCES (Sections 5.1, 5.2)
+
+The addendum replaces Table 5-1 with corrected synchronization sequences for the four types used in traffic channel signaling: the 22-symbol inbound IEMI sync, the 21-symbol outbound S-OEMI sync, the 20-symbol VCH S-ISCH sync, and the 20-symbol CCH S-ISCH sync (informative). Each sequence is specified as signed dibit symbols (+3 or -3) in transmission order.
+
+The pilot sequences P1 and P2 are defined as 4-symbol signed dibit fields: P1 = [+1, -1, +1, -1] sent at the beginning of inbound bursts without sync, and P2 = [-1, +1, -1, +1] sent at the end of all inbound bursts.
+
+SCRAMBLING (Section 7.2.5)
+
+The scrambling section is substantially revised. Scrambling uses a 44-bit Linear Feedback Shift Register (LFSR) with generator polynomial G(x) = x^44 + x^40 + x^35 + x^29 + x^24 + x^10 + 1. The scrambling seed is computed from the WACN ID (20 bits), System ID (12 bits), and Color Code (12 bits) using the formula: seed_external = (2^24 * WACN_ID) + (2^12 * System_ID) + CC. If the result is zero, it is set to 2^44 - 1. The addendum provides two 44x44 binary matrices: one (M) for converting between external and internal LFSR states, and another (SH) for advancing the external LFSR by 2^43 cycles to derive the inbound scrambling seed from the outbound seed.
+
+The scramble sequence spans one superframe (360 ms, 4320 bits) and restarts at each superframe boundary. Voice frames and ESS signals in 2V and 4V bursts are always scrambled. FACCH/SACCH signaling bursts are also scrambled except when they contain a Network Status Broadcast MAC message or a MAC_END_PDU. Ramp/guard times, pilots, DUIDs, ISCH, and sync fields are never scrambled. FDMA channels are never scrambled. A detailed timing diagram (Figure 7-5) specifies scramble sequence offsets for outbound, VCH0 inbound, and VCH1 inbound within the superframe slot structure.
+
+VOICE CHANNEL PROCEDURES (Sections 7.3.1 through 7.3.5)
+
+The addendum updates call setup, traffic mode maintenance, call teardown, message trunking, call continuation, and audio/call preemption procedures. Key clarifications include:
+
+- Both abbreviated and extended forms of voice channel user (VCU) messages are explicitly permitted in MAC_ACTIVE PDUs throughout all call phases.
+- The WUID/SUID addressing model is clarified for roaming subscribers whose working unit ID may differ from their 24-bit Unit ID. Extended message forms are required when the full APCO source or destination identifier cannot be derived from the working ID plus the local system/network IDs.
+- Call setup requires two MAC_PTT PDUs on the FACCH, with optional SACCH adjacency rules.
+- Traffic mode procedures detail how the FNE uses outbound SACCHs to signal both listeners and talkers, including talker preemption detection via WUID/SUID matching.
+- Termination procedures allow voice sequences to stop at any burst within the voice framing sequence without waiting for superframe boundaries.
+- Message trunking hangtime behavior requires at least one VCU message per superframe.
+- Audio preemption supports both control channel and voice channel methods, with forced (U/F=1) and unforced (U/F=0) variants, plus polite and impolite call preemption transitions.
+
+MAC MESSAGE DEFINITIONS (Section 8.3)
+
+The addendum adds and modifies several MAC messages. Table 8-2 is updated with the complete set of MAC message lengths, opcodes, and subclause references. New messages include:
+
+- Status Update (abbreviated and extended, MCO %011000, 10/14 octets) — echoes subscriber status updates destined for another subscriber via control channel signaling.
+- Message Update (abbreviated and extended, MCO %011100, 10/14 octets) — echoes short data messages between subscribers.
+- Radio Unit Monitor Command (abbreviated and extended, MCO %001100, 10/14 octets) — revised replacement for the now-obsolete original Radio Unit Monitor Command (MCO %011101, marked OBSOLETE with opcode reserved).
+- Radio Unit Monitor Enhanced Command (abbreviated, MCO %011110, 14 octets) — commands enhanced radio unit monitoring with talkgroup, encryption, and TX time parameters.
+
+All new messages include a length octet in the second byte to support forward compatibility. The original Radio Unit Monitor Command (8.3.1.34) is marked obsolete but retained so its opcode is not reused.
+
+OFFSET FIELD (Section 8.4.2)
+
+The offset field specification is updated. This 3-bit field in all MAC PDUs indicates the position of the next 4V burst relative to the current signaling burst. Values %000 through %100 indicate 1st through 5th non-SACCH bursts; %101 is outbound-only (6th burst); %110 is inbound random access SACCH; %111 indicates no voice framing or unknown framing. Figure 8-74 illustrates all five possible voice framing alignment scenarios.
+
+BURST BIT LOCATIONS (Annex E)
+
+Annex E provides normative bit-level allocation tables for all nine burst types: Inbound 4V, Inbound 4V ESS, Inbound 2V, Inbound Signaling with Sync, Outbound 4V, Outbound 4V ESS, Outbound 2V, Outbound Signaling with Sync, and Outbound Signaling no Sync. Each table maps every symbol position (0-179) to its field assignment and specific bit indices, covering voice frame codewords (c0-c3), ESS-B encryption sync, RS parity, DUID, ISCH, pilot, sync, and ramp/guard fields.
+
+OSP OPCODE LIST (Annex B)
+
+Annex B provides the informative OSP MCO opcode table mapping all 64 six-bit opcodes to their descriptions, aliases, and MAC subclause references. Several opcodes are marked obsolete or reserved.
+
+LIMITATIONS
+
+The document acknowledges that some aspects may not have been fully operationally tested and that significant work remained to fully develop the standard series. The addendum was later absorbed into the consolidated TIA-102.BBAC-A revision.

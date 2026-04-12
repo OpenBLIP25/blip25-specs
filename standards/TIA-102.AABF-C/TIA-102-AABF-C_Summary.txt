@@ -1,0 +1,49 @@
+TIA-102.AABF-C-1 — Project 25 Link Control Word Formats and Messages, Addendum 1
+ANSI/TIA-102.AABF-C-1-2012 | Approved December 20, 2012 | Published January 2013
+Addendum to: TIA-102.AABF-C
+
+OVERVIEW
+
+This document is a formal addendum to TIA-102.AABF-C, "Link Control Word Formats and Messages," the core specification defining all Link Control Word (LCW) formats carried over the P25 Common Air Interface (CAI). As an addendum rather than a full revision, it introduces a single, focused normative addition to the base standard: a new Link Control Word for Conventional Fallback. The changes defined here are intended to be incorporated into the next complete revision of TIA-102.AABF-C; section numbering in this addendum corresponds directly to section numbering in the parent document.
+
+WHAT PROBLEM THIS ADDRESSES
+
+P25 systems operating in a trunked configuration depend on infrastructure (trunking controllers, backhaul links, and networked repeaters) to coordinate channel assignments. When that infrastructure fails — due to backhaul loss, controller failure, or site isolation — subscriber units (SUs) need a reliable mechanism to transition to conventional (direct repeater) operation. This mode of degraded operation is commonly called "failsoft" or "conventional fallback." Prior to this addendum, the P25 Link Control Word set did not include a standardized outbound message for a repeater to announce that it is providing fallback service and to coordinate which users should attach to it. This addendum closes that gap.
+
+THE NEW LINK CONTROL WORD: CONVENTIONAL FALLBACK INDICATION (LC_CONV_FALLBACK)
+
+The Conventional Fallback LC word is assigned Link Control Opcode (LCO) value 42 decimal (%10,1010 binary), with alias name LC_CONV_FALLBACK. It occupies the standard 9-octet (72-bit) Link Control Word structure used by all P25 CAI LCWs.
+
+The word is sent outbound by a repeater to announce that it is providing conventional fallback service. The primary payload consists of up to six Fallback Channel ID (CH ID) values — one per octet in octets 3 through 8. These IDs allow multiple subscriber units that share a common configured fallback channel to identify the appropriate repeater when several repeaters may simultaneously be broadcasting fallback service. The design accommodates environments where multiple fallback repeaters are operating in parallel (e.g., different sites or simulcast groups), each broadcasting its own set of Fallback CH IDs so that SUs can locate the specific repeater they have been pre-configured to use.
+
+If fewer than six distinct Fallback CH IDs are needed, the specification requires that the available IDs be repeated to fill all six fields — there are no empty or null fields; repetition is the fill mechanism.
+
+FIELD DEFINITIONS
+
+Fallback CH ID: An 8-bit identifier (one octet) used to group subscriber units with a common fallback channel assignment. The value 0 is defined as a "wild card" — an SU that cannot find a repeater broadcasting any of its configured Fallback CH IDs may use a repeater broadcasting CH ID 0. Value 0 is also appropriate as the sole Fallback CH ID in deployments where only a single fallback repeater is operating. All non-zero values are available for general allocation by system administrators.
+
+N — Failsoft Network Flag (octet 2, bit 6): A single bit that distinguishes between a simple single-site repeater providing local fallback service (N=0) and a networked configuration such as a simulcast network continuing to provide service in fallback mode (N=1). This field allows SUs to understand the scope of the fallback service being offered.
+
+T — Alert Tone Sync Flag (octet 2, bit 7): A single bit that instructs an SU whether to sound a failsoft alert tone. When T=0, no tone should be sounded. When T=1, the SU should sound the failsoft alert tone immediately. This provides a coordinated, network-synchronized notification to field personnel that the system has entered fallback mode.
+
+The Protected (P) bit is 0, the Standard/Manufacturer (SF) bit is 0, and the Manufacturer ID (MFID) is $00 (TIA standard), consistent with all standard P25 LCWs.
+
+USAGE AND CHANNEL DIRECTION
+
+The LC_CONV_FALLBACK word is defined for use on two channel directions: Conventional Outbound (the repeater-to-subscriber direction on a conventional channel, which is the primary use case) and Trunked Inbound (the subscriber-to-infrastructure direction on a trunked channel). LCO values 43 through 63 are reserved by this addendum.
+
+RELATIONSHIP TO OTHER DOCUMENTS
+
+TIA-102.AABF-C (the parent standard) defines the complete set of P25 CAI Link Control Words, covering both conventional and trunked channel types. This addendum adds section 7.3.34 (the new LCW format), extends section 7.4 (Standard LC Field Definitions) with Fallback CH ID, N, and T field definitions, and extends section 7.5 (Link Control Word Usages) with the new LCO assignment table entry.
+
+The Conventional Fallback procedures that govern when and how this LCW is used by repeaters and subscriber units are defined in the companion trunking and conventional protocol specifications — particularly TIA-102.AABC (trunking messages), TIA-102.BAAA (trunking call procedures), and TIA-102.BAAD series (conventional procedures). This addendum defines only the wire format; behavioral state machine requirements are out of scope.
+
+The Common Air Interface physical layer and burst structure are defined in TIA-102.BAAA/BBAB; LCWs are carried in designated fields within the voice and control channel burst types defined there.
+
+LIMITATIONS AND STATUS
+
+This is a small, focused addendum that was approved in September 2012 and published in January 2013. The Foreword notes that the document is subject to change as conventional and trunking protocol documents continue to develop, and that conformance tests remain to be developed and proven. The addendum was formulated under the cognizance of TIA TR-8 Mobile and Personal Private Radio, specifically the TR-8.10 Subcommittee on Trunking and Conventional Control. Its contents were expected to be absorbed into the next full revision of TIA-102.AABF-C; whether that has occurred should be verified against the current revision of AABF.
+
+IMPLEMENTATION NOTES
+
+Implementors processing P25 LCWs should add a dispatch case for LCO=42 to their LCW decoder. The word is fixed-length at 9 octets like all P25 LCWs. The six Fallback CH ID bytes in octets 3–8 should be extracted as an array and de-duplicated (since values may be repeated to fill). The N and T flag bits in octet 2 are single-bit fields at positions 6 and 7 respectively; the remainder of octet 2 is reserved and should be masked. A value of Fallback CH ID = 0 requires special handling as the wild-card case. This LCW is relevant to any P25 implementation that supports conventional fallback or failsoft mode transitions.

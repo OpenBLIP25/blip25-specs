@@ -1,0 +1,85 @@
+TIA-102.BABA-1: Project 25 Half-Rate Vocoder Annex
+Summary — approximately 1,000 words
+
+WHAT THIS DOCUMENT IS
+
+This document is an addendum to TIA-102.BABA, the original APCO Project 25 Full-Rate Vocoder Description. Together the two documents define the "Dual-Rate" vocoder mandatory for P25 Phase 2 interoperability. This addendum specifies the 3600 bps Half-Rate vocoder — half the net bit rate of the original 7200 bps Full-Rate vocoder — enabling higher spectral efficiency on shared radio channels. It was developed by Digital Voice Systems Inc. (DVSI) and standardized through TIA TR-8.4 (Subcommittee on Vocoders). The final publication version is revision 1.0.6, dated July 2009.
+
+WHY IT EXISTS
+
+During P25 Phase 2 development, a lower data rate vocoder was identified as necessary to support TDMA channel operation, where two voice calls share a single 12.5 kHz channel. The Half-Rate vocoder provides 2450 bps of voice parameter data plus 1150 bps of Forward Error Correction (FEC), totaling 3600 bps. This allows two simultaneous Half-Rate calls within the same spectrum occupied by one Full-Rate call, effectively doubling spectral efficiency. The document does not supersede TIA-102.BABA; it extends it. Shared aspects (MBE speech model, speech analysis, speech synthesis) remain defined in the parent document.
+
+CODEC ARCHITECTURE
+
+The vocoder is built on the Improved Multi-Band Excitation (IMBE) speech model, operating on 20 ms speech frames (8000 samples/sec, 160 samples/frame). Each frame produces a set of MBE model parameters:
+
+  - Fundamental frequency (ω₀), ranging from 2π/123.125 to 2π/19.875 radians/sample
+  - Voiced/Unvoiced (V/UV) decisions for each frequency band
+  - Spectral amplitudes Mₗ for l = 1 to L harmonics, where L varies by pitch
+
+These parameters are quantized into 49 bits per frame, then protected with 23 FEC bits to produce 72 bits per 20 ms frame (3600 bps total).
+
+QUANTIZATION STRUCTURE (Section 4)
+
+Nine quantizer values b₀ through b₈ encode the frame parameters:
+
+  b₀ (7 bits)  — Fundamental frequency index; also encodes frame type
+  b₁ (5 bits)  — V/UV decisions via vector quantization (32 vectors × 8 elements, Annex B)
+  b₂ (5 bits)  — Differential gain (32-level scalar quantizer, Annex D)
+  b₃ (9 bits)  — PRBA24 vector (lower 4 PRBA elements; 512-entry VQ codebook, Annex E)
+  b₄ (7 bits)  — PRBA58 vector (upper 4 PRBA elements; 128-entry VQ codebook, Annex F)
+  b₅ (5 bits)  — HOC1: first DCT block higher-order coefficients (32-entry VQ, Annex G)
+  b₆ (4 bits)  — HOC2: second block HOC (16-entry VQ, Annex G)
+  b₇ (4 bits)  — HOC3: third block HOC (16-entry VQ, Annex G)
+  b₈ (3 bits)  — HOC4: fourth block HOC (8-entry VQ, Annex G)
+
+Spectral amplitudes are transmitted differentially via a Predictive Residual Block Average (PRBA) scheme. The encoder computes log spectral amplitudes, derives prediction residuals from the previous frame, divides them into 4 DCT blocks, computes DCT coefficients, and extracts the 8-element PRBA vector (R̂₁–R̂₈) as combinations of the first two DCT coefficients from each block. The PRBA vector is transformed via 8-point DCT before split vector quantization.
+
+FRAME TYPE ENCODING
+
+The b₀ field doubles as a frame type indicator:
+  b₀ = 0–119   Voice frame (fundamental frequency encoded)
+  b₀ = 120–123 Erasure frame (frame repeat triggered at decoder)
+  b₀ = 124–125 Silence frame (fixed parameters: ω₀ = 2π/32, L = 14, all unvoiced)
+  b₀ = 126–127 Tone frame (DTMF, KNOX, single-frequency, or call-progress tone)
+
+BIT MANIPULATIONS AND FEC (Section 5)
+
+The 49 quantizer bits are prioritized and organized into four bit vectors (ũ₀–ũ₃) by significance, then error-protected:
+
+  ũ₀ (12 bits): highest-priority bits → [24,12] Golay code → ĉ₀ (24 bits)
+  ũ₁ (12 bits): high-priority bits → [23,12] Golay code with PN modulation → ĉ₁ (23 bits)
+  ũ₂ (11 bits): medium-priority bits → no FEC → ĉ₂ (11 bits, pass-through)
+  ũ₃ (14 bits): lowest-priority bits → no FEC → ĉ₃ (14 bits, pass-through)
+
+Total: 24 + 23 + 11 + 14 = 72 bits per frame. The PN modulation sequence for ĉ₁ is derived from ũ₀ using a linear congruential generator seeded as pr(0) = 16·ũ₀ with recurrence pr(n) = floor(173·pr(n-1) + 13849 − 65536·floor((173·pr(n-1)+13849)/65536)). The 72 bits are intra-frame interleaved per the dibit interleave table (Annex H) before transmission.
+
+Error estimation tracks per-frame error counts (ε₀, ε₁) from the Golay decoders, computing a smoothed error rate εᵣ. A frame repeat is triggered when ε₀ ≥ 4, or when both ε₀ ≥ 2 and εᵣ ≥ 6. Frame muting (comfort noise) occurs when εᵣ > 0.096 or 4 consecutive frames are invalid.
+
+TONE FRAMES (Section 7)
+
+A dedicated 72-bit Tone Frame format carries tone index ID (8 bits, repeated 4 times for redundancy) and tone log-amplitude AD (7 bits). Supported signals include 16 DTMF tones, 16 KNOX tones, single-frequency tones (31.25·ID Hz for ID = 7–122), 4 call-progress tones, and a zero-amplitude (silence) indicator at ID = 255. Tone parameters for parametric rate conversion are listed in Annex J (fundamental frequency f₀ and spectral line indices l₁, l₂ per tone index).
+
+PARAMETRIC RATE CONVERSION (Section 8)
+
+Because both vocoders use the same MBE model parameters at the same 20 ms frame rate, conversion between 3600 bps Half-Rate and 7200 bps Full-Rate bitstreams is possible without tandem encoding/decoding. The MBE parameters (L̃, ω̃₀, ṽₗ, M̃ₗ) are extracted from one bitstream and re-quantized for the other, avoiding the audio quality degradation of tandem vocoding. Frame type mapping between the two rates is specified in Table 11.
+
+NORMATIVE ANNEXES
+
+  A: 120-entry fundamental frequency table (b₀ → L, ω₀)
+  B: 32 V/UV quantization vectors (8 binary elements each)
+  C: DCT block length table (L = 9–56 → J₁,J₂,J₃,J₄)
+  D: 32 differential gain quantizer levels
+  E: 512-entry PRBA24 vector codebook (3-element vectors G₂,G₃,G₄)
+  F: 128-entry PRBA58 vector codebook (4-element vectors G₅,G₆,G₇,G₈)
+  G: HOC quantization tables for b₅ (32×4), b₆ (16×4), b₇ (16×4), b₈ (8×4)
+  H: 36-symbol intra-frame bit interleave table
+  J: Tone frame parameters (256 entries: f₀, l₁, l₂)
+
+PATENT AND TECHNOLOGY NOTES
+
+DVSI holds patents on the IMBE/Half-Rate technology (U.S. Patents 6,199,037; 5,870,405; 5,754,974; and others). Any implementation requires a separate DVSI license. Open-source P25 decoders (OP25, SDRTrunk, JMBE) implement this vocoder under DVSI license terms. The vocoder is NOT designed for non-speech signals; music, modem tones, and non-standard signals will be poorly reproduced.
+
+DOCUMENT STATUS
+
+Active as of April 2026. This document defines interoperability requirements for the P25 Phase 2 Dual-Rate vocoder. It is referenced by APCO Project 25 Phase 2 system specifications. It supplements rather than replaces TIA-102.BABA. There is no known superseding document.

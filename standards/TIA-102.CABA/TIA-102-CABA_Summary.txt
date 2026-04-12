@@ -1,0 +1,115 @@
+TIA-102.CABA: Project 25 Conventional Voice Operation Interoperability Test Procedures
+Summary
+Classification: CONFORMANCE — No implementation specification required.
+
+DOCUMENT PURPOSE
+
+TIA-102.CABA specifies interoperability test procedures for Project 25 (P25) conventional
+(FDMA) voice services. Its purpose is to verify that subscriber units (SUs), fixed network
+equipment (FNEs), and dispatch/monitoring consoles (DMCs) from different manufacturers can
+interoperate when deployed together in a P25 conventional system. This document does not
+define protocol behavior; it defines the test cases that confirm correct implementation of
+the protocols specified in TIA-102.BAAB (CAI), TIA-102.BAAC (link control), TIA-102.BAAD
+(supplementary data), TIA-102.AABF (security), and the vocoder specifications.
+
+SCOPE AND STRUCTURE
+
+The document organizes tests into three execution contexts:
+  1. Direct SU-to-SU — two radios communicating on the same channel without a repeater
+  2. SU via FNE to SU — radios communicating through a P25 repeater/base station
+  3. DMC + FNE — a dispatch/monitoring console interacting with radios through an FNE
+
+These contexts map to six test sections (§2.2–§2.7) covering 40 test suites and 114
+configuration tables. The base test configuration uses up to 8 subscriber units (SU1–SU8),
+where SU1–SU4 represent one manufacturer's model and SU5–SU8 represent a second model.
+UIDs are assigned sequentially (SU1=00001 through SU8=00008). The standard test NAC is
+$293, with $300 as the alternate rejection NAC.
+
+NETWORK ACCESS CODE (NAC) TESTING
+
+NAC filtering is a central theme throughout the document. The four NAC values tested are:
+  - $293: Default test NAC (standard filtering)
+  - $300: Alternate NAC used to verify rejection
+  - $F7F: Any-NAC accept; FNE retransmits with the source's original NAC as-received
+  - $F7E: Any-NAC accept; FNE retransmits with a fixed configured TX NAC
+
+Tests systematically verify matching-NAC acceptance, mismatched-NAC rejection, and the
+any-NAC modes for both unaddressed (normal/open squelch) and group call (selective squelch)
+operation. The $F7E mode is also tested on SU RX configuration, verifying that SUs
+configured with $F7E will accept transmissions carrying any NAC value.
+
+DIRECT SU-TO-SU TESTS (§2.2–§2.3)
+
+Section 2.2 covers three voice test suites: unaddressed call with matching NAC, routine
+group call with matching NAC and TGID, and unit-to-unit (U-U) voice calls. Section 2.3
+covers six supplementary data suites: call alert (paging), radio check, message update,
+status update, status query, and radio unit monitor. Radio unit monitor tests verify covert
+monitoring of a target SU's local audio during both group calls and U-U calls, with
+manufacturer-specified TX time and multiplier parameters.
+
+FNE VOICE TESTS (§2.4)
+
+Section 2.4 is the most extensive section with 14 test suites. It covers:
+  - Matching NAC in both normal and selective squelch (§2.4.1–§2.4.2)
+  - TX NAC independent of RX NAC — FNE receives on $293, retransmits on $300 (§2.4.3–§2.4.4)
+  - Any-NAC FNE operation with $F7F and $F7E (§2.4.5–§2.4.7)
+  - Emergency call with cycling through multiple emergency-capable SUs (§2.4.8)
+  - Monitor mode where SUs in monitor hear all transmissions regardless of NAC/TGID (§2.4.9)
+  - Unit-to-unit via FNE, including co-channel suppression testing (§2.4.10–§2.4.12)
+  - Encryption (DES/AES) verifying key-matched SUs can decrypt; others cannot (§2.4.13)
+  - Accept-any-NAC ($F7E) on SU RX side for both normal and selective squelch (§2.4.14)
+
+The co-channel suppression tests (§2.4.11) are particularly notable: they verify that when
+an SU transmits with a NAC that does not match the FNE's configured RX NAC, the FNE does
+NOT retransmit — an intentional interference rejection mechanism.
+
+FNE SUPPLEMENTARY DATA TESTS (§2.5)
+
+Section 2.5 parallels §2.3 for the FNE context with six suites: call alert, radio check,
+message update (to UID or GID), status update (to UID or GID), status query, and radio unit
+monitor. Message and status update tests have four test cases each — UID-addressed and GID-
+addressed versions with each of the two SU models as the initiator.
+
+DMC VOICE TESTS (§2.6)
+
+Section 2.6 covers six DMC voice test suites, requiring that two SUs of a single model have
+first passed §2.2/§2.3 (prerequisite). Tests cover: unaddressed voice call, routine group
+call, emergency call (from SU and from DMC), all-call (system-wide call), unit-to-unit call
+(DMC initiates and SU initiates), and encryption. The all-call test (§2.6.4) verifies that
+the all-call reaches SUs on matching NAC regardless of TGID, while SUs on a non-matching
+NAC do not receive it.
+
+DMC SUPPLEMENTARY DATA TESTS (§2.7)
+
+Section 2.7 covers five DMC supplementary data suites: emergency alarm (SU asserts alarm
+to DMC, DMC cancels), call alert (bidirectional DMC↔SU), radio check (DMC initiates only),
+radio inhibit (DMC remotely disables SU1 — SU appears powered off), and radio uninhibit
+(DMC restores SU1 from §2.7.4 inhibited state). The inhibit/uninhibit tests are sequential
+and stateful: §2.7.5 requires SU1 to remain in the inhibited state from §2.7.4.
+
+PASS CRITERIA AND CONDITIONAL TESTS
+
+Each test case includes a mandatory Pass Criterion. Some tests include an Optional Pass
+Criterion for behaviors that are optional per the standard. Conditional tests are explicitly
+marked "Execute only if SUs support [feature]" — they are skipped rather than failed when
+a feature is not implemented. The distinction between mandatory and optional criteria is
+maintained throughout to avoid penalizing implementations for correctly-absent optional
+features.
+
+NORMATIVE REFERENCES
+
+  - TIA-102.BAAB: P25 FDMA Common Air Interface (primary protocol spec)
+  - TIA-102.AAAD: IMBE Vocoder
+  - TIA-102.BABA: IMBE Vocoder Phase 2
+  - TIA-102.AABF: P25 Security (encryption)
+  - TIA-102.BAAC: Link Control Word Formats and Messages
+  - TIA-102.BAAD: Trunking Control Channel Messages (includes supplementary data)
+
+IMPLEMENTATION RELEVANCE
+
+This document is a conformance/interoperability test specification. It does not add new
+protocol requirements beyond those in the referenced standards. For implementers, the value
+of this document is in understanding the exact test configurations and expected behaviors
+used to certify P25 conventional interoperability. The 114 configuration tables collectively
+define the complete matrix of NAC, squelch mode, TGID, encryption key, and feature-enable
+combinations that a compliant implementation must handle correctly.

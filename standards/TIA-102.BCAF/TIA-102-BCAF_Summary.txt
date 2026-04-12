@@ -1,0 +1,236 @@
+TIA-102.BCAF — Trunked TDMA Voice Channel Conformance Profiles
+Summary
+Published: August 2012 | Issuing Body: TIA TR-8.12 Subcommittee on Two-Slot TDMA
+Pages: 172 | Revision: Issue O (7/18/12)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DOCUMENT PURPOSE AND SCOPE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+TIA-102.BCAF defines 29 Conformance Profiles (CPs) for the two-slot TDMA trunked
+voice air interface, collectively called "Trunked TDMA Voice Channel Conformance
+Profiles." Each CP specifies reference signaling sequences — exact MAC PDU types,
+DUID values, field-level bit parameters, and pre/post-conditions — that an RFSS Site
+and/or Subscriber Unit (SU) must produce to be considered conformant.
+
+The document supplements interoperability testing ([CABC]) and is distinct from the
+TDMA CAI conformance specification ([BCAD]). It supports TIA-102.BBAC and the
+two-slot TDMA media access control layer. Tests operate at the Um2 (TDMA voice
+channel) interface without requiring internal access to equipment hardware or software.
+
+Conformance is assessed separately for SU and RFSS Site roles. Pass/Fail is binary:
+(1) the system under test generates the correct messages in the correct sequence with
+the correct field values as defined in each Signaling Parameters section, and (2) all
+post-conditions listed for the CP are satisfied.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CHANNEL STRUCTURE AND KEY TERMINOLOGY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The TDMA traffic channel carries two types of burst:
+- FACCH (Fast Access Control Channel): Control bursts carrying MAC PDUs
+- SACCH (Slow Access Control Channel): Occasional control bursts interleaved with voice
+
+SACCH slots have four designations:
+- IT (Inbound Talker): Uplink SACCH from the transmitting SU
+- IL (Inbound Listener): Uplink SACCH from a non-transmitting SU — SUs SHALL NOT
+  transmit in IL SACCH slots during active transmission
+- OT (Outbound Talker): RFSS downlink SACCH during talker's transmission
+- OL (Outbound Listener): RFSS downlink SACCH to listening SUs
+
+Voice superframe: 4Va → 4Vb → 4Vc → 4Vd → 2V (repeating, 5 bursts)
+ESS-A distribution per superframe: 4Va=ALGID/KEYID; 4Vb=MI[71:48]; 4Vc=MI[47:24]; 4Vd=MI[23:0]
+ESS-B (in 2V burst): FEC data
+
+DUID values: %0000=4V, %0011=SACCH scrambled, %0110=2V, %1001=FACCH scrambled,
+%1100=SACCH unscrambled, %1111=FACCH unscrambled
+
+MAC PDU opcodes: MAC_ACTIVE=%100, MAC_PTT=%001, MAC_END_PTT=%010, MAC_IDLE=%011
+
+MAC_RELEASE MCO=%110001: forces SU to release channel
+  C/A=%0 = Leave voice channel (preemption — SU returns to CC)
+  C/A=%1 = Stay on voice channel but stop transmitting (forced dekey)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CONFORMANCE PROFILE INVENTORY (29 CPs)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+GROUP VOICE CALL PROFILES (CPs 1–13):
+
+CP 1 — TDMA Unit to Group Voice Call Procedure (Group Call Start)
+  SU initiates a trunked group call. Sends GRP_V_REQ on CC; RFSS responds with
+  GRP_V_CH_GRANT (implicit TSBK or explicit PDU). SU sends MAC_PTT 1 then
+  MAC_PTT 0 in consecutive FACCHs, then transmits repeating superframe (4Va/4Vb/
+  4Vc/4Vd/2V). RFSS sources SU audio outbound. SU sends MAC_ACTIVE in every IT
+  SACCH; must not transmit in IL SACCH.
+
+CP 2 — TDMA Unit to Group Voice Call Transmission Terminate Procedure
+  SU ends its transmission by sending ≥2 MAC_END_PTT PDUs in consecutive FACCHs.
+  Hangtime behavior is manufacturer-defined; RFSS may send MAC_HANGTIME or
+  MAC_ACTIVE during hangtime period.
+
+CP 3 — TDMA Unit to Group Voice Call Termination Procedure
+  Call is torn down. RFSS sends ≥2 MAC_END_PTT PDUs; SUs leave traffic channel and
+  return to control channel. RFSS either shuts down transmitter or sends MAC_IDLE.
+
+CP 4 — TDMA Unit to Group Call Continuation Procedure
+  Alternate A (Control Channel, R-bit=%1): SU returns to CC during hangtime, sends
+  new GRP_V_REQ, receives GRP_V_CH_GRANT, re-establishes as talker.
+  Alternate B (Voice Channel, R-bit=%0): SU sends MAC_PTT 1 directly on voice channel
+  without returning to CC.
+
+CP 5 — TDMA Unit to Group Call SU Interrupt by a Console Procedure
+  Console takes over outbound audio while SU continues transmitting inbound. RFSS
+  sends MAC_PTT from Console in outbound FACCHs; sources Console audio outbound.
+  SU continues inbound transmission. Includes SU Resumption sub-procedure after
+  Console releases the channel.
+
+CP 6 — TDMA Unit to Group Call Audio Preemption Forced SU Dekey Procedure
+  Console demands the channel. RFSS sends MAC_RELEASE (MCO=%110001, C/A=%1, stay
+  on voice channel) to force SU to stop transmitting. SU sends ≥2 MAC_END_PTT; RFSS
+  then sources Console audio outbound.
+
+CP 7 — TDMA Call Preemption Procedure (4 sub-procedures):
+  A) SU Polite Preemption via CC: Emergency SU sends GRP_V_REQ; RFSS releases
+     current talker via MAC_RELEASE (C/A=%0, leave channel), then grants new talker.
+  B) SU Impolite Preemption via CC: RFSS releases current talker and simultaneously
+     grants interrupting SU — current talker may receive grant before release.
+  C) Console Polite Preemption: RFSS sends MAC_RELEASE (C/A=%0) to current talker;
+     after SU leaves, sources Console audio.
+  D) Console Impolite Preemption: RFSS releases current talker and simultaneously
+     starts Console audio.
+
+CP 8 — TDMA Emergency Group Call Procedure
+  References CPs 6–11 executed with E-bit=1 in Service Options. No new procedures.
+
+CP 9 — TDMA Encrypted Group Call Procedure
+  References CPs 6–12 executed with P-bit=1, ALGID/KID/MI set to traffic values.
+
+CP 10 — TDMA Announcement Group Call Procedure
+  References CPs 6–12. No new procedures.
+
+CP 11 — TDMA Broadcast Group Call Procedure
+  Always transmission trunked. References CPs 6 and 8. No new procedures.
+
+CP 12 — TDMA System Call Procedure
+  Console-originated, system-wide call using WGID=$FFFF. Always transmission trunked.
+  RFSS sends MAC_PTT with Group Address=WGID_sys_wide=$FFFF in Group Voice Channel
+  User MAC message. Terminates per CP 3.
+
+CP 13 — TDMA Radio Unit Monitor Procedure — Group
+  References CPs 6 and 7. CC procedures in [CAEC]/[CAED]. No new TDMA procedures.
+
+UNIT TO UNIT VOICE CALL PROFILES (CPs 14–20):
+
+CP 14 — TDMA Unit to Unit Call Start Procedure
+  Mirrors CP 1 but uses UU_V_REQ/UU_V_CH_GRANT on CC. Voice channel uses Unit to
+  Unit Voice Channel User MAC Message (MCO=%000010, Target=WUID_dest).
+
+CP 15 — TDMA Unit to Unit Call Transmission Termination Procedure
+  Mirrors CP 2 for Unit to Unit context.
+
+CP 16 — TDMA Unit to Unit Call Continuation Procedure
+  Mirrors CP 4 (CC and VC alternates) for Unit to Unit context using UU_V_REQ.
+
+CP 17 — TDMA Unit to Unit Call Termination Procedure
+  SU Termination: SU sends CAN_SRV_REQ on CC; RFSS sends MAC_END_PTT; SUs leave.
+  Site Termination: RFSS directly sends MAC_END_PTT; SUs leave.
+
+CP 18 — TDMA Emergency Unit to Unit Call Procedure
+  References CPs 14–17 with E-bit=1.
+
+CP 19 — TDMA Encrypted Unit to Unit Call Procedure
+  References CPs 14–17 with P-bit=1.
+
+CP 20 — TDMA Radio Unit Monitor Procedure — Individual
+  References CPs 14 and 17. CC procedures in [CAEC]/[CAED].
+
+TELEPHONE INTERCONNECT PROFILES (CPs 21–29):
+
+CP 21 — TDMA Unit to PSTN and PSTN to Unit Call Start Procedure
+  SU-initiated interconnect call. Telephone Interconnect Voice Channel User MAC Message
+  (MCO=%000011) used. RFSS routes PSTN audio outbound to SU after call establishment.
+
+CP 22 — TDMA Unit to PSTN and PSTN to Unit Call SU Transmission Procedure
+  SU talks during interconnect call; both PSTN and Destination SUs hear SU. SU sends
+  GRP_V_REQ (or equivalent) on CC, receives grant, then transmits inbound superframe.
+
+CP 23 — TDMA Unit to PSTN and PSTN to Unit Call SU Transmission Termination Procedure
+  SU sends ≥2 MAC_END_PTT; RFSS resumes PSTN audio outbound.
+
+CP 24 — TDMA Unit to PSTN and PSTN to Unit Call Termination Procedure
+  SU sends CAN_SRV_REQ (Service Type=Tele_Int_Req); RFSS sends MAC_END_PTT; call ends.
+
+CP 25 — TDMA PSTN to Group Call Start Procedure
+  PSTN user initiates group call. RFSS sources PSTN audio outbound; Destination SUs
+  play PSTN audio. Group Voice Channel User MAC Message with Source=WUID_pstn.
+
+CP 26 — TDMA PSTN to Group Call SU Transmission Procedure (2 alternates)
+  Alt A (CC Request): SU sends GRP_V_REQ on CC; receives grant; transmits inbound
+    while RFSS simultaneously continues PSTN audio stream outbound (dual-stream).
+  Alt B (VC Request): SU sends Group Voice Service Req MAC message (B1=%0, B2=%1,
+    MCO=%000001) in IL SACCH; RFSS grants via OL SACCH MAC message; then same flow.
+  Both alts produce concurrent SU inbound superframe and RFSS outbound PSTN superframe.
+
+CP 27 — TDMA PSTN to Group Call SU Transmission Termination Procedure
+  SU sends ≥2 MAC_END_PTT; RFSS resumes PSTN audio. In MAC_END_PTT, Group Address=0
+  (not group address) when SU terminates within a PSTN to Group call.
+
+CP 28 — TDMA PSTN to Group Call Termination Procedure
+  PSTN terminates call. RFSS sends ≥2 MAC_END_PTT; SUs leave traffic channel.
+  Key: MAC_END_PTT Source Address=$FFFFFF indicates PSTN-sourced termination.
+
+CP 29 — TDMA Encrypted Telephone Interconnect Call Procedures
+  References CPs 21–28 with P-bit=1. No new procedures.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PROCEDURAL CONVENTIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Flow designators in procedure figures:
+- Fx (solid line): Required flows — UUT must produce these in sequence
+- FxA (solid line, alternate): Location-dependent; either FxA or the base Fx is
+  required depending on SACCH timing alignment
+- Fx* or FxA* (dashed line): Optional flows; if present, must conform to specified
+  signaling parameters
+
+MAC_PTT offset field encodes position of first 4V burst relative to current PDU:
+  %000=next non-SACCH burst, %001=2nd, %010=3rd, %011=4th, %100=5th,
+  %110=Random Access SACCH (inbound only), %111=No voice framing
+
+Control Channel grant forms:
+- Implicit: TSBK (DUID=%0111) with channel identifier and channel number
+- Explicit: Alternative Multiblock Trunking Control PDU (DUID=%1100, Format=%10111,
+  SAP=$3D) with separate TX/RX channel identifier and number
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+NORMATIVE REFERENCES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+- TIA-102.BBAB: Two-Slot TDMA Physical Layer Protocol Specification (2009)
+- TIA-102.BBAC: Two-Slot TDMA Media Access Control Layer Description (2010)
+- TIA-102.AABC-C: Trunking Control Channel Messages (2009)
+- TIA-102.AABD-A: Trunking Procedures (2008)
+- TIA-102.AABF-B: Link Control Word Formats and Messages (2009)
+- ANSI/TIA-102.BAAA-A: FDMA Common Air Interface (2003)
+- ANSI/TIA-102.BAAC-B: Common Air Interface Reserved Values (2009)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+IMPLEMENTATION NOTES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+- Phase 3 (Implementation Spec): NOT WARRANTED for this document type. The CPs
+  define test harness signaling sequences — not implementation algorithms. An
+  implementer writing a P25 Phase 2 stack should use TIA-102.BBAC and TIA-102.AABD
+  as the normative behavioral references; this document validates that the resulting
+  implementation produces correct over-the-air signals.
+
+- The document does NOT cover non-TDMA-specific control channel procedures (CC
+  registration, affiliation, etc.) — those are in [CAEC] and [CAED].
+
+- Some CP items are conditional on FNE/SU capability (e.g., telephone interconnect
+  calls, broadcast calls) and are explicitly noted "Execute this CP only if..."
+
+- Encryption parameters (ALGID, KID, MI) always appear in ESS on the voice channel
+  regardless of whether encryption is active. For unencrypted calls: ALGID=$80,
+  KID=0, MI=0. For encrypted calls: values per [BAAC].

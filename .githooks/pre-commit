@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Block accidental commits of copyrighted TIA material.
+# Install: git config core.hooksPath .githooks
+
+blocked=0
+
+# Check for PDFs
+for f in $(git diff --cached --name-only --diff-filter=ACR); do
+    case "$f" in
+        *.pdf|*.PDF)
+            echo "BLOCKED: $f (PDF — copyrighted original)"
+            blocked=1
+            ;;
+        *_Full_Text.md|*_full_text.md)
+            echo "BLOCKED: $f (full-text extraction — near-verbatim reproduction)"
+            blocked=1
+            ;;
+    esac
+done
+
+if [ "$blocked" -eq 1 ]; then
+    echo ""
+    echo "Copyrighted files cannot be committed to the public repo."
+    echo "These should stay local only (covered by .gitignore)."
+    echo "If you really need to override: git commit --no-verify"
+    exit 1
+fi

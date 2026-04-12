@@ -1,0 +1,185 @@
+TIA-102.CAAB-E: Land Mobile Radio Transceiver Performance Recommendations,
+Digital Radio Technology, C4FM/CQPSK Modulation
+
+Document: TIA-102.CAAB-E (Revision of TIA-102.CAAB-D)
+Published: September 2021
+Status: Active (as of 2026)
+Subcommittee: TR-8.1 Equipment Measurement Procedures
+Classification: MEASUREMENT
+
+==========================================================================
+OVERVIEW
+==========================================================================
+
+This document establishes the pass/fail performance limit values for 12.5 kHz
+channelized digitally modulated land mobile radio transceivers operating at
+frequencies up to 1 GHz. It covers equipment using Compatible 4-Level
+Frequency Modulation (C4FM), Compatible Differential Offset Quadrature Phase
+Shift Keying (CQPSK), and standard simulcast modulations as defined in the
+P25 physical layer standard (TIA-102.BAAA-B).
+
+The companion document, TIA-102.CAAA-F, defines HOW to make the measurements;
+this document defines WHAT the limits are. Together they form the complete
+P25 transceiver qualification framework. Standards in this document reference
+FCC Rules (47 CFR) as mandatory requirements, and NTIA Red Book values as
+informative recommendations.
+
+Two performance classes are defined: Class A (more stringent, for demanding
+public safety applications) and Class B (comparable to 12.5 kHz analog FM
+performance per TIA-603-E, for general applications). The document applies
+to mobile, portable, and base station equipment. It explicitly addresses
+public safety and non-public safety users equally.
+
+==========================================================================
+WHAT THE DOCUMENT SPECIFIES
+==========================================================================
+
+RECEIVER PERFORMANCE LIMITS (Section 3.1)
+
+Radiated spurious field strength limits follow FCC Part 15 rules: 100 µV/m
+at 30-88 MHz through 500 µV/m above 960 MHz, measured at 3 meters.
+Conducted spurious output must not exceed -57 dBm at the antenna terminals.
+
+Reference sensitivity (the weakest signal a receiver can decode): -116 dBm
+(Class A) and -113 dBm (Class B), applied equally to mobile, portable, and
+base station equipment. Faded reference sensitivity (under simulated
+multipath): -108 dBm (Class A) and -105 dBm (Class B).
+
+Signal delay spread capability sets the multipath tolerance: C4FM receivers
+must handle 50 µs delay spread; standard simulcast receivers must handle 80 µs.
+
+Adjacent channel rejection: 60 dB (Class A) and 50-60 dB (Class B) depending
+on form factor. Offset digital adjacent channel rejection: 47 dB (Class A),
+37 dB (Class B). Co-channel rejection: 9 dB maximum (applies to all classes).
+
+Spurious response rejection: 80-90 dB (Class A) and 60-70 dB (Class B)
+depending on form factor. Intermodulation rejection: 70-80 dB (Class A) and
+50-70 dB (Class B).
+
+Bit error rate floor: maximum 0.01% (no class distinction). Late entry
+unsquelch delay: 125 ms (no talk group/encryption) or 370 ms (with talk group).
+Receiver throughput delay for voice in conventional non-trunked: 125 ms max.
+
+Blocking rejection (added in CAAB-D, 2013): Class A 80-90 dB; Class B 70-80 dB.
+
+Broadband Strong Signal Intermodulation Rejection (SSIR) — NEW in CAAB-E (2021):
+Power-level-dependent limits for 800 MHz, 700 MHz Band 14, 700 MHz Band 13,
+and 900 MHz frequency ranges. At -40 dBm unwanted signal, Class A must
+achieve 65-70 dB SSIR. At -10 dBm, limits relax significantly (30-55 dB)
+reflecting reduced receiver linearity at high input levels.
+
+TRANSMITTER PERFORMANCE LIMITS (Section 3.2)
+
+RF output power: must meet or exceed manufacturer's rating; must not exceed
+the rating by more than 20%. Airborne public safety radios: ≤10 watts.
+700 MHz band mobiles/controls: ≤30 watts; portables: ≤3 watts.
+
+Operating frequency accuracy: 5.0 PPM (mobile/portable, below 100 MHz) down
+to 0.1 PPM (base station, 700 MHz band). 700 MHz mobiles with AFC locked to
+base station must meet 0.4 PPM.
+
+Modulation emission spectrum: FCC mandatory limits per §90.210(d) with a
+breakpoint at 5.625 kHz (slope of 7.27 dB/kHz) and a floor of
+50+10log10(RFOP) dB or 70 dB (whichever is less) beyond 12.5 kHz.
+
+Frequency deviation for C4FM: High level 2544-3111 Hz, Low level 848-1037 Hz.
+This tightly constrains symbol deviations to ensure inter-vendor compatibility.
+Symbol rate accuracy: ≤10 PPM.
+
+Modulation fidelity: rms Deviation Error ≤5% (Class A) or ≤10% (Class B).
+For C4FM peak spurious frequency: 50-100 Hz (Class A) and 100-150 Hz (Class B).
+
+Transmitter attack time (conventional): power ≤50 ms, encoder ≤100 ms.
+With busy/idle: both power and encoder ≤30 ms.
+Transmitter throughput delay: ≤125 ms.
+RFSS throughput delay: ≤100 ms for simple repeaters.
+RFSS idle-to-busy transition: ≤30 ms.
+
+Conducted spurious emissions (VSWR): attenuated ≥50+10log(P) dB or 70 dB
+whichever is less, tested at VSWR ≤3:1 (mobile), ≤6:1 (portable), ≤2:1
+(base station).
+
+TRUNKED SYSTEM TIMING (Section 3.3)
+
+Control channel encode and RF power attack times depend on slot duration:
+for 37.5 ms slots, encode attack is 2.00-4.15 ms; for 45 ms slots,
+2.00-11.65 ms. RF power turn-off time ≤1.57 ms for both slot sizes.
+
+Trunking request time: ≤160 ms (37.5 ms slot) or ≤167.5 ms (45 ms slot).
+Time to grant in non-simulcast systems with single TSBK: ≤337.5-345.0 ms
+(ISP slot dependent). In simulcast, single TSBK: ≤487.5-495.0 ms.
+Transmitter key time on traffic channel: ≤150.0 ms (short form) or
+≤171.1 ms (explicit channel form).
+
+UNIT CHARACTERISTICS AND ENVIRONMENTAL (Section 3.4)
+
+Temperature range: -30°C to +60°C (all equipment). At temperature extremes,
+reference sensitivity may degrade up to 6 dB DFS at standard voltage, 8 dB
+at ±10% voltage limits. Many other characteristics have no DFS (no degradation
+from standard is allowed) including frequency accuracy, transmitter fidelity,
+and symbol rate accuracy.
+
+High humidity: 90-95% at +50°C. Performance requirements are similar to
+temperature extremes.
+
+Vibration (standard): two-part sinusoidal sweep, reference sensitivity, output
+power, and frequency accuracy must hold with no DFS.
+
+Shock: mobiles must survive 10g half-sine impacts (20g peak, 11 ms); portables
+must survive 100 cm free-fall drops onto concrete on each of 6 faces.
+
+Battery life (portables): ≥8 hours at standard duty cycle (6s TX or RX + 54s
+standby).
+
+Class A equipment must additionally pass MIL-STD-810E environmental tests:
+rain (506.3), salt fog (509.3), sand/dust (510.3), functional shock (516.4),
+and platform-specific vibration profiles for ground vehicles, helicopters,
+propeller aircraft, and marine vessels.
+
+==========================================================================
+KEY PARAMETERS QUICK REFERENCE
+==========================================================================
+
+| Parameter                    | Class A        | Class B        |
+|------------------------------|----------------|----------------|
+| Reference sensitivity        | -116 dBm       | -113 dBm       |
+| Faded reference sensitivity  | -108 dBm       | -105 dBm       |
+| Adjacent channel rejection   | 60 dB          | 50-60 dB       |
+| Spurious response rejection  | 70-90 dB       | 60-70 dB       |
+| Intermodulation rejection    | 70-80 dB       | 50-70 dB       |
+| Blocking rejection           | 80-90 dB       | 70-80 dB       |
+| C4FM delay spread capability | 50 µs          | 50 µs          |
+| Bit error rate floor         | 0.01%          | 0.01%          |
+| Modulation fidelity (rms)    | 5%             | 10%            |
+| Symbol rate accuracy         | 10 PPM         | 10 PPM         |
+| TX throughput delay          | 125 ms         | 125 ms         |
+| TX power attack time         | 50 ms          | 50 ms          |
+| Receiver throughput delay    | 125 ms         | 125 ms         |
+| Temperature range            | -30 to +60°C   | -30 to +60°C   |
+
+==========================================================================
+DOCUMENT HISTORY AND SCOPE EVOLUTION
+==========================================================================
+
+Initial publication (2000): Basic C4FM performance requirements.
+CAAB-A (2002): Added 700 MHz band equipment limits.
+CAAB-B (2004): Revised power line conducted limits per FCC.
+CAAB-C (2010): Added simulcast modulation limits.
+CAAB-D (2013): Added blocking rejection limits; revised offset adjacent
+  channel rejection.
+CAAB-E (2021): Added Broadband Strong Signal Intermodulation Rejection (SSIR)
+  limits for multiple bands; miscellaneous clarifications.
+
+==========================================================================
+RELATIONSHIP TO OTHER DOCUMENTS
+==========================================================================
+
+This document is the performance limits standard; it is normatively paired
+with TIA-102.CAAA-F (measurement methods). Both are required to qualify
+equipment for P25 compliance. Physical layer requirements originate in
+TIA-102.BAAA-B. FCC type acceptance incorporates these limits for 700 MHz
+band equipment under Parts 27 and 90.
+
+APCO/NASTD/FED Project 25 Steering Committee has adopted this document as
+part of the P25 standard. The document is explicitly scoped to include both
+public safety and non-public safety Private Land Mobile Radio applications.

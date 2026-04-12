@@ -1,0 +1,55 @@
+TSB-102.BAFA-A Summary
+Project 25 — Network Management Interface Overview
+TIA Telecommunications Systems Bulletin
+Approved: July 1, 1999 | Reaffirmed: January 29, 2013
+Revision of TSB-102.BAFA
+
+WHAT THIS DOCUMENT IS
+
+TSB-102.BAFA-A is a TIA Telecommunications Systems Bulletin (TSB) — an informative overview document, not a normative standard. It provides the architectural foundation and vocabulary for the Project 25 Network Management Interface, specifically the "En" interface between an Operations and Maintenance Center - Radio Frequency (OMC-RF) within an RF Sub-system and an external End System Network Management Center (NMC). The document was originally approved in July 1999 as a revision of TSB-102.BAFA, and was reaffirmed without change in January 2013.
+
+Its lineage traces to an APCO Network Management Interface document that it was intended to supersede. Early drafts reflected CMIP (Common Management Information Protocol) as a candidate transport, but by Version 1.3 (December 1997) CMIP was removed in favor of SNMP, leaving the document in its current form.
+
+WHY IT EXISTS
+
+Project 25 (P25) is a suite of standards for interoperable digital land mobile radio systems used primarily by public safety agencies in North America. P25 systems consist of subscriber units (radios) and fixed infrastructure (base stations, controllers, gateways, consoles) that together form RF Sub-systems (RFSS). Each RFSS vendor historically managed its infrastructure through proprietary means. TSB-102.BAFA-A exists to define a standard En interface so that an NMC from one vendor (or a multi-vendor NMC) can manage OMC-RFs from different infrastructure vendors — enabling interoperable, multi-vendor network management across large public safety networks.
+
+WHAT IT DEFINES
+
+The document defines three areas:
+
+1. NETWORK MANAGEMENT HIERARCHY. The standard specifies an OMC-RF (Operations and Maintenance Center - Radio Frequency) as the key architectural element within each RF Sub-system. The OMC-RF plays a dual role: it acts as an Agent toward the NMC (accepting directives, emitting notifications), and simultaneously acts as a Manager toward the individual RF Network Elements (base radios, base audio, base controllers, RF Sub-system switches, gateways, consoles). This cascaded Manager/Agent architecture is derived from ITU Recommendation X.701 (OSI System Management) and ITU Recommendation M.3010 (TMN Principles). The OMC-RF performs mediation between the NMC's standardized information model and the proprietary information models of each RF Network Element vendor. Standardization applies only to information conversion between information models and protocol conversion; other mediation functions (data concentration, thresholding, routing, security, storage) are implementation-defined.
+
+2. TRANSPORTATION MEDIUM. The recommended protocol for communications between the OMC-RF and the NMC is SNMP (Simple Network Management Protocol, RFC 1157), carried over an IP protocol stack (OSI lower layers). The Management Information Base (MIB) is structured per RFC 1213 (MIB-II). The SNMP-based interface provides the standardized En interface. Internal interfaces between the OMC-RF and RF Network Elements (below the OMC-RF) are proprietary and not subject to standardization.
+
+3. MANAGEMENT FUNCTIONAL AREAS. The document adopts the OSI five-area framework: Configuration Management, Fault Management, Performance Management, Accounting Management, and Security Management. The initial standardization focus for Project 25 is limited to Fault Management and Performance Management operations and notifications between the NMC and OMC-RF. Configuration, Accounting, and Security Management may be accessed by NMC operators via X-window display of OMC-RF applications, but those interfaces are not standardized.
+
+KEY PARAMETERS AND REQUIREMENTS
+
+- The standardized interface is the En interface; all other internal RFSS management interfaces are out of scope.
+- SNMP is the mandated transport protocol; CMIP was considered and rejected.
+- The OMC-RF MIB is the central data structure; it presents RF Network Element managed objects to the NMC. The specific MIB object definitions are deferred as "subject for further study."
+- Fault Management includes: Alarm Surveillance (Alarm Recognition/Notification and Functional Status Retrieval), and Diagnostic/Test Operations. Alarms may be delivered via SNMP trap/event or discovered by polling.
+- Performance Management includes: Performance Retrieval Operations to provide RF traffic statistics (e.g., count of radio access denials due to unavailable Base Audio resources).
+- Multi-manager/multi-agent scenarios are identified. Synchronization across multiple concurrent OMC-RF managers and concurrent directives from multiple NMC managers are flagged as requiring further study.
+- RF Network Elements accessed via the Um Air Interface (mobile radios, mobile routing control, mobile data peripherals) require network management messages defined within their respective air interface standards — outside the scope of this bulletin.
+- Configuration, Accounting, and Security Management are accessible via X-window display on the OMC-RF platform; these interfaces are explicitly not subject to standardization.
+
+RELATIONSHIPS TO OTHER DOCUMENTS
+
+This bulletin is one component of the broader TIA-102 (Project 25) standards suite. It relies on:
+- TSB-102-A (Project 25 System and Standards Definition) — the top-level P25 system overview that readers are expected to know.
+- Internet RFC 1157 (SNMP) — the mandated transport protocol.
+- Internet RFC 1213 (MIB-II) — the MIB framework for Internet-based network elements.
+- ITU M.3010 — TMN Telecommunications Management Network Principles, the basis for the Manager/Agent/mediation architecture.
+- ITU X.701 — OSI System Management Overview, the basis for Manager/Agent role definitions.
+
+The companion normative standards that would define the actual OMC-RF MIB object structures, fault severity filtering, specific diagnostic operations, and performance counters are explicitly identified as "subject for further study" throughout the bulletin. At the time of the 1999 publication, those detailed specifications had not yet been produced within the TIA-102 suite.
+
+LIMITATIONS
+
+The document is explicitly high-level and architectural. It acknowledges multiple areas deferred for further study: the specific RF-System element definitions in the OMC-RF MIB, NMC registration with OMC-RF for specific faults, fault severity filtering, specific diagnostic/test operation definitions, specific performance counter definitions, and the handling of concurrent management requests from multiple NMCs. This bulletin provides the framework and vocabulary but is not sufficient, on its own, to implement the En interface.
+
+CLASSIFICATION
+
+OVERVIEW / Infrastructure. No implementation code is derivable from this document. It serves as the conceptual reference for the P25 Network Management Interface family and for understanding the role of the OMC-RF within P25 infrastructure.

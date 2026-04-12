@@ -1,0 +1,149 @@
+TIA-102.BAAA-A: P25 FDMA Common Air Interface
+ANSI/TIA-102.BAAA-A-2003
+Approved: September 17, 2003 | Reaffirmed: August 2, 2013
+Revision of TIA-102.BAAA
+
+OVERVIEW
+
+This document is the foundational specification for the Project 25 (P25) Phase 1
+digital radio system's Common Air Interface (CAI). It defines the Physical Layer
+and Data Link Layer of the Um interface — the over-the-air reference point between
+portable, mobile, and base station radios — at 9.6 kbps gross bit rate over a 12.5 kHz
+channel. It covers everything necessary for two P25 Phase 1 radios to exchange voice
+and data over the air: modulation, channel access, frame formats, error correction
+codes, and voice coder parameters. It is required reading for any implementation of P25
+Phase 1 FDMA interoperability.
+
+WHY IT EXISTS
+
+The document was created to enable multi-vendor interoperability for U.S. public safety
+radio communications. Before Project 25, public safety agencies were locked into
+proprietary digital radio systems that could not communicate with each other. This
+specification, developed by TIA TR-8.15 in cooperation with APCO, NASTD, and FED,
+defines a single common interface so that a portable radio from one manufacturer can
+communicate with a base station from another, enabling inter-agency and intra-agency
+communications in all-digital mode. The revision history spans from 1992 through 2003,
+reflecting over a decade of refinement through ballot cycles and operational feedback.
+
+PHYSICAL LAYER
+
+The P25 Phase 1 waveform operates at 4800 symbols per second (9600 bits per second).
+Two compatible modulation schemes are defined in the QPSK-c family:
+
+- C4FM (Compatible 4-level FM): achieves the required phase shifts using frequency
+  modulation of a constant-amplitude carrier. Receives on standard FM discriminators.
+  The four deviation levels are ±0.60 kHz and ±1.80 kHz, corresponding to phase shifts
+  of ±45° and ±135°. Transmitter chain: Nyquist Raised Cosine Filter → Shaping Filter →
+  FM Modulator.
+
+- CQPSK (Compatible QPSK): achieves the same effective phase shifts using I/Q
+  amplitude modulation with a 5-level signal derived from a state-machine lookup table
+  (8 phase states, 4 transitions each). More spectrally efficient than C4FM.
+
+A standard QPSK receiver using an FM discriminator can demodulate either waveform.
+The Integrate and Dump filter, raised cosine filter, and stochastic gradient clock recovery
+device complete the receiver chain. Frequency calibration uses an AFC mechanism
+triggered by detection of infrastructure status symbols.
+
+DATA LINK LAYER — MAC SUBLAYER
+
+Channel access uses CSMA (Carrier Sense Multiple Access). On repeater channels,
+inbound (subscriber-to-base) and outbound (base-to-subscriber) use separate
+frequencies. The repeater embeds 2-bit status symbols in every outbound transmission
+after every 70 bits of information, indicating whether the inbound channel is busy (01),
+idle (11), or unknown (00 for talk-around, 10 for repeater/subscriber).
+
+Each transmitted message begins with a 48-bit Frame Sync word (24-bit pattern where
+each bit is expanded to a dibit: "1"→11, "0"→01; producing hex 5575F5FF77FF) and a
+64-bit Network Identifier (NID). The NID carries a 12-bit Network Access Code (NAC)
+and a 4-bit Data Unit ID protected by a (63,16,23) BCH code with an appended parity
+bit. The Data Unit ID identifies the data unit type: Header (0000), LDU1 (0101),
+LDU2 (1010), Simple Terminator (0011), Terminator with LC (1111), or Packet Data
+Unit (1100).
+
+Six data unit types are defined: Header Data Unit (HDU), Logical Link Data Unit 1
+(LDU1), Logical Link Data Unit 2 (LDU2), Simple Terminator Data Unit, Terminator
+Data Unit with Link Control, and Packet Data Unit (PDU). Voice transmissions follow
+the sequence: HDU → LDU1 → LDU2 → (LDU1 → LDU2 repeat) → Terminator.
+Each LDU1+LDU2 pair forms a superframe of 360 ms carrying 18 voice frames.
+
+DATA LINK LAYER — LLC SUBLAYER: VOICE
+
+The IMBE voice coder produces 88 bits per 20 ms frame at 4.4 kbps average. Voice
+bits are partitioned into 8 vectors (u_0 through u_7) by subjective importance. The 48
+most important bits (u_0–u_3, 12 bits each) are protected by four (23,12,7) standard
+Golay code words. The next 33 bits (u_4–u_6, 11 bits each) are protected by three
+(15,11,3) standard Hamming code words. The remaining 7 bits (u_7) are unprotected.
+
+After encoding, code words 1–6 are scrambled by XOR with a 114-bit PN sequence
+derived from u_0 using a linear congruential generator (multiplier 173, addend 13849,
+modulus 65536), forming coset code words c_0–c_7. The 144-bit voice frame is then
+interleaved across 72 dibit symbols using a defined interleave table to spread burst
+errors.
+
+Each LDU contains 9 voice frames interleaved with either Link Control (LDU1) or
+Encryption Sync (LDU2) information. The Header Data Unit carries a 120-bit header
+(72-bit Message Indicator, 8-bit MFID, 8-bit ALGID, 16-bit KID, 16-bit TGID) encoded
+with a (36,20,17) Reed-Solomon code then a (18,6,8) shortened Golay code, producing
+648 bits. Link Control (72 bits) uses a (24,12,13) RS code + (10,6,3) Hamming, yielding
+240 bits. Encryption Sync (96 bits) uses a (24,16,9) RS code + (10,6,3) Hamming,
+yielding 240 bits. Low Speed Data carries 4 octets per superframe at 88.89 bps,
+protected with a (16,8,5) shortened cyclic code. Terminator Link Control uses a (24,12,13)
+RS code + (24,12,8) extended Golay inner code, yielding 288 bits.
+
+DATA LINK LAYER — LLC SUBLAYER: DATA
+
+Data packets use a rate 3/4 trellis code applied in blocks. The trellis encoder takes
+3-bit tribits and maps them to 16 constellation points through a state machine, output
+as 4-level dibit pairs. The constellation-to-dibit mapping table is fully defined. A 98-dibit
+interleaver spreads burst errors. Both confirmed (ARQ with per-block CRC and selective
+retransmission) and unconfirmed delivery modes are supported. The packet CRC uses
+the standard CRC-32 polynomial. Header blocks and data blocks differ in structure;
+headers carry addressing, sequence numbers, and fragment information.
+
+KEY PARAMETERS AND REQUIREMENTS
+
+- Gross bit rate: 9.6 kbps, 4800 symbols/sec, 2 bits/symbol
+- Channel spacing: 12.5 kHz (12.5 kHz restriction removed in 1998 revision)
+- IMBE voice: 88 bits/20 ms = 4.4 kbps average
+- Voice frame size: 144 bits encoded (from 88 bits IMBE + 56 parity)
+- Superframe: 18 voice frames, 360 ms, 2 LDUs
+- LDU air time: 180 ms each
+- Header Data Unit: 648-bit code word, 82.5 ms air time
+- Status symbol rate: 1 per 70 information bits
+- C4FM peak deviation: ±1.80 kHz (±3 symbol), ±0.60 kHz (±1 symbol)
+- Deviation calibration: test signal "01 01 11 11" repeat → 1.2 kHz at 2827 Hz peak dev
+- Error correction codes: Golay (23,12,7), (18,6,8), (24,12,8); Hamming (15,11,3),
+  (10,6,3); RS over GF(2^6): (36,20,17), (24,16,9), (24,12,13); BCH (63,16,23);
+  Cyclic (16,8,5); Trellis rate 3/4
+
+RELATIONSHIPS TO OTHER DOCUMENTS
+
+This document is the central physical-layer specification in the P25 suite. It explicitly
+references and depends on:
+- TIA-102.BABA: Vocoder Description (IMBE parameters)
+- TIA-102.AABF: Link Control Word Formats and Messages (LC field definitions)
+- TIA-102.BAAC-A-1: Common Air Interface Reserved Values (reserved NID codes)
+- TSB102.BAAD: Conventional Channel Operational Description (channel access procedures)
+- TIA-102.CAAA: C4FM/CQPSK Transceiver Methods of Measurement
+- TIA-102.CAAB: C4FM/CQPSK Transceiver Performance Recommendations
+
+Trunking behavior, encryption algorithms, network management, roaming, and subsystem
+interface specifications are explicitly out of scope and defined in companion documents.
+
+LIMITATIONS
+
+This document specifies only the physical and data link layers. It does not define the
+full network behavior needed for system operation: trunking protocols, encryption
+algorithm internals, network layer addressing, or voice coder implementation detail are
+all in companion specs. It also does not specify clock recovery implementation detail in
+the QPSK demodulator, or filter coefficient implementations (only magnitude responses
+are given). The vocoder parameter descriptions in Section 4 are informative summaries;
+the normative vocoder definition is TIA-102.BABA.
+
+DOCUMENT STATUS
+
+Active. Approved September 17, 2003 as ANSI/TIA-102.BAAA-A-2003. Reaffirmed
+August 2, 2013. This is the current revision (revision of TIA-102.BAAA). TIA-102.BAAA-A
+is the foundational Phase 1 FDMA CAI spec and remains in active use wherever P25
+Phase 1 equipment is deployed.

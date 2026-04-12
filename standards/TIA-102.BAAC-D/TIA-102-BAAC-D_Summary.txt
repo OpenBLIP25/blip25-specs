@@ -1,0 +1,66 @@
+TIA-102.BAAC-D — Project 25 Common Air Interface Reserved Values
+Summary
+Approved: June 19, 2017 | Revision D of TIA-102.BAAC-C | ANSI/TIA-102.BAAC-D-2017
+
+PURPOSE AND SCOPE
+
+This document specifies the reserved and standard values for twelve information fields defined in the Project 25 (P25) Common Air Interface (CAI). It serves as a normative supplement to the FDMA Common Air Interface specification (TIA-102.BAAA-B) and the Two-Slot TDMA Common Air Interface (TSB-102.BBAA). The document applies uniformly to both the FDMA and TDMA variants of the P25 air interface, providing a single authoritative reference for field values that must be consistent across all compliant equipment.
+
+The document was developed by the TIA TR-8.15 Common Air Interface Subcommittee and has been adopted by the Project 25 Steering Committee as part of the P25 standard. It is an ANSI-approved national standard. This is the fifth edition (Revision D), which addresses errata identified in Revision C and aligns terminology and content with current TR-8 editorial practices. There are no annexes.
+
+WHAT IT DEFINES
+
+The document defines reserved and standard values for the following twelve fields:
+
+1. Network Access Code (NAC, 12 bits) — A network segmentation identifier carried in every P25 transmission. The default NAC is $293. Two special values are defined: $F7E causes any compliant receiver to open regardless of its programmed NAC (Monitor mode); $F7F causes a Fixed Station to receive and retransmit any NAC. Implementations must not transmit $F7E or $F7F; these are receive-side values only.
+
+2. Link Control Format (LCF, 8 bits) — Identifies the structure of the Link Control word carried in voice frames. Four standard values are defined: $00 (Group Call format), $03 (Individual Call format), $80 (Encrypted Group Call), and $83 (Encrypted Individual Call). Full LCF semantics are defined in TIA-102.AABF-D.
+
+3. Manufacturer's ID (MFID, 8 bits) — Identifies the standards body or vendor responsible for a message's opcode space. Standard values are $00 (original, pre-2001) and $01 (introduced April 18, 2001 for cases where $00 conflicts with existing opcodes). Vendor-specific MFIDs are maintained in a separate MFID Assignments document published by TR-8.15.
+
+4. Source ID / Destination ID (24 bits each) — Unique identifiers for individual radio units and group addresses. $000000 means "no one" (never assigned). $000001–$98967F (decimal 1–9,999,999) are for general subscriber use. $989680–$FFFFFE (10,000,000–16,777,214) are reserved for talk group and special purposes; within this range, $FEF001–$FFEFFF maps 16-bit conventional TGIDs to 24-bit addresses. $FFFFFF means "everyone" (broadcast).
+
+5. Talk Group ID (TGID, 16 bits) — $0000 means "no one," $0001 is the Default Talk Group used in systems without explicit partitioning, and $FFFF means "everyone." For trunked configurations, additional reserved values are specified in TIA-102.AABC-D.
+
+6. Message Indicator (MI, 72 bits) — The only standardized value is all-zeros ($000...0), used in unencrypted messages. The null value is explicitly prohibited in encrypted messages, ensuring that any non-zero MI indicates an encrypted payload.
+
+7. Key ID (KID, 16 bits) — The null value $0000 is the sole standardized value, used for unencrypted messages or as a default prior to key assignment. All KID values are valid for encrypted messages.
+
+8. Algorithm ID (ALGID, 8 bits) — $80 identifies an unencrypted message (no algorithm). Standard cryptographic algorithm assignments: $00 = ACCORDION 1.3, $01 = BATON (Auto Even), $02 = FIREFLY Type 1, $03 = MAYFLY Type 1, $04 = SAVILLE, $41 = BATON (Auto Odd), $81 = DES (deprecated for new equipment), $83 = 3-key triple DES (deprecated), $84 = AES-256, $85 = AES-128. Additional vendor ALGID assignments are maintained in a separate ALGID Value Assignment Guide.
+
+9. Service Access Point (SAP, 6 bits) — Identifies the data service type for packet data frames. Twenty-three standard values are defined, ranging from $00 (Unencrypted User Data) through $3F (Protected Trunking Control). Notable values include $04 (Packet Data), $05 (ARP), $06 (SNDCP Control), $20 (Registration and Authorization), $28/$29 (Key Management), $30 (Location Service), and $3D (Trunking Control). SAP values $02 and $03 (Circuit Data) were deprecated in Revision D after the Circuit Data specification was withdrawn in January 2010.
+
+10. Emergency Indicator (E, 1 bit) — Embedded in the Link Control word of voice frames. %0 = routine/non-emergency; %1 = emergency condition.
+
+11. Data Unit ID (DUID, 4 bits) — Identifies the type of data unit in each P25 frame. Six values are used in the FDMA CAI: %0000 (Header Data Unit), %0011 (Terminator without LC), %0101 (Logical Link Data Unit 1 / LLDU1), %1010 (Logical Link Data Unit 2 / LLDU2), %1100 (Packet Data Unit), %1111 (Terminator with LC). An additional value %0111 (Trunking Signaling Data) is defined in this document. The P column indicates the expected parity bit (64th bit of the Network ID code word) for each DUID.
+
+KEY PARAMETERS AND REQUIREMENTS
+
+- NAC $293 is the factory default; $F7E and $F7F must only appear as receive-configuration values, never transmitted.
+- MFID $00 is required for compliance on all standard definitions predating April 18, 2001. MFID $01 may be used for new definitions where opcode conflicts prevent $00.
+- All 16-bit TGIDs ($0001–$FFFF) used as 24-bit conventional talk group addresses must map into $FEF001–$FFEFFF.
+- DES (ALGID $81) and 3-key triple DES (ALGID $83) are retained for backward compatibility only; new equipment must not use them.
+- Circuit Data SAP values ($02, $03) are deprecated as of this revision.
+- The null MI (72 zero bits) must not appear in encrypted messages.
+- The null KID ($0000) must not be the sole indicator of encryption state.
+
+RELATIONSHIPS TO OTHER DOCUMENTS
+
+This document is normatively referenced by or supplements:
+- TIA-102.BAAA-B (FDMA CAI) — primary air interface specification
+- TIA-102.AABC-D (Trunking Control Channel Messages) — trunked TGID assignments
+- TIA-102.AABF-D (Link Control Word Formats and Messages) — full LCF definitions
+- TSB-102.BBAA (Two-Slot TDMA Overview) — TDMA air interface context
+- TSB-102-C (TIA-102 Documentation Suite Overview) — system-level architecture
+
+External assignment registries maintained by TR-8.15 govern values not listed here:
+- MFID Assignments (January 2016)
+- ALGID Value Assignment Guide (April 2015)
+
+LIMITATIONS
+
+The document explicitly does not define: the full set of MFID values (delegated to a separate registry), ALGID values beyond the eleven listed (delegated to the ALGID Assignment Guide), or trunked TGID assignments (delegated to TIA-102.AABC-D). It acknowledges that some aspects of the specifications may not have been fully operationally tested.
+
+STATUS
+
+Active. ANSI approved June 19, 2017. Replaces TIA-102.BAAC-C (April 2011). Current as of the document date. No superseding revision has been identified as of the processing date.

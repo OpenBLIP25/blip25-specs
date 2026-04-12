@@ -1,0 +1,157 @@
+TIA-102.AACA-C: Digital Radio Over-The-Air-Rekeying (OTAR) Messages and Procedures
+Summary — TIA-102 Project 25 Standards Suite
+Published: August 2, 2023 | Revision C of TIA-102.AACA
+
+WHAT THE DOCUMENT SPECIFIES
+
+TIA-102.AACA-C defines the Over-The-Air-Rekeying (OTAR) protocol for Project 25 (P25)
+digital land mobile radio systems. OTAR is the mechanism by which a Key Management
+Facility (KMF) — a centralized key server — distributes, updates, and manages cryptographic
+keying material to P25 Subscriber Units (SUs, i.e., radios) over the radio air interface,
+without requiring physical access to each radio. This document is the authoritative P25
+specification for all aspects of OTAR: the Key Management Message (KMM) wire format,
+all defined message types, the procedures that sequence those messages into transactions,
+the transport mechanisms that carry KMMs over the air, and the cryptographic security
+requirements that protect the OTAR channel itself.
+
+The document covers 214 pages and is organized into: scope and purpose; normative
+references; definitions and abbreviations; high-level architecture and protocol model;
+18 OTAR procedure descriptions; detailed message body formats (32 message types); 26
+primitive field definitions with bit-level layouts; complete Message ID opcode table; and
+security requirements including key wrapping, message authentication, and anti-replay.
+Annexes cover the evolution history of AACA from the original standard through Revision C,
+and the historical Key ID interpretation used in earlier revisions.
+
+WHY IT EXISTS
+
+P25 systems are used by public safety agencies — law enforcement, fire, EMS, federal
+agencies — where communications confidentiality is operationally critical. These agencies
+deploy hundreds or thousands of radios. Without OTAR, maintaining encryption key
+currency requires a field technician to physically connect each radio to a key-loading device
+(KFD) on a regular schedule. OTAR eliminates that burden: the KMF can push new Traffic
+Encryption Keys (TEKs), Key Encryption Keys (KEKs), and keyset definitions to all radios in
+a talkgroup simultaneously, on a schedule or on demand, without removing radios from
+service. Key changeover (rotation) events — where a new keyset activates at a scheduled
+time — are coordinated via OTAR changeover procedures.
+
+TIA-102.AACA-C replaces TIA-102.AACA-B and is the currently active revision. It retains
+full backward compatibility with Revision B while adding the Enhanced CMAC authentication
+method introduced in Revision C.
+
+WHAT IT DEFINES
+
+Message Format: All OTAR messages use a common KMM (Key Management Message)
+structure: a 10–12 byte header (Message Format, Message Indicator, Algorithm ID,
+Key ID, Message Number, Destination RSI, Optional Fields) followed by a variable-length
+body. The maximum KMM length is 512 octets over DLD transport and 465 octets over
+DLI transport.
+
+32 Message Body Types: Defined in Section 10.2, identified by opcodes $00–$27 in
+the Message ID field (Table 78). Types include: Acknowledge ($00), Active KSN Status
+Solicitation/Response ($23/$24), Change RSI Command/Response ($0E/$0F), Changeover
+Command/Response ($10/$11), Delete Key Command/Response ($0A/$0B), Delete Keyset
+Command/Response ($1C/$1D), Deregistration Request/Response ($1A/$1B), Hello
+($01), Inventory Command/Response ($06/$07), Key Signature ($08), KMM Preamble
+($1E), Modify Key Command/Response ($16/$17), Modify Keyset Attributes
+Command/Response ($1A/$1B), Registration Request/Response ($02/$03), Rekey/TEK
+Distribution ($04), Rekey Acknowledgment ($05), RSI/SU Status ($09), Set Date/Time
+Command/Response ($12/$13), Status ($00 in response context), Uni-Data Transfer
+($20/$21/$22), Zeroize Command ($0C).
+
+26 Primitive Fields: Section 10.3 defines each field that composes the message bodies,
+with bit-field diagrams: Algorithm ID, Body Message Format, Date, Decryption Instruction,
+Hello Flag, Inventory Type, Key (variable length), Key Assignment ID, Key Assignment
+Type, Key ID (2-byte), Key Format, Key Name (up to 32 ASCII bytes), Keyset Format,
+Keyset ID, Keyset Name (up to 32 ASCII bytes), Long Key Assignment ID, Long Number,
+Message Format, Message Indicator (MI, 9 bytes), Message Length, Number, Optional
+Service ID, RSI (3-byte Radio Set Identifier), Status, Storage Location Number (SLN),
+Time.
+
+18 OTAR Procedures: Section 9 specifies the message sequences for: New Unit
+Registration, Capability Exchange, Change RSI, Changeover, Delete Key, Delete Keyset,
+Deregistration, Hello/Rekey Request, Inventory, Key Assignment, Modify Key, Modify
+Keyset Attributes, Registration, Rekey (TEK distribution), Set Date/Time, Unable to
+Decrypt, Warm Start, and Zeroize. Each procedure defines the initiating party (KMF or SU),
+required/optional messages, and success/failure paths.
+
+KEY PARAMETERS AND REQUIREMENTS
+
+Key Types: TEK (Traffic Encryption Key, encrypts voice/data), KEK (Key Encryption Key,
+wraps TEKs for over-air delivery), UKEK (Unique KEK, per-radio KEK), CKEK (Changeover
+KEK, wraps changeover keysets).
+
+Algorithm IDs: $81 = DES (56-bit, legacy, deprecated), $83 = TDES (three-key, 168-bit),
+$84 = AES-256. AES-256 is the current recommended algorithm.
+
+Key Wrap: TEKs are encrypted (wrapped) inside KMMs using the KEK. Three wrap modes
+are defined: (1) DES ECB wrap (legacy, single-DES, deprecated); (2) Enhanced Key Wrap
+using NIST SP800-38F KW-AE/KW-AD (AES Key Wrap with Authentication, recommended);
+(3) TDES-based wrap for TDES systems.
+
+Message Authentication: KMMs are authenticated to prevent forgery. Three MAC modes:
+(1) DES CBC-MAC (legacy, 4-byte MAC, deprecated); (2) Enhanced CBC-MAC — Version 0
+frame, 8-byte MAC computed with TDES or AES over a defined frame structure;
+(3) Enhanced CMAC — Version 1 frame, 8-byte CMAC per NIST SP800-38B, using a
+per-session MAC key derived via SP800-108r1 KDF in Counter mode with HMAC-SHA-256,
+Label = "OTAR MAC", context = KMM header fields. CMAC is new in Revision C and is
+the recommended authentication method.
+
+Anti-Replay: Each RSI maintains a 16-bit Message Number (MN). Two rules: (Rule 1) on
+initial contact, the SU accepts any MN and stores it; (Rule 2) on subsequent messages, the
+SU rejects any MN not greater than the stored MN (modulo 2^16, allowing for wrap-around).
+
+Storage Location Number (SLN): 2-byte key pointer embedded in key assignment messages.
+Upper 4 bits = Crypto Group (0–15), lower 12 bits = Key Selector (0–4095). Defines which
+slot in the radio's key storage receives a delivered key.
+
+TRANSPORT MECHANISMS
+
+Two transport modes are defined. DLD (Data Link Dependent): KMMs are transported via
+the P25 CAI (Common Air Interface) data link layer; encryption is applied at the CAI layer.
+DLI (Data Link Independent): KMMs are transported over IP via SNDCP (Subnetwork
+Dependent Convergence Protocol) using UDP datagrams; encryption is applied at the
+application layer using the KMM Preamble message ($1E) to carry the outer-layer Message
+Indicator and algorithm parameters.
+
+RELATIONSHIPS TO OTHER DOCUMENTS
+
+TIA-102.AACA-C sits within the TIA-102 cryptographic standards sub-family:
+- TIA-102.AACA-B: Predecessor revision (superseded by this document).
+- TIA-102.AAAA: P25 Encryption Standards — defines the encryption algorithms (DES, TDES,
+  AES-256) and algorithm parameters that OTAR uses to protect voice/data traffic.
+- TIA-102.AAAB: P25 Message Encryption — defines how encrypted messages are formatted
+  at the CAI layer; OTAR KEK-wrapped TEKs activate the encryption defined in AAAB.
+- TIA-102.AAAC: P25 Key Management Facility Interface — defines the KMF-to-console and
+  KMF-to-network interfaces; OTAR is the air-side component of the KMF ecosystem.
+- TIA-102.AACE: P25 OTAR Test Procedures — defines conformance tests for implementations
+  of TIA-102.AACA; directly dependent on this document's message formats.
+- TIA-102.BACA (ISSI) and TIA-102.BCCA (CSSI): Inter-RF subsystem and console
+  interfaces; key management coordination across sites may involve OTAR.
+- NIST SP800-38B: Specifies CMAC (used for Enhanced CMAC authentication).
+- NIST SP800-38F: Specifies AES Key Wrap with Authentication (used for Enhanced Key Wrap).
+- NIST SP800-108r1: Specifies the KDF in Counter mode used to derive the CMAC MAC key.
+
+LIMITATIONS ACKNOWLEDGED
+
+The document acknowledges that DES-based operations ($81, single-DES ECB wrap, DES
+CBC-MAC) are legacy and deprecated; implementations should migrate to AES-256 with
+Enhanced Key Wrap and Enhanced CMAC. The D (Derived Key) bit in the Enhanced MAC
+Frame Version 0 is deprecated in Revision C. The document does not specify KMF
+internals, key generation algorithms, or key storage formats beyond what is needed for
+the air interface. Physical security of the KEK loaded into each radio prior to first
+OTAR contact (the "seed" UKEK) is outside scope; that pre-loading is typically done
+via traditional KFD (Key Fill Device) per TIA-102.AAAC.
+
+PHASE 3 IMPLEMENTATION FLAGS
+
+The following implementation specs should be produced in a follow-up run:
+1. P25_OTAR_KMM_Protocol_Implementation_Spec.md — KMM encoder/decoder, all 32
+   message body formats, header parsing, field validation.
+2. P25_OTAR_Key_Wrap_Implementation_Spec.md — DES ECB wrap (legacy), Enhanced
+   Key Wrap (SP800-38F KW-AE/KW-AD), TDES wrap; with test vectors.
+3. P25_OTAR_MAC_Implementation_Spec.md — DES CBC-MAC (legacy), Enhanced CBC-MAC
+   (Version 0), Enhanced CMAC (Version 1) including KDF; with test vectors.
+4. P25_OTAR_Procedures_Implementation_Spec.md — state machine for each of the 18
+   procedures; MN anti-replay logic; SLN key storage mapping.
+5. P25_OTAR_Transport_Implementation_Spec.md — DLD vs DLI framing, KMM Preamble
+   handling, UDP/SNDCP encapsulation for DLI mode.

@@ -1,0 +1,129 @@
+SUMMARY: TIA-102.BBAE — Project 25 Two-Slot TDMA MAC Layer Procedures
+Published: November 2019
+Standard Body: Telecommunications Industry Association (TIA)
+Subcommittee: TR-8.12 (Two-Slot TDMA)
+
+WHAT THIS DOCUMENT SPECIFIES
+
+This document defines the Media Access Control (MAC) layer procedures for the
+Project 25 (P25) two-slot Time Division Multiple Access (TDMA) Common Air
+Interface (CAI). It specifies how subscriber units (SUs) and fixed network equipment
+(FNE) coordinate voice calls, control channel signaling, and channel management
+on the Um2 air interface — the TDMA variant of P25's over-the-air protocol. The
+air interface operates within a 12.5 kHz bandwidth physical radio channel using two
+TDMA timeslots, effectively doubling spectral efficiency compared to the legacy
+FDMA approach.
+
+WHY IT EXISTS
+
+P25 Phase II introduced two-slot TDMA as a spectrally efficient alternative to Phase
+I's single-channel FDMA operation. While companion documents (TIA-102.BBAC and
+TIA-102.BBAD) define the MAC layer specification and message formats respectively,
+this document was created to consolidate the procedural logic — the step-by-step
+behavioral rules that govern how equipment actually operates on the air interface.
+It merges Voice Channel procedures previously split across TIA-102.BBAC section 7,
+its BBAC-1 addendum, and Control Channel procedures from TIA-102.BBAD section 5
+into a single unified reference. The P25 Steering Committee adopted it on
+October 10, 2019.
+
+SCOPE AND STRUCTURE
+
+The document covers four categories of procedures:
+
+General Procedures (Section 2) address unassigned logical channel handling,
+synchronization, scrambling, and power control. These apply to all logical channel
+types.
+
+Control Channel (CCH) Procedures (Section 3) specify how TDMA Logical Control
+Channels (LCCHs) are designated, acquired, and transitioned. This includes single
+LCCH, dual LCCH, and composite (no dedicated LCCH) topologies, as well as how
+SUs discover and use both current-site and adjacent-site control channels.
+
+Voice Channel (VCH) Procedures (Section 4) form the bulk of the document,
+covering the complete lifecycle of a trunked voice call: channel assignment and call
+setup, traffic mode operation with ongoing talker/listener SACCH signaling,
+call termination (both transmission-trunked and message-trunked), hangtime call
+continuation, and preemption (audio takeover and call takeover).
+
+Data Channel (DCH) Procedures (Section 5) are acknowledged as anticipated but
+left undefined at the time of publication.
+
+KEY TECHNICAL DETAILS
+
+Scrambling: A 44-bit Linear Feedback Shift Register (LFSR) generates a per-
+superframe scrambling sequence seeded from the WACN ID, System ID, and Color
+Code. The generator polynomial is G(x) = x^44 + x^40 + x^35 + x^29 + x^24 +
+x^10 + 1. The seed for inbound signals is derived by advancing the outbound seed
+by 2^43 shift cycles using a precomputed 44x44 GF(2) matrix. Scrambling rejects
+co-channel interference from adjacent TDMA systems. Specific burst types have
+defined scrambling exceptions: MAC_END_PTT bursts and Network Status Broadcast
+bursts are never scrambled, ensuring that Color Code identification and
+descrambling parameters remain accessible.
+
+Synchronization: Three levels are defined — symbol synchronization (detecting
+sync sequences in ISCH or FACCH bursts), VCH synchronization (determining LCH
+numbering, superframe/ultraframe framing, and voice burst sequencing), and CCH-
+to-VCH synchronization (using Synchronization Broadcast messages to carry timing
+alignment from the control channel to traffic channels). Transmitting SUs maintain
+sync by monitoring the S-ISCH in SACCH slots 10/11.
+
+Power Control: Open-loop (SU self-adjusts based on received signal) and
+closed-loop (FNE sends Power Control Signal Quality MAC messages with BER
+and power level data; SU adjusts accordingly) methods are defined for the
+inbound TCH path only. No adaptive power control is used on the CCH or
+outbound path.
+
+Voice Call Lifecycle: Call setup requires the talker SU to send two MAC_PTT PDUs
+on the FACCH after synchronizing. The FNE repeats these outbound. Voice framing
+follows a 4V-4V-4V-4V-2V burst sequence within each superframe. During traffic
+mode, the FNE uses the SACCH ultraframe schedule to send voice channel user
+(VCU) messages identifying the talker to listeners, and to confirm the talker's
+right to transmit. Call termination requires at least two MAC_END_PTT PDUs.
+Message trunking supports hangtime continuation via either CCH (SU returns to
+control channel to request) or VCH (SU transmits MAC_PTTs directly on the
+voice channel).
+
+Preemption: Two types are defined. Audio preemption (C/A=1 in MAC_Release)
+replaces the current talker's audio with a higher-priority source while keeping the
+call active — this can be forced (U/F=1, SU must stop) or unforced (U/F=0, SU
+may continue). Call preemption (C/A=0) terminates the current call entirely to
+free the channel for a different call, with polite (MAC_END_PTTs sent first) and
+impolite (immediate transition) variants.
+
+LCH Transitions: The system supports dynamic reconfiguration between dual LCCH,
+single LCCH, and composite (no LCCH) topologies. Transitions are signaled via the
+I-ISCH LCH Type field and are constrained to specific timeslot positions (0/4/8
+for LCH 0; 1/5/9 for LCH 1).
+
+CCCH Access Parameters: TDMA LCCH access timing differs from FDMA: T_LCCH =
+30ms x N_slot (where N_slot=1 for dual LCCH, 2 for single LCCH). The T_ctrl
+default is 240ms (vs. FDMA's different value), with a 120ms minimum.
+
+INFORMATIVE ANNEXES
+
+Annex A provides LCCH call control timing diagrams for single LCCH/same channel,
+single LCCH/different channel, and dual LCCH configurations. Annex B shows PTT
+initiation timing for all five possible inbound FACCH positions and call
+termination. Annex C provides eight complete call flow examples including
+unsynchronized and synchronized CCH entry, transmission and message trunked
+unkey scenarios, call continuation via both TCH and CCH methods, and both
+unforced and forced console-initiated preemption.
+
+LIMITATIONS
+
+The document explicitly leaves several items undefined or deferred to local
+policy: the closed-loop power control algorithm, the method for selecting among
+competing audio sources or preemption requestors at multi-site systems, user
+notification mechanisms for preemption, and the total number of MAC_END_PTT
+PDUs beyond the two-minimum requirement. The DCH procedures are entirely
+undefined. The document notes that some specifications had not been fully
+operationally tested at the time of publication.
+
+NORMATIVE DEPENDENCIES
+
+This document normatively references five companion standards: TIA-102.AABC-E
+(Trunking Control Channel Messages), TIA-102.AABD-B (Trunking Procedures),
+TIA-102.AABH (Dynamic Regrouping), TIA-102.BBAC-A (Two-Slot TDMA MAC Layer
+Specification), and TIA-102.BBAD-A (Two-Slot TDMA MAC Layer Messages). It
+informationally references TSB-102-C (Documentation Suite Overview) and
+TSB-102.BBAA (Two-Slot TDMA Overview).

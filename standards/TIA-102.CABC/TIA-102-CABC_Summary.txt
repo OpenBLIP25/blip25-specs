@@ -1,0 +1,131 @@
+TIA-102.CABC-C — Interoperability Testing for Voice Operation in Trunked Systems
+Summary (approx. 1,000 words)
+Revision C | February 2017 | TIA TR-8 / APIC CAPPTG
+
+OVERVIEW
+
+This document defines functional interoperability test procedures for Project 25 trunked voice
+operation. Its purpose is to verify that subscriber units (SUs) and Fixed Network Equipment (FNE)
+from different manufacturers — or different firmware versions of the same manufacturer's equipment
+— can interoperate correctly on an FDMA control channel working with either an FDMA or TDMA
+voice channel. It was developed by the APCO Project 25 Interface Committee (APIC) Compliance
+Assessment Process and Procedures Task Group (CAPPTG) and the APIC TDMA Task Group.
+
+This document is not a certification standard. The tests verify interoperability within the defined
+scope, but passing does not constitute full Project 25 conformance certification.
+
+WHAT IT SPECIFIES
+
+The document organizes testing into 26 Test Suites, each covering a discrete trunking feature:
+
+  2.2.1   Full Registration
+  2.2.2   Group Voice Call (6 test cases: Granted, Denied, Queued, Interrupt, Routing, Late Entry)
+  2.2.3   Unit-To-Unit Voice Call (7 test cases covering availability check variants and queuing)
+  2.2.4   Broadcast Voice Call
+  2.2.5   Affiliation
+  2.2.6   Announcement Group Call
+  2.2.7   Emergency Alarm
+  2.2.8   Emergency Group Call (6 test cases including ruthless preemption)
+  2.2.9   Emergency Unit-To-Unit Call
+  2.2.10  Encryption (call privacy, late entry for encrypted call)
+  2.2.11  Roaming (intra-LRA, inter-LRA, inter-system, inter-WACN)
+  2.2.12  Authentication
+  2.2.13  Deregistration
+  2.2.14  System Call
+  2.2.15  Call Alert
+  2.2.16  Short Message
+  2.2.17  Status Query
+  2.2.18  Status Update
+  2.2.19  Radio Unit Monitoring (6 variants: individual/group, silent/non-silent, encrypted)
+  2.2.20  Radio Unit Disable/Re-enable
+  2.2.21  Radio Check
+  2.2.22  Radio Detach
+  2.2.23  Unit-To-PSTN Telephone Interconnect Call
+  2.2.24  PSTN-To-Unit Telephone Interconnect Call
+  2.2.25  PSTN-To-Group Telephone Interconnect Call
+  2.2.26  Transmitting Subscriber Forced Preemption (TDMA-specific)
+
+Each test suite follows a standard structure: Description, Expected Behavior, Initial Conditions,
+and Procedures with numbered test cases. Each test case has explicit step-by-step actions and
+PASS CRITERION statements. Many steps are marked as optional (execute only if FNE/SU support
+a given capability). Manufacturer-specific indications are called out with boxed text and are
+required to be documented by test personnel rather than prescribed by the standard.
+
+SYSTEM CONFIGURATION
+
+Tests are run on a single RF site (unless noted otherwise) against a standard set of seven radios
+(Radio 1 through Radio 7) and seven named talk groups (ALPHA, BRAVO, CHARLIE, DELTA, ECHO,
+FOXTROT, GOLF). Default talk group configuration includes: ALPHA and BRAVO assigned to
+announcement group GOLF; ECHO configured with encryption; DELTA and GOLF as transmission-
+trunked; FOXTROT system-disabled. The SU configuration table specifies per-radio encryption key
+references, pre-programmed emergency groups, and authentication key references.
+
+The FNE capability configuration table (Table 4) specifies which capabilities are enabled per radio
+in the FNE. If a capability cannot be disabled in the FNE, the test case requiring its absence cannot
+be executed.
+
+HOME AND ROAMING TESTING
+
+Three operational modes are defined: Home (WACN and System ID match), Inter-System Roaming
+(same WACN, different System ID), and Inter-WACN Roaming (different WACN). Two test methods
+are supported: Method 1 fixes the FNE while SU WACN/System IDs vary across personality
+configurations; Method 2 fixes SU identities while the FNE presents different WACN/System IDs.
+Both methods result in equivalent test configurations.
+
+FDMA AND TDMA APPLICABILITY
+
+The document tests FDMA trunking control with either FDMA or TDMA voice channels. Table 8
+identifies the 35 specific test case procedures impacted by TDMA capability. Initial conditions for
+FDMA-specific and TDMA-specific variants differ in how voice channel assignment is directed.
+Test Suite 2.2.26 (Transmitting Subscriber Forced Preemption) is exclusively TDMA.
+
+DOCUMENTATION REQUIREMENTS
+
+A key design principle is that manufacturer-specific procedures must be documented. Test sessions
+require detailed notes including: firmware versions, infrastructure serial numbers, specific
+procedural actions taken, and how manufacturer-specific indications were observed. Table 9
+provides a comprehensive cross-reference of 50+ manufacturer-specific functions and the test
+suites that invoke them.
+
+A traceability matrix (Table 10) maps each trunking feature defined in TIA-102.AABD-B (Trunking
+Procedures) to the test suite and section numbers in this document.
+
+KEY PARAMETERS AND CONSTRAINTS
+
+- Tests are confined to SUs (mobile and portable) and FNE; inter-RF Subsystem Interface testing
+  is explicitly excluded (covered by separate TIA-102 standards)
+- Circuit and Packet Switched Data Network Access are excluded (separate test documents)
+- Discreet Listening is covered for Group Voice Call only; not covered for Unit-to-Unit
+- Network Management Interface, Call Statistics Service, and Traffic Recording are excluded
+- Emergency tests distinguish between valid radio, invalid radio, and temporarily valid radio
+  scenarios, with different expected FNE behaviors for each
+- Queuing tests require disabling all channels but the control channel and one voice channel
+- Group call routing requires 2 RF sites; several emergency and PSTN tests also require 2 sites
+
+RELATIONSHIPS TO OTHER DOCUMENTS
+
+Normative references:
+  [1] TIA-102.AABD-B, Project 25 Trunking Procedures (November 2014) — primary behavior spec
+  [2] TIA-102.BBAC, Project 25 Phase 2 Two-Slot TDMA MAC Layer (December 2010) — TDMA basis
+
+Informative references:
+  [3] ISO/IEC 17025, General requirements for testing/calibration laboratories
+  [4] TIA/TSB-102-C, Project 25 TIA-102 Documentation Suite Overview (March 2016)
+
+REVISION HISTORY
+
+  Rev A — March 2008: Initial publication
+  Rev B — November 2010: Second revision
+  Rev C draft 1 — March 2015: Merged TIA-102.CABC-B-1, editorial updates
+  Rev C draft 2 — October 2015: Ballot comments resolved per TR825-15-000-R1
+  Rev D3 — November 2016: Resolved negative ballot comment; updated TSB-102 reference
+  Final Rev C — February 2017: Published
+
+LIMITATIONS ACKNOWLEDGED
+
+The document explicitly disclaims that these tests do not certify P25 conformance or guarantee
+interoperability under all conditions. Many optional test cases cannot be executed if manufacturers
+have not implemented (or cannot disable) specific capabilities. The standard relies heavily on
+manufacturer-specific indications whose observation methods must be separately documented per
+test session. This limits reproducibility across different test organizations without detailed
+session notes.

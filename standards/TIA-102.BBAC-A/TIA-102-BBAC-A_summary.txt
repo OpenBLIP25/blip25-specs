@@ -1,0 +1,133 @@
+SUMMARY: TIA-102.BBAC-A — Project 25 Two-Slot TDMA MAC Layer Specification
+==============================================================================
+
+WHAT THIS DOCUMENT SPECIFIES
+-----------------------------
+
+TIA-102.BBAC-A is the Revision A (second edition) of the Project 25 (P25) Two-Slot
+TDMA Media Access Control (MAC) Layer Specification. Published in November 2019 by
+the Telecommunications Industry Association (TIA), it defines the MAC layer protocol
+for logical channels operating on the P25 Phase 2 two-slot Time Division Multiple
+Access (TDMA) Common Air Interface (CAI), designated as the Um2 interface. The
+physical radio channel is a 12.5 kHz bandwidth frequency pair divided into 30ms
+timeslots at 12.0 kbps (6000 symbols per second, DQPSK modulation).
+
+The document covers six core areas: logical channel architecture, channel structure
+(superframes and ultraframes), burst structures for inbound and outbound
+transmissions, burst field definitions including forward error correction coding, the
+voice bearer service, and precise burst bit allocation tables.
+
+WHY THIS DOCUMENT EXISTS
+------------------------
+
+P25 Phase 2 doubles the voice capacity of a single 12.5 kHz RF channel by using
+two-slot TDMA, allowing two simultaneous voice calls where Phase 1 FDMA supported
+only one. This MAC layer specification sits between the Physical Layer (PHY, defined
+in TIA-102.BBAB) and higher-layer trunking procedures. It provides the detailed
+protocol needed for equipment from different manufacturers to interoperate on P25
+Phase 2 TDMA channels — a critical requirement for public safety radio systems
+where agencies must communicate across vendor boundaries.
+
+Revision A restructured the original TIA-102.BBAC (2010) by splitting MAC layer
+messages into TIA-102.BBAD-A and procedures into TIA-102.BBAE, while absorbing
+the control channel specification content from TIA-102.BBAC-1 (Addendum 1). The
+result is a cleaner document focused purely on bursts and coding.
+
+KEY STRUCTURES AND PARAMETERS
+------------------------------
+
+Channel Architecture: The MAC layer defines three logical channel types — Logical
+Control Channel (LCCH), Voice Channel (VCH), and Data Channel (DCH, reserved for
+future definition). A single 12.5 kHz TDMA radio channel supports two logical
+channels (LCH 0 and LCH 1), each independently assignable as control or traffic.
+
+Superframe: 12 consecutive 30ms timeslots (360ms total). LCH 0 and LCH 1 alternate
+on even and odd timeslots, with timeslots 10 and 11 "inverted" (swapped from the
+normal alternating pattern). This inversion lets a transmitting subscriber unit (SU)
+switch from transmit to receive without tight switching constraints. One SACCH (Slow
+Associated Control Channel) signaling slot occurs per superframe on the inverted
+timeslot.
+
+Ultraframe: Four consecutive superframes (1.44 seconds). The ultraframe governs
+SACCH usage on voice channels: the transmitting SU sends on the inbound SACCH
+during the first three superframes and listens on the outbound SACCH during the
+fourth. This cycle conveys Voice Channel User (VCU) messages identifying the talker
+and talk group.
+
+Inter-slot Signaling Channel (ISCH): A 40-bit channel located between consecutive
+outbound timeslots, split 20 bits at the end of one slot and 20 bits at the start of the
+next. Two types alternate: the S-ISCH carries a synchronization sequence for late
+entry; the I-ISCH carries 9 bits of decoded signaling (LCH type, channel number,
+ISCH location within the superframe, ultraframe count, and SACCH access control).
+The I-ISCH is encoded with a (40,9,16) binary coset code.
+
+Burst Structures: Four generic burst templates are defined (inbound with/without sync,
+outbound with/without sync). Each burst is 180 symbols (360 bits) at 30ms. Inbound
+bursts include ramp/guard time (2ms total) and pilot sequences. Outbound bursts
+include ISCH fields instead of ramp/guard. All bursts carry a distributed 8-bit Data
+Unit ID (DUID) encoded with an (8,4,4) binary code that identifies the burst type and
+logical channel.
+
+Voice Transport: The VTCH carries voice using a repetitive pattern of five bursts per
+360ms: four "4V" bursts (each containing 4 voice frames) and one "2V" burst (2 voice
+frames plus encryption synchronization). This yields 18 voice frames per 360ms,
+matching the half-rate AMBE vocoder's 20ms frame rate. Encryption Synchronization
+Signaling (ESS) is distributed progressively: 24-bit ESS-B segments ride within each
+4V burst, while a 168-bit ESS-A segment occupies the 2V burst, together forming a
+(44,16,29) Reed-Solomon codeword carrying the 8-bit ALGID, 16-bit KID, and 72-bit
+Message Indicator.
+
+FORWARD ERROR CORRECTION
+------------------------
+
+All MAC layer signaling is protected by Reed-Solomon codes derived from a common
+(63,35,29) mother code over GF(64), where symbols are 6-bit "hexbits." Five derived
+codes are produced by shortening the information portion and puncturing the parity
+portion of the mother code:
+
+  IECI (control channel inbound):    (46,23,24) — 136 info bits + 2 reserved
+  OECI/I-OEMI (control/SACCH outbound): (52,30,23) — 180 info bits
+  IEMI (FACCH/SACCH inbound):        (46,26,21) — 156 info bits
+  S-OEMI (FACCH outbound):           (45,26,20) — 156 info bits
+  ESS (encryption sync):             (44,16,29) — 96 info bits (ALGID+KID+MI)
+
+The document recommends soft-decision errors-and-erasures RS decoding, where
+punctured symbols are treated as erasures. The full GF(64) arithmetic, exponential/
+logarithm lookup tables, characteristic polynomial (x^6 + x + 1), and the 35x63
+mother code generator matrix are provided in Annex D.
+
+TIME ALIGNMENT
+--------------
+
+All outbound TDMA channels at a site must be time-aligned (symbol, burst, superframe,
+and ultraframe synchronization). When an FDMA control channel coexists with TDMA
+traffic channels, optional synchronization is achieved via the SYNC_BCST TSBK
+message, which provides date/time and a microslot counter (0–7999 at 7.5ms per
+microslot within each minute). The superframe boundary aligns with:
+
+  Superframe_mark = (Minutes * 8000 + Micro_Slots) MOD 48
+  Ultraframe_mark = (Minutes * 8000 + Micro_Slots) MOD 192
+
+Every third minute boundary coincides with both a superframe and ultraframe start.
+At synchronized minute boundaries, the center of FDMA symbols (4800 SPS) and TDMA
+symbols (6000 SPS) are concurrent.
+
+LIMITATIONS ACKNOWLEDGED
+------------------------
+
+- The Logical Data Channel (DCH) MAC protocol is not defined; TCH can only be VCH.
+- Link Layer Encryption (LLE) documentation was still being drafted at publication.
+- Time Division Duplex (TDD) mode MAC is not yet defined.
+- The document explicitly notes that some specifications may not have been fully
+  operationally tested.
+- A site must use either all-FDMA or all-TDMA control channels, not a mix.
+
+NORMATIVE ANNEXES
+-----------------
+
+Annexes A and B provide complete symbol-by-symbol bit allocation tables for all LCCH
+burst types (IECI, OECI) and all VCH burst types (Inbound 4V, Inbound 2V, Outbound
+4V, Outbound 2V, IEMI, S-OEMI, I-OEMI). These tables map every one of 180 symbols
+per burst to specific information, parity, DUID, sync, pilot, ramp/guard, or ISCH bits.
+Annex C is reserved for future DCH bit locations. Annex D provides the GF(64)
+arithmetic reference for the Reed-Solomon codes.

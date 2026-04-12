@@ -1,0 +1,85 @@
+TSB102.BAFA — APCO Project 25 Network Management Interface
+TIA/EIA Telecommunications Systems Bulletin | December 1994
+Approximately 1,000-word summary for search/RAG use.
+
+---
+
+OVERVIEW
+
+This document is a brief Technical Systems Bulletin (TSB) published by the Telecommunications Industry Association (TIA) in December 1994. It was formulated under the cognizance of the TIA TR-8 Private Radio Technical Standards committee. Its purpose is to define the Network Management Interface (NMI) for the APCO Project 25 (P25) digital public safety radio system — specifically, the interface between RF sub-system infrastructure equipment and an attached network management system.
+
+The document is intentionally brief; it describes alignment with industry-wide network management standards rather than defining new protocols from scratch. It defers extensive ASN.1 managed-object definitions to a future companion document that was marked [TBD] at publication.
+
+INTERFACE PLACEMENT IN THE P25 SYSTEM MODEL
+
+In the APCO Project 25 General System Model, the relevant interface is called the "En" interface. It exists between the Radio Frequency Gateway (RFG) functional group — which sits within one RF sub-system — and the network management End System (ES). This is the standardized handoff point through which a network management center, regardless of vendor, can monitor and control a P25 RF sub-system's infrastructure components.
+
+The motivation for this interface is vendor diversity: as public safety radio infrastructure increasingly connects to standard LAN technologies, different vendors implement management of their components in incompatible ways. A standardized interface allows a single network management platform to manage multi-vendor P25 infrastructure.
+
+SCOPE
+
+The Network Management Interface is one of several external interfaces defined within the Project 25 suite. The Project 25 system encompasses subscriber units (portable and mobile radios) and fixed infrastructure equipment. The NMI specifically addresses the fixed infrastructure side — how operations centers observe and control base stations, RF switches, and related components.
+
+The document is scoped to cover two specific sub-problems: (1) the transport protocol to carry network management information between the RFG and the ES, and (2) the definition of the RF sub-system managed objects and their attributes.
+
+TRANSPORT PROTOCOL
+
+The document proposes two acceptable protocol suites for transporting network management traffic: the Internet suite (using SNMP) or the U.S. Government OSI Profile (GOSIP, using CMIP). Implementations must support one or the other — not both simultaneously. The document acknowledges that the two stacks differ fundamentally and that migration paths between them were not well-defined at the time.
+
+Both suites use the OSI seven-layer model. The lower layers (physical, data link, network, transport) are broadly similar between Internet and GOSIP implementations, providing comparable physical media support and transport services, though with differences in reliability orientation, packet/stream mode, and connection model. The document notes that gateway or relay functions can bridge between them at the transport level.
+
+The upper layers differ significantly:
+
+Internet/SNMP characteristics:
+- Unreliable, connection-less transport
+- Five operations: TRAP, SET, GET, GET-NEXT, GET-RESPONSE
+- ASN.1 subset only
+- Simple scalar object attributes
+- Managed via the MIB-II standard (RFC 1158)
+- Described by RFC 1157; note that Internet was expanding SNMP to the more security-robust SMP at the time of publication
+
+GOSIP/CMIP characteristics:
+- Reliable, connection-oriented transport (using A-ASSOCIATE, A-RELEASE, A-ABORT primitives)
+- Six operations: M-EVENT-REPORT, M-SET, M-GET, M-ACTION, M-CREATE, M-DELETE
+- Full ASN.1 and GDMO (Guidelines for the Definition of Managed Objects) support
+- Object-oriented entity relationships rather than simple scalar attributes
+
+For Internet-based elements, the document recommends incorporating MIB-II (RFC 1158) for managing the OSI seven-layer stack, while clarifying that this does not itself define the network element or its P25-specific attributes.
+
+MANAGED OBJECTS — THE ASN.1 FRAMEWORK
+
+The document identifies ASN.1 (Abstract Syntax Notation 1) as the common formal language for defining managed objects in both Internet/SNMP and GOSIP/CMIP environments. To create a true common ground, the P25 RF sub-system managed objects must be defined in ASN.1 and registered with both Internet and GOSIP authorities, making the definitions publicly available.
+
+The intended ASN.1 module would define managed attributes for all RF sub-system nodes and interfaces. Named elements in the reference configuration include:
+- BR — base radio
+- BA — base audio
+- RFS — RF sub-system switch
+- Ed — data interface
+- Et — telephony interface
+- Um — air interface
+
+Attributes planned for these objects include: base station channels, radio frequencies, mobile subscriber identities, error and throughput counters, and call log attributes. The document explicitly deferred the full ASN.1 object definition to a separate forthcoming document referenced as [TBD], which was never published under this TSB series.
+
+MANAGEMENT FUNCTIONAL AREAS (FCAPS)
+
+The document adopts the OSI FCAPS management model — the five functional areas used by both Internet and GOSIP frameworks:
+
+1. Configuration Management — setting network element state and inter-element relationships
+2. Fault Management — detecting, presenting, and isolating abnormal behavior; maintaining fault history
+3. Performance Management — monitoring link throughput, error rates, CPU usage, disk hits; trend analysis
+4. Accounting Management — collecting resource consumption data
+5. Security Management — controlling access to network elements and management information
+
+RELATIONSHIPS TO OTHER DOCUMENTS
+
+The primary dependency is TSB-102 (TIA, PN-3247), "Project 25 System and Standard Definition," which provides the overall system model and architecture from which the En interface reference point is drawn. Readers are expected to be familiar with TSB-102.
+
+Key external references cited: RFC 1157 (SNMP), RFC 1158 (MIB-II), FIPS PUB 146-1 (GOSIP), and ISO/IEC 9595:1990 (CMIS — the Common Management Information Service standard underlying CMIP).
+
+STATUS AND LIMITATIONS
+
+This document was published in December 1994 as a preliminary/expedited TSB while the P25 standards family was still being developed. It explicitly acknowledges that significant work remained. The ASN.1 managed-object definition it called for was never delivered in this document series.
+
+A successor document, TSB102.BAFA-A (July 1999), was published as the "P25 Network Management Interface Overview" under the revised TIA-102 numbering. This original 1994 TSB is effectively superseded by that update and by the broader TIA-102 suite that matured through the late 1990s and 2000s.
+
+The document's scope is limited to the infrastructure-to-NMS interface. It does not define subscriber unit management, over-the-air management (OTAR is covered in separate documents), nor any specific P25 channel or air interface parameters. The protocol choice between SNMP and CMIP was left to procurement and system configuration — a flexibility that ultimately meant SNMP-based management became the dominant approach as GOSIP/CMIP lost traction in the wider industry.

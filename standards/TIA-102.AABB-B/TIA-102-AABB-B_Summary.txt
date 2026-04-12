@@ -1,0 +1,148 @@
+TIA-102.AABB-B — Trunking Control Channel Formats
+Summary (~1000 words)
+ANSI/TIA-102.AABB-B 2011 | Approved April 22, 2011 | Revision of TIA-102.AABB-A
+
+=============================================================================
+
+WHAT THIS DOCUMENT SPECIFIES
+
+TIA-102.AABB-B defines the general packet structures used on the Project 25
+(P25) trunking control channel. It specifies the bit-level layouts for the two
+fundamental packet families — the single-block Trunking Signaling Block (TSBK)
+and the multiple-block Trunking Packet (PDU) — along with the physical channel
+access rules governing how subscriber units transmit on the inbound channel.
+This is the foundational framing document for P25 trunked radio control channel
+communication. It does not define specific message content (opcodes and their
+argument semantics are in companion document TIA-102.AABC), nor physical layer
+modulation (covered in TIA-102.BAAA), but rather the packet structure that
+carries all control channel messages between the RF Sub-System (RFSS) and
+subscriber units.
+
+WHY IT EXISTS
+
+The document was developed from a Memorandum of Understanding between TIA and
+APCO/NASTD/FED to create an interoperable digital public safety radio standard
+for Land Mobile Radio. Defining a common control channel packet structure is
+essential to ensuring radios from different manufacturers can register with,
+request service from, and respond to the same trunking controller. Without this
+structural definition, every manufacturer would invent incompatible framing and
+interoperability across agencies would be impossible.
+
+PACKET STRUCTURE: THE TSBK (SINGLE BLOCK)
+
+The TSBK is the workhorse format, used for time-critical transactions such as
+call requests, call grants, and talkgroup affiliation updates. It is 12 octets
+total: 10 octets of address/control information plus a 2-octet CRC. The NID
+Data Unit ID field is set to $7 to identify the single-block format.
+
+Key TSBK fields (Octet 0, all bits; octets 1-11):
+  - LB (bit 7): Last Block flag. 0 = more TSBKs follow in this OSP; 1 = final.
+  - P (bit 6): Protection flag. 0 = nonprotected; 1 = protected (encrypted).
+  - Opcode (bits 5-0): 6-bit message type selector (defined by TIA-102.AABC).
+  - Octet 1: Manufacturer's ID (MFID). $00/$01 = standard P25 message.
+  - Octets 2-9: Arguments, including Logical Link ID (octets 7-9) identifying
+    the source or destination subscriber unit.
+  - Octets 10-11: TSBK CRC (defined by TIA-102.BAAA subclause 6.2).
+
+On the outbound (RFSS-to-SU) channel, OSPs may carry one, two, or three TSBKs
+in a single transmission (single/double/triple TSBK format), each maintaining
+its own CRC independently. The FNE dynamically selects how many TSBKs to pack
+into an OSP to maximize throughput while meeting inbound ISP demand. Triple TSBK
+is the most efficient airtime use. Subscriber units detect the current OSP
+format from the DUID and LB fields.
+
+The inbound ISP carries only a single TSBK. The ISP includes a Frame Sync and
+NID preamble preceding the TSBK, enabling the RFSS to frame the received packet.
+
+Physical sizes and timing (7.5 ms microslot reference):
+  - Single TSBK OSP: 37.5 ms / 5 microslots
+  - Double TSBK OSP: 60 ms / 8 microslots
+  - Triple TSBK OSP: 75 ms / 10 microslots
+  - Single TSBK ISP: 37.5 ms / 5 microslots (slot boundary defined as 5 microslots)
+
+PACKET STRUCTURE: MULTIPLE BLOCK FORMAT
+
+For control channel messages too large for a TSBK (e.g., unit registration,
+talkgroup registration, adjacent system status updates), the multiple block
+format is used. This format employs the CAI Unconfirmed Data Packet structure
+with a specialized header block and up to 3 data blocks (4 blocks total
+including header). Maximum packet length is 44 octets; each block is 12 octets.
+
+The NID Data Unit ID is $C for the multiple block format. Two header variants
+exist, distinguished by the Format field in Octet 0:
+  - Format %10101: Standard multiblock trunking header. Octets 7-9 carry Pad
+    Octet Count, Reserved, and Data Header Offset (same as CAI unconfirmed).
+  - Format %10111: Alternative multiblock trunking header. Octets 7-9 instead
+    carry the message Opcode and two additional trunking-message-defined fields,
+    enabling a more compact encoding for common multi-block messages.
+
+SAP Identifier values: 61 = Trunked Control SAP; 63 = Protected Trunked
+Control SAP. The Logical Link ID (octets 3-5 of the header) identifies the SU.
+
+The last data block contains a 4-octet CRC spanning all data blocks after the
+header (per TIA-102.BAAA subclause 6.3).
+
+Timing for multiple block formats (outbound):
+  - 1 data block OSP: 60 ms / 8 microslots
+  - 2 data block OSP: 75 ms / 10 microslots
+  - 3 data block OSP: 97.5 ms / 13 microslots (~135 ms total latency bound)
+
+INBOUND CHANNEL ACCESS (SLOTTED ALOHA)
+
+Subscriber units access the inbound control channel via Slotted ALOHA. Inbound
+slot boundaries are defined by IDLE Status Symbol values (%11) in the outbound
+stream. Slots are a multiple of the 7.5 ms microslot. For a 5-microslot slot
+(37.5 ms), 44 bit-times are available to absorb combined TONT + TOFFT + PD
+(propagation delay) effects: 360 - 196 - 64 - 48 - 8 = 44. Status symbols are
+always transmitted in nonprotected form regardless of the channel protection
+state. Within-slot microslot boundaries carry UNKNOWN (%10) status symbols.
+
+PROTECTION (ENCRYPTION) MODEL
+
+Both TSBK and multiple-block packets support a protected (encrypted) mode. The
+P bit in the TSBK header identifies protected packets. In protected TSBKs, only
+three items are transmitted in the clear: Octet 0 bits 7-6 (LB and P flags),
+Octet 1 (MFID, needed to select the encryption key set), and Octets 10-11 (CRC,
+so any SU can validate block integrity without decrypting). All argument and
+opcode fields are encrypted. This allows non-crypto-capable radios to remain
+synchronized to the control channel without decoding sensitive operational data.
+
+In multiple block protected packets, the Logical Link ID (header octets 3-5) is
+encrypted; all data block content is encrypted except the final 4-octet CRC.
+Both header variants have the CRC computed after protection is applied.
+
+KEY PARAMETERS AND REQUIREMENTS
+
+  - Control channel rate: 9600 b/s
+  - Microslot duration: 7.5 ms (70 bits)
+  - Status Symbol: 2 bits, appended after every 70-bit microslot
+  - TSBK size: 12 octets (96 bits of information block, rate-1/2 coded = 196 bits)
+  - TSBK CRC: 2 octets, per TIA-102.BAAA subclause 6.2
+  - NID DUID values: $7 (TSBK/single-block), $C (PDU/multi-block)
+  - Max multi-block packet: 4 blocks (44 octets), ~135 ms outbound latency
+  - FEC: Rate 1/2 trellis code across each information block (TIA-102.BAAA clause 7)
+  - At least one 9600 b/s control channel required per RFSS
+  - MFID $00 and $01 both indicate standard P25 messages
+
+RELATIONSHIPS TO OTHER DOCUMENTS
+
+TIA-102.AABB-B is the structural companion to TIA-102.AABC (Trunking Control
+Channel Messages), which defines the specific opcode assignments and their
+argument field layouts that ride inside the TSBK and multi-block structures
+defined here. TIA-102.BAAA (FDMA Common Air Interface) defines the underlying
+physical layer, frame sync pattern, NID encoding, rate-1/2 trellis coding, and
+CRC polynomials that TIA-102.AABB-B relies on. TIA-102.AABD (Trunking
+Procedures) defines the call setup, registration, and slotted ALOHA procedures
+that use these packet formats. TIA-102.BAAC provides the reserved value
+assignments (including MFID values) referenced in the TSBK Manufacturer's ID
+field. Revision B (2011) updates Revision A (2005); no content was removed.
+
+LIMITATIONS
+
+The document explicitly defers physical layer details (frame sync sequence, NID
+encoding, trellis code, CRC polynomial) to TIA-102.BAAA and does not repeat
+them. Specific opcode definitions and per-message argument layouts are entirely
+deferred to TIA-102.AABC. The document does not cover TDMA Phase 2 control
+channel formats (those are in TIA-102.BBAC). Encryption algorithm specifics are
+not defined here; only the structural model for protected vs. nonprotected fields
+within packets is established.

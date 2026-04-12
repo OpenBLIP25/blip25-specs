@@ -1,0 +1,69 @@
+TIA-102.AABC-D: Project 25 Trunking Control Channel Messages
+Summary
+Published: April 6, 2015 | Classification: message_format, protocol
+
+OVERVIEW
+
+TIA-102.AABC-D is the core message definition standard for P25 trunked radio systems. It specifies the format, content, and semantics of every Trunking Signaling Block (TSBK) message exchanged between Subscriber Units (SUs) and Fixed Network Equipment (FNEs) on the P25 trunking control channel. This is one of the most implementation-critical documents in the TIA-102 family: any P25 trunked radio, controller, or software-defined radio system must implement these message formats to participate in trunked operations.
+
+TRANSPORT LAYER: TSBK FORMAT
+
+Every message is carried in a TSBK (Trunking Signaling Block) of exactly 12 octets, protected by a 16-bit CRC. Octet 0 carries the LB (Last Block) flag in bit 7, the P (Protected/Encrypted) flag in bit 6, and the 6-bit opcode in bits 5-0. Octet 1 carries the MFID (Manufacturer's ID), where $00 means a standard TIA-defined message. Octets 2-9 carry the 8-octet message payload, and octets 10-11 carry the TSBK CRC.
+
+The IO (Inbound/Outbound) bit distinguishes message direction: IO=%0 for ISPs (Inbound Signaling Packets, SU→FNE) and IO=%1 for OSPs (Outbound Signaling Packets, FNE→SU). The 6-bit opcode space is thus split into two independent namespaces: the same opcode value means different messages depending on direction. The spec defines 34 active ISPs and 46 active OSPs across a 64-entry opcode table.
+
+When a single 12-octet TSBK cannot carry all required information, multiblock format is used. A Header Block precedes N Data Blocks (each 12 octets). The Header carries a Format field (%10111 for alternate multiblock OSP, %10101 for unconfirmed ISP), an IO bit, a "Blocks to Follow" count in Octet 6, and the opcode in Octet 7. Each data block ends with a block or packet CRC.
+
+SERVICE CATEGORIES
+
+Messages are organized into three service categories:
+
+1. VOICE SERVICE (Section 4): Channel grant and call coordination for group calls (GRP_V_CH_GRANT), unit-to-unit calls (UU_V_CH_GRANT), and telephone interconnect (TELE_INT_CH_GRANT). The SU requests a channel (GRP_V_REQ, UU_V_REQ), the FNE grants it with a 16-bit channel value encoding a 4-bit identifier and 12-bit channel number. The abbreviated format uses a single TSBK when both parties are on the same Home system; the explicit/extended format adds separate TX/RX channel fields or full WACN/System IDs for cross-system calls.
+
+2. DATA SERVICE (Section 5): SNDCP (Subnetwork Dependent Convergence Protocol) channel management: SN_DATA_CHN_REQ/GNT for channel negotiation, SN_DATA_PAGE_REQ/RES for paging, SN_DATA_CHN_ANN_EXP for explicit channel announcements. Several earlier individual and group data messages (IND_DATA_REQ, GRP_DATA_CH_GRANT, etc.) are marked OBSOLETE and retained only for historical reference.
+
+3. CONTROL AND STATUS (Section 6): The largest category, covering registration, affiliation, authentication, monitoring, and broadcast functions.
+
+KEY CONTROL MESSAGES
+
+Registration: U_REG_REQ/RSP handles unit registration; LOC_REG_REQ/RSP handles location registration with an LRA (Location Registration Area) field. Registration responses carry a 2-bit RV (Registration Value): %00=ACCEPT, %01=FAIL, %10=DENY, %11=REFUSED. U_DE_REG_REQ/ACK handles de-registration. GRP_AFF_REQ/RSP manages group affiliation with a corresponding GAV (Group Affiliation Value) using the same encoding.
+
+Status and Messaging: STS_UPDT/STS_Q (update and query unit status with an 8-bit status code), MSG_UPDT (send an 8-bit message value to a target unit), CALL_ALRT (call alert paging), EXT_FNCT_CMD/RSP (16-bit function class + 16-bit function value for vendor or extended control functions).
+
+Acknowledge/Deny/Queue: ACK_RSP_FNE (FNE acknowledges SU request; AIV and EX flags indicate whether the Additional Information field and extended address are valid), DENY_RSP (carries an 8-bit deny reason code per Annex B), QUE_RSP (queued response with 8-bit reason code per Annex C), CAN_SRV_REQ (cancel with 8-bit reason code per Annex A), EMRG_ALRM_REQ (emergency alarm from SU).
+
+Radio Monitoring: RAD_MON_CMD (basic monitoring command; SM=silent/non-silent, TX Time in seconds), RAD_MON_ENH_CMD (enhanced monitoring with encryption parameters: Key ID, Alg ID, SM/TG mode bits; abbreviated for same-system, extended multiblock for cross-system with fully qualified WACN/System/Unit addressing for source, target, and group).
+
+Authentication: AUTH_DMD (FNE demands authentication; carries RS random seed + RAND1 challenge in multiblock format), AUTH_FNE_RESP (FNE responds with RES2), AUTH_RESP/AUTH_RESP_M/AUTH_FNE_RST/AUTH_SU_DMD (SU-side authentication messages per [AACE]).
+
+SYSTEM BROADCASTS
+
+The FNE continuously broadcasts system state via several OSPs:
+
+SYS_SRV_BCST (%111000): 24-bit service bitmap advertising which services are active (group voice, individual voice, PSTN interconnect, data, registration, affiliation, authentication, emergency alarm, etc.).
+
+RFSS_STS_BCST, NET_STS_BCST, ADJ_STS_BCST: Carry RFSS, Network, and adjacent site status including WACN ID, System ID, RFSS ID, Site ID, and the control channel channel identifier.
+
+SCCB/SCCB_EXP: Secondary control channel broadcasts, with the explicit variant carrying separate TX/RX channel pairs for VHF/UHF bands.
+
+SYNC_BCST (%110000): TDMA synchronization; carries 13-bit Micro-Slots (count of 7.5ms intervals since the last minute boundary, range 0-7999), plus a 6-bit Local Time Offset (in 30-minute increments), date, time, and flags for sync validity (US, IST, MMU, MC, VL).
+
+TIME_DATE_ANN (%110101): Full time/date announcement with Month, Day, Year-since-2000, Hours, Minutes, Seconds, and a 12-bit Local Time Offset in minutes. Separate validity flags (VD, VT, VL) per field.
+
+IDEN_UP/IDEN_UP_TDMA/IDEN_UP_VU: Channel identifier parameter broadcasts. IDEN_UP is the base form; IDEN_UP_TDMA adds a 4-bit Channel Type field specifying air interface (FDMA/TDMA), bandwidth, slot count, rate, and modulation; IDEN_UP_VU is specific to VHF (30-200 MHz) and UHF (380-600 MHz) bands with a BW VU field.
+
+ROAMING: ROAM_ADDR_CMD/UPDT/REQ/RSP implement a roaming address stack with operations: Clear ($00), Write ($01), Delete ($02), Read ($03). LM (Last Message) and MSN (Message Sequence Number) fields sequence multi-message address distribution.
+
+REASON CODE ANNEXES
+
+Three normative annexes define 8-bit reason codes:
+
+Annex A (Cancel): $00=no reason, $10=terminate queued, $20=terminate resource assignment, $80-FF=user/system definable.
+
+Annex B (Deny): 40+ distinct codes covering requesting/target unit validity, authentication failures, registration status, PSTN errors, resource exhaustion, call options mismatches, and system capability limitations.
+
+Annex C (Queued): Codes for unit/group busy, channel/telephone/data resource unavailability, and superseding service priority.
+
+IMPLEMENTATION SIGNIFICANCE
+
+This document is the primary message-format reference for any P25 trunked radio implementation. Correct implementation requires: (1) parsing the TSBK Octet 0 to extract LB, P, and opcode, then dispatching on the IO+opcode combination; (2) handling both single-TSBK and multiblock formats; (3) correctly interpreting abbreviated vs. extended address formats; (4) implementing the complete reason code tables for proper error reporting; and (5) processing system broadcasts on the control channel to maintain current system state. The opcode namespace is fully defined with 64 ISP entries and 64 OSP entries; unrecognized opcodes must be silently discarded. Several messages (all OBSOLETE-marked) must be recognized but not acted upon for backward compatibility with legacy infrastructure.

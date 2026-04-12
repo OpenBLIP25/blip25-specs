@@ -1,0 +1,110 @@
+TIA-102.BAKA-A-1: Project 25 KMF to KMF Interface — Addendum 1
+
+OVERVIEW
+
+This document is a December 2024 addendum to TIA-102.BAKA-A, the P25 standard governing the
+Key Management Facility (KMF) to KMF inter-agency interface. Its sole purpose is to introduce
+TLS 1.3 as a second optional transport security suite alongside the TLS 1.2 suite already
+defined in TIA-102.BAKA-A. The addendum was developed by the TIA TR-8.3 Subcommittee on
+Encryption with input from APIC (APCO/TIA Project 25 Interface Committee) and TIA industry
+members.
+
+WHAT PROBLEM IT SOLVES
+
+The parent standard TIA-102.BAKA-A specified only TLS 1.2 for optional transport protection of
+the KMF real-time transport mode. TLS 1.2, while widely deployed, has known weaknesses compared
+to TLS 1.3 — particularly around forward secrecy, cipher agility, and handshake complexity.
+This addendum adds TLS 1.3 support to allow agencies and vendors deploying new KMF
+infrastructure to use a cryptographically stronger transport option without abandoning
+backward-compatible TLS 1.2 for interoperability with older systems.
+
+TRANSPORT ARCHITECTURE (KMF-to-KMF)
+
+The KMF-to-KMF interface supports two transport methods, both required for all conforming KMF
+implementations:
+
+1. Non-real-time transport: S/MIME files transported manually (email, FTP, USB). The
+   destination KMF may generate return receipts. If receipts cannot be delivered, the
+   originating KMF operator may manually override pass/fail status per message.
+
+2. Real-time transport: S/MIME messages carried over TCP with optional TLS. TLS provides
+   replay protection and a second security layer on top of the S/MIME encryption. RSA key
+   exchange and mutual authentication are required when TLS is used. Return receipts are
+   generated per section 4.3 of the parent document.
+
+KEY CHANGES INTRODUCED BY THIS ADDENDUM
+
+A.1 — Normative References: Adds RFC 8446 (TLS 1.3 specification, Rescorla, August 2018) to
+the normative reference list in section 1.3.1 of TIA-102.BAKA-A.
+
+A.2 — Transport Overview (section 2.3): Updates text to acknowledge that TLS is optional and
+that either TLS 1.2 or TLS 1.3 may be used, with RSA key exchange and mutual authentication
+required if TLS is employed.
+
+A.3 — Transport Layer Security (section 2.4.3): Clarifies that the TLS layer certificate must
+be distinct from the S/MIME message-signature and message-encryption certificates. The TLS
+certificate is used solely for TLS session authentication and key negotiation. Other TLS
+algorithm sets may be used by administrative agreement between KMF operators.
+
+A.4 — TLS Operating Profile (section 3.2): Defines the two permitted cipher suites:
+  - TLS 1.2 (mandatory if TLS supported): TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+    RSA 3072-bit certificates, AES-256-GCM cipher, HMAC-SHA-384 MAC [RFC5289]
+  - TLS 1.3 (optional): TLS_AES_128_GCM_SHA256
+    RSA 4096-bit certificates, AES-128-GCM cipher, HMAC-SHA-256 for both KDF and
+    handshake MAC [RFC8446]
+
+A.5 — X.509 Certificates Profile (section 3.3): Certificates must conform to RFC 5280
+(Internet X.509 PKI). RSA key size is 3072 bits for TLS 1.2 and 4096 bits for TLS 1.3. KMFs
+shall support separate certificates for digital signatures and key encryption. A single
+dual-purpose certificate is optionally permitted for all S/MIME operations. If TLS is deployed,
+each KMF requires an additional TLS-specific certificate. No KMF identification attribute is
+required in end-entity certificates; KMF identification may use Common Name or other Subject
+field if needed.
+
+A.6 — Connection Establishment Procedures (section 4.2.3.1): KMFs acting as TCP servers listen
+on TCP port 49199 (per TIA-102.BAJD) or an administratively agreed port. Connection procedures
+follow RFC 793 (TCP). When TLS is employed by administrative agreement, TLS handshake follows
+immediately after TCP establishment. The TCP connection initiator becomes the TLS client; the
+TCP acceptor becomes the TLS server. KMFs MUST be able to operate without TLS to ensure base
+interoperability.
+
+CERTIFICATE STRUCTURE REQUIREMENTS
+
+This addendum clarifies the certificate model for KMF instances:
+  - One certificate for S/MIME RSA encryption (outer/inner layer key material)
+  - One certificate for digital signatures only (may be combined with encryption optionally)
+  - One certificate for TLS layer authentication (separate, only if TLS is used)
+  - RSA key sizes: 3072-bit (TLS 1.2), 4096-bit (TLS 1.3)
+  - All certs conform to RFC 5280; Cross CA and subordinate CA structures supported
+
+RELATIONSHIP TO OTHER DOCUMENTS
+
+TIA-102.BAKA-A is the parent standard that defines the full KMF-to-KMF interface including
+message formats, OTAR command encoding, and S/MIME wrapping. This addendum modifies only the
+security transport sections. Related documents include:
+
+  - TIA-102.BAKA: The original KMF-to-KMF interface standard (superseded by BAKA-A)
+  - TIA-102.BAJD: Defines TCP port 49199 for the KMF real-time transport
+  - TIA-102.AACA / AACA-B / AACA-C / AACA-D: OTAR messages and procedures for key management
+  - TIA-102.AACD: KMF messages and procedures
+
+NORMATIVE REFERENCES ADDED
+
+  - RFC 8446: The Transport Layer Security (TLS) Protocol Version 1.3 (Rescorla, 2018)
+  - RFC 5289: TLS Elliptic Curve Cipher Suites with SHA-256/384 and AES GCM
+  - RFC 5280: Internet X.509 PKI Certificate and CRL Profile
+  - RFC 793: Transmission Control Protocol
+
+SCOPE AND LIMITATIONS
+
+This is a targeted, narrow addendum — it does not redefine the KMF-to-KMF message formats,
+OTAR procedures, or any non-transport aspects of TIA-102.BAKA-A. The TLS security is optional
+in both versions; KMFs must always support operation without TLS for base interoperability.
+Cipher suite selection beyond the defined profiles is allowed by administrative agreement
+between co-operating KMF operators. This document does not address conformance test cases for
+TLS 1.3; those would need to be handled separately.
+
+STATUS
+
+Active standard, published December 2024. First revision (Rev 0 draft June 2024). Addendum to
+the active TIA-102.BAKA-A standard.
