@@ -70,6 +70,22 @@ extraction artifact), it's flagged as **SPEC BUG** for emphasis.
   Not a spec bug — a scope gap from the original VOCODER branch of Phase 3,
   which explicitly deferred "full vocoder implementation" to JMBE/AMBE.
 
+- **AMBIGUITY — Asymmetric forward/inverse DCT convention (Eq. 60–61 vs
+  Eq. 69/73).** The encoder uses uniform `1/N` on every coefficient with
+  no α-weighting; the decoder uses α(k) = {1, 2, 2, …} with no `1/N`.
+  This is *not* an orthonormal DCT-II / DCT-III pair. Downstream
+  implementers writing a forward/inverse round-trip test may default to
+  textbook orthonormal scaling (`√(1/N)`, `√(2/N)`) and see their test
+  drift — the fix is to match the spec convention exactly.
+  *Location:* BABA-A §6.3.1 Eq. 60–61 (encoder) and §6.4.1 Eq. 69 +
+  §6.4.2 Eq. 73 (decoder), pages 25, 29, 30.
+  *Invariant that caught it:* downstream implementer's round-trip test
+  (`block_dct_forward_then_inverse_is_identity` for n ∈ {1, 2, 3, 5, 7, 10})
+  failed until the forward was rewritten to match Eq. 61's uniform `1/N`.
+  *Fix:* analysis/vocoder_decode_disambiguations.md §9 (reference
+  implementations). Impl spec §1.8.3 now cross-references the analysis
+  entry with a short asymmetry note.
+
 - **Missing V/UV band-to-harmonic mapping** for both rates.
   *Location:* full-rate in BABA-A §5.2 Eq. 32–33; half-rate in §13.2
   Eq. 147–149.

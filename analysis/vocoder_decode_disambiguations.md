@@ -229,6 +229,79 @@ garbage until steady-state convergence, even on clean input.
 
 ---
 
+## 9. Forward/Inverse DCT Are Asymmetric (Not Orthonormal)
+
+**Source:** BABA-A §6.3.1 Eq. 60–61 (encoder forward DCT) and §6.4.1
+Eq. 69 + §6.4.2 Eq. 73 (decoder inverse DCT), pages 25, 29, 30.
+
+BABA-A's forward DCT (both the 6-point gain transform and the per-block
+J̃_i-point transform) uses a **uniform `1/N` factor on every coefficient**
+with no α-weighting:
+
+```
+G_m = (1/6) Σ_{i=1}^{6} R_i · cos[ π·(m−1)·(i − 0.5) / 6 ]           (Eq. 61)
+C_{i,k} = (1/J_i) Σ_{j=1}^{J_i} c_{i,j} · cos[ π·(k−1)·(j − 0.5) / J_i ]  (Eq. 60)
+```
+
+The inverse DCT uses α(k) = {1 if k = 1, 2 otherwise} with **no `1/N`**:
+
+```
+R̃_i = Σ_{m=1}^{6} α(m) · G̃_m · cos[ π·(m−1)·(i − 0.5) / J̃_i ]     (Eq. 69)
+c̃_{i,j} = Σ_{k=1}^{J̃_i} α(k) · C̃_{i,k} · cos[ π·(k−1)·(j − 0.5) / J̃_i ]  (Eq. 73)
+```
+
+This is an **asymmetric DCT-II / DCT-III pair**, not the textbook
+orthonormal DCT-II where both forward and inverse carry `√(1/N)` (k=0)
+and `√(2/N)` (k>0) symmetrically. It is invertible — the `α` weighting
+on the inverse compensates for the missing factor — but only when
+forward and inverse match BABA-A's specific convention.
+
+**Why implementations get this wrong:** writing a test that round-trips
+a known-good signal through forward and inverse DCT is standard practice.
+If the forward uses orthonormal scaling (`√(1/N)` for k=0, `√(2/N)` for
+k > 0) and the inverse uses BABA-A's α weighting (1, 2, 2, …), the round
+trip drifts by a factor of `√N`. The symptom is that test vectors with
+large L or large J̃_i show progressively larger discrepancies — easy to
+mistake for "just numerical noise" until you compare against a known
+BABA-A reference output.
+
+**Fix:** match the spec exactly — forward uses uniform `1/N`, inverse
+uses α(k) weighting with no normalization. Reference implementations:
+
+```c
+/* Eq. 60/61 — forward DCT (encoder side) */
+static void imbe_forward_dct(const float *in, float *out, int N) {
+    const double inv_N = 1.0 / (double)N;
+    for (int k = 0; k < N; k++) {
+        double acc = 0.0;
+        for (int j = 0; j < N; j++) {
+            acc += in[j] * cos(M_PI * (double)k * ((double)j + 0.5) / (double)N);
+        }
+        out[k] = (float)(acc * inv_N);
+    }
+}
+
+/* Eq. 69/73 — inverse DCT (decoder side) */
+static void imbe_inverse_dct(const float *in, float *out, int N) {
+    for (int i = 0; i < N; i++) {
+        double acc = in[0];   /* α(0) = 1 */
+        for (int k = 1; k < N; k++) {
+            acc += 2.0 * in[k] * cos(M_PI * (double)k * ((double)i + 0.5) / (double)N);
+            /* α(k) = 2 for k > 0 */
+        }
+        out[i] = (float)acc;
+    }
+}
+```
+
+Verified round-trip identity for n ∈ {1, 2, 3, 5, 6, 7, 10}: forward→inverse
+reproduces the input exactly modulo IEEE-754 rounding. Observed during
+user-side downstream implementation work on 2026-04-14; a first-cut
+implementation with orthonormal scaling failed the round-trip test, and
+switching to this convention made it pass.
+
+---
+
 ## Provenance
 
 Every disambiguation above is traceable to a specific PDF equation number or

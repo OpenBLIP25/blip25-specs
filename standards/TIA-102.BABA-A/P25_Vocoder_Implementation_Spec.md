@@ -677,6 +677,14 @@ R̃_i = Σ_{m=1}^{6} α(m) · G̃_m · cos[ π·(m−1)·(i − 0.5) / J̃_i ]
 J̃_i, not 6. The basis frequency changes with block length, so R̃_i cannot
 be computed with a single fixed 6-point DCT table.
 
+**Asymmetric forward/inverse convention:** the encoder's forward DCT
+(Eq. 60 / 61) uses a uniform `1/N` factor with no α weighting; the
+inverse here uses α(k) = {1, 2, …, 2} with no `1/N`. This is not an
+orthonormal DCT-II / DCT-III pair. Round-trip tests that use the
+textbook orthonormal forward (`√(1/N)`, `√(2/N)` scaling) will drift —
+see [`analysis/vocoder_decode_disambiguations.md`](../../analysis/vocoder_decode_disambiguations.md)
+§9 for the full pairing and reference implementations.
+
 #### 1.8.4 Higher-Order DCT Reconstruction (Eq. 73–74)
 
 After dequantizing all C̃_{i,k} per §1.8.2 and setting C̃_{i,1} = R̃_i,
