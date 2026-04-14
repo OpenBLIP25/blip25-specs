@@ -21,6 +21,7 @@ import argparse
 import glob
 import json
 import os
+import re
 import subprocess
 import sys
 import tomllib
@@ -206,12 +207,19 @@ def process_document(doc: dict, dry_run: bool = False, model: str = "sonnet",
     suffix = "_phase4" if phase4 else ""
     log_file = LOG_DIR / f"{doc_id.replace('.', '-')}{suffix}_{date.today()}.log"
 
+    # Phase 4 vocoder-sized uplifts (multi-annex extractions + per-annex commits
+    # + spec prose updates) consistently hit the old 30-turn cap mid-stream. 60
+    # gives enough headroom for ~15 annex extractions with per-annex commits
+    # without leaving the agent stranded with uncommitted working-tree edits.
+    # Phase 1-3 runs are smaller and don't benefit from the extra headroom,
+    # but there's no downside to the higher ceiling for them either.
+    max_turns = "60" if phase4 else "30"
     cmd = [
         "claude",
         "-p", prompt,
         "--model", model,
         "--allowedTools", "Read,Write,Edit,WebSearch,WebFetch,Bash,Grep,Glob",
-        "--max-turns", "30",
+        "--max-turns", max_turns,
         "--output-format", "json",
     ]
 
@@ -236,7 +244,17 @@ def process_document(doc: dict, dry_run: bool = False, model: str = "sonnet",
             f.write(f"\n{'=' * 40} STDERR {'=' * 40}\n")
             f.write(result.stderr)
 
-        if result.returncode != 0:
+        # For Phase 4, a nonzero exit most often means the agent hit max_turns
+        # while still making real progress (commits + uncommitted edits). Don't
+        # treat that as a hard failure — instead, report it as "incomplete" and
+        # let the user decide whether to resume or patch up manually.
+        terminal_reason = None
+        if phase4 and result.stdout:
+            m = re.search(r'"terminal_reason"\s*:\s*"([^"]+)"', result.stdout)
+            if m:
+                terminal_reason = m.group(1)
+
+        if result.returncode != 0 and not phase4:
             print(f"  FAILED (exit code {result.returncode})")
             print(f"  See log: {log_file}")
             return False
@@ -251,12 +269,21 @@ def process_document(doc: dict, dry_run: bool = False, model: str = "sonnet",
             impl_spec_count = len(list(doc_dir.glob("*_Implementation_Spec.md")))
             csv_count = len(list((doc_dir / "annex_tables").glob("*.csv"))) \
                 if (doc_dir / "annex_tables").is_dir() else 0
-            print(f"  Phase 4 run complete (exit 0).")
+            if result.returncode != 0:
+                status = f"INCOMPLETE (exit {result.returncode}"
+                if terminal_reason:
+                    status += f", terminal_reason={terminal_reason}"
+                status += ")"
+                print(f"  Phase 4 run {status}.")
+                print(f"    The agent may have made progress without finishing.")
+            else:
+                print(f"  Phase 4 run complete (exit 0).")
             print(f"    Impl specs in {doc_id}/: {impl_spec_count}")
             print(f"    CSV tables in {doc_id}/annex_tables/: {csv_count}")
-            print(f"    Review: git diff standards/{doc_id}/")
+            print(f"    Review: git log --oneline -10 && git diff standards/{doc_id}/")
             print(f"    Log: {log_file}")
-            return True
+            # Return True on max_turns (real progress) and False on genuine errors.
+            return terminal_reason != "error" if terminal_reason else result.returncode == 0
         output_files = list(doc_dir.glob("*_Summary.txt")) + list(doc_dir.glob("*_summary.txt"))
         if output_files:
             print(f"  SUCCESS — files written to {doc_id}/")
