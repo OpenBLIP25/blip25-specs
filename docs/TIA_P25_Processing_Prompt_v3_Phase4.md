@@ -29,9 +29,9 @@ Run Phase 4 on any document whose implementation spec contains one or more of:
 
 ## Phase 4 Workflow
 
-### Step 1 — Inventory
-Read the existing implementation spec(s) in `standards/<DOC_ID>/` and produce
-an internal checklist of every item needing uplift. Categories:
+### Step 1 — Inventory and Escalation Decision
+Read the existing implementation spec(s) in `standards/<DOC_ID>/` and the
+source PDF. Produce an internal checklist of every item needing uplift:
 
 1. **Deferred tables** (Annex E, F, G, H, J, etc. flagged as not extracted)
 2. **Unresolved cross-references** (prose says "see Eq. N", but Eq. N isn't
@@ -40,6 +40,57 @@ an internal checklist of every item needing uplift. Categories:
    run against them)
 4. **Language-specific code blocks** (Rust, C++, Python) that should be C
 5. **Placeholder function stubs** (`todo!()`, `unimplemented`, etc.)
+
+**Escalation check — before proceeding to Step 2, assess whether an uplift is
+the right response at all, or whether a ground-up Phase 1-3 rerun is needed.**
+
+Escalate to ground-up rerun (STOP Phase 4, produce an escalation report
+instead of editing the spec) if any of the following hold:
+
+- **Structural misalignment:** the impl spec's section outline does not
+  correspond to the PDF's section outline in an obvious way — e.g., major
+  sections are missing entirely, or the impl spec describes a different
+  document than the PDF.
+- **Wrong classification:** the PDF content doesn't match the Phase 1
+  classification recorded in `specs.toml` (e.g., spec was classified as
+  PROTOCOL but the PDF is mostly ALGORITHM material, or vice versa).
+- **Extensive prose drift:** the impl spec's prose contains statements that
+  contradict the PDF directly (not just OCR artifacts in tables, but
+  substantive factual errors in the English text).
+- **More than ~30% of the invariant checks in Step 3 fail** on the extracted
+  data, or the failures span multiple independent artifact types suggesting
+  a broken extraction pipeline rather than isolated OCR hiccups.
+- **Missing whole annexes:** the PDF contains normative annexes that are
+  entirely absent from the impl spec (not just "structure described, data
+  not extracted" — truly missing, including from the table of contents in
+  §7 or equivalent).
+
+When escalating, produce `standards/<DOC_ID>/PHASE4_ESCALATION.md` with:
+
+```
+# Phase 4 Escalation: <DOC_ID>
+
+## Decision
+Escalate to Phase 1-3 rerun (ground-up).
+
+## Reasons
+- <bulleted list citing specific findings, with line numbers in the impl spec
+  and page numbers in the PDF>
+
+## Recommended scope for rerun
+<which parts of the impl spec need to be regenerated vs. which can be
+preserved; if classification is wrong, propose the corrected classification>
+
+## Phase 4 findings preserved for the rerun
+<any verified CSV extractions, cross-reference resolutions, or other work
+that should NOT be thrown away and should carry forward into the rerun>
+```
+
+Do not make destructive changes to the existing impl spec when escalating.
+The point of the escalation report is to hand off cleanly to a new Phase 1-3
+run, not to half-fix a structurally broken spec.
+
+If none of the escalation conditions hold, proceed to Step 2 normally.
 
 ### Step 2 — Programmatic Extraction
 For each deferred table, extract it from the PDF using a verified pipeline:
@@ -141,6 +192,9 @@ commit message must:
 
 Before declaring Phase 4 complete on a document:
 
+- [ ] Step 1 escalation check was performed; either no escalation conditions
+      were met, or `PHASE4_ESCALATION.md` was written and the run stopped
+      cleanly without partial edits to the impl spec
 - [ ] Every table listed in Phase 3 §7.2 "Tables NOT Extracted" has been
       either extracted into a CSV with invariant verification, or its
       non-extraction has been justified in writing
