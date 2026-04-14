@@ -355,8 +355,8 @@ function generate_superframe_scramble(seed: u64) -> [u8; 4320]:
         output = (state >> 43) & 1
         state = (state << 1) & 0xFFF_FFFF_FFFF
         if output == 1:
-            state = state XOR 0x102_2100_0400
-        sequence[i] = output as u8
+            state = state XOR 0x108_2100_0400
+        sequence[i] = output
     return sequence
 
 
