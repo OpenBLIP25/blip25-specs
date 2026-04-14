@@ -302,6 +302,105 @@ switching to this convention made it pass.
 
 ---
 
+## 10. PN Mask Alignment Is Transmission-Order, Not Storage-Order
+
+**Source:** BABA-A §7.4 Bit Modulation, Eq. 86–93, page 38, combined with
+§7.3 row-vector convention ("leftmost bit is MSB").
+
+**Caught by:** downstream DVSI vector comparison (2026-04-14). Not catchable
+by self-consistent round-trip testing — see "Why implementations get this
+wrong" below.
+
+The modulation vectors in Eq. 87–92 are written as ordered bracket lists:
+
+```
+m̂_1 = [⌊p_r(1) / 32768⌋, ⌊p_r(2) / 32768⌋, …, ⌊p_r(23) / 32768⌋]
+```
+
+Per §7.3's row-vector convention, **element 0 of the bracket list is the MSB
+(first-transmitted bit) of the corresponding code vector v̂_i**. That is:
+
+```
+m̂_i[0]   maps to v̂_i bit (len_i − 1)   = first transmitted
+m̂_i[1]   maps to v̂_i bit (len_i − 2)
+...
+m̂_i[len−1] maps to v̂_i bit 0            = last transmitted
+```
+
+So if the mask is stored in a `uint32_t` with bit (len−1) = first-transmitted
+(the natural convention for deinterleaver output), then:
+
+```
+m̂_i stored = (msb(p_r(start))   << (len−1))
+           | (msb(p_r(start+1)) << (len−2))
+           | ...
+           | (msb(p_r(start+len−1)) << 0)
+```
+
+which is the **reverse** of the "element k at bit k" packing shown in the
+reference C code in impl spec §1.6.
+
+### The §1.6 Reference Code's Convention
+
+The C code in `P25_Vocoder_Implementation_Spec.md` §1.6
+(`imbe_modulation_vectors`) packs masks with `bits |= mask_bit << k`
+(LSB-first). That produces a storage layout where p_r(start) sits at bit 0,
+not at bit (len−1). To use this mask against a codeword that has bit
+(len−1) = first-transmitted, the **mask must be bit-reversed within its
+len_i-bit window** before XOR — or the packing must be rewritten
+transmission-order.
+
+Both orientations are valid *internal representations*; what matters is
+that encode and decode agree. When the decoder's deinterleaver places the
+first-transmitted bit at bit (len−1) of the stored codeword (the standard
+P25 FDMA convention, matching Annex H's "bit 1 = MSB" column), then the
+mask must be packed in transmission order, not LSB-first.
+
+### Why Implementations Get This Wrong
+
+A self-consistent encode→decode round-trip passes regardless of which
+convention you pick — both sides XOR with the same bits, so the masks
+cancel. The two orientations become distinguishable only when comparing
+against an **external reference** (DVSI chip, real OTA capture, or any
+implementation that independently follows the wire convention).
+
+Symptom observed during DVSI vector comparison:
+- `û₀` and `û₇` match (no PN modulation applied — m̂₀ = m̂₇ = 0).
+- `û₁..û₆` mismatch.
+- `c̃ ⊕ Golay(û_expected)` reconstructs a bit-reversed-within-vector-width
+  copy of the (wrongly-oriented) mask. The reversed pattern is a dead
+  giveaway and makes the fix unambiguous.
+
+### Fix
+
+Either:
+
+(a) Keep the §1.6 LSB-first packing in memory, but reverse the mask bits
+    within their len_i-bit window at the XOR site. Requires awareness at
+    every consumer of the mask.
+
+(b) Repack masks transmission-order, so `mv[i].bits` already aligns with
+    the codeword's bit (len−1)-to-bit-0 order. XOR is a direct operation
+    with no reversal. Preferred — less chance of convention drift.
+
+Recommended implementation (option b):
+
+```c
+/* Eq. 87–92 with transmission-order packing: m̂_i[0] at bit (len−1),
+ * m̂_i[len−1] at bit 0.  XOR directly against the stored codeword. */
+static uint32_t pn_mask_range_txorder(const uint16_t *pr, int start, int len) {
+    uint32_t bits = 0;
+    for (int k = 0; k < len; k++)
+        bits |= ((uint32_t)imbe_pn_mask_bit(pr[start + k])) << (len - 1 - k);
+    return bits;
+}
+```
+
+This is the convention DVSI follows, verified by bitstream comparison
+against the AMBE-3000 chip output.
+
+---
+
 ## Provenance
 
 Every disambiguation above is traceable to a specific PDF equation number or

@@ -526,8 +526,15 @@ static inline uint8_t imbe_pn_mask_bit(uint16_t pr_n) {
     return (uint8_t)(pr_n >> 15);
 }
 
-/* Modulation vector descriptor: packed bits (LSB-first, element k at bit k)
- * and the vector's length in bits. */
+/* Modulation vector descriptor: packed bits (transmission order — element 0
+ * at bit len−1, element len−1 at bit 0) and the vector's length in bits.
+ *
+ * CRITICAL: see analysis/vocoder_decode_disambiguations.md §10 — the mask
+ * must be XOR'd against a codeword whose bit (len−1) is the first-transmitted
+ * bit. This alignment matches DVSI and OTA captures. A naive "element k at
+ * bit k" packing (LSB-first) is internally consistent for a round-trip but
+ * produces bit-reversed-within-vector-width output when compared against any
+ * external reference. Self-consistent tests will NOT catch that bug. */
 typedef struct { uint32_t bits; uint8_t len; } imbe_mod_vec_t;
 
 /* Compute the 8 modulation vectors m_0..m_7 for full-rate IMBE. */
@@ -535,12 +542,15 @@ void imbe_modulation_vectors(uint16_t u0, imbe_mod_vec_t mv[8]) {
     uint16_t pr[115];
     imbe_pn_sequence_fullrate(u0, pr);
 
-    /* Inline helper: pack mask bits pr[start..start+len] into a u32. */
-    #define MASK_RANGE(start, length) ({                                \
-        uint32_t _bits = 0;                                             \
-        for (int _k = 0; _k < (length); _k++)                           \
-            _bits |= ((uint32_t)imbe_pn_mask_bit(pr[(start)+_k])) << _k;\
-        _bits;                                                          \
+    /* Transmission-order packing (Eq. 87–92 bracket convention + §7.3
+     * row-vector MSB-leftmost rule): element 0 of the bracket list is
+     * the first-transmitted bit, so it goes at bit (len−1). */
+    #define MASK_RANGE(start, length) ({                                      \
+        uint32_t _bits = 0;                                                   \
+        for (int _k = 0; _k < (length); _k++)                                 \
+            _bits |= ((uint32_t)imbe_pn_mask_bit(pr[(start)+_k]))             \
+                     << ((length) - 1 - _k);                                  \
+        _bits;                                                                \
     })
 
     mv[0] = (imbe_mod_vec_t){ 0,                     23 };  /* m_0 (Eq. 86) */

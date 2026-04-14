@@ -86,6 +86,32 @@ extraction artifact), it's flagged as **SPEC BUG** for emphasis.
   implementations). Impl spec §1.8.3 now cross-references the analysis
   entry with a short asymmetry note.
 
+- **AMBIGUITY — PN mask alignment is transmission-order, not
+  storage-order (Eq. 87–92 + §7.3 row-vector convention).** The §1.6
+  reference C code packed mask bits with "element k at bit k"
+  (LSB-first), which is internally consistent but disagrees with the
+  wire. Per §7.3 ("leftmost bit is MSB") applied to the bracket lists
+  in Eq. 87–92, element 0 of m̂_i maps to the first-transmitted bit
+  of v̂_i (bit len−1 of the stored codeword, not bit 0).
+  *Location:* BABA-A §7.4 Eq. 86–93 + §7.3 row-vector convention, p. 38.
+  *Invariant that caught it:* DVSI vector comparison. Self-consistent
+  encode→decode round-trip passes regardless of convention (both sides
+  XOR with the same mask, so it cancels), so only an external reference
+  (DVSI, OTA, or another independent impl following the wire
+  convention) distinguishes the two orientations. Signature: û₀ and û₇
+  match (m̂₀ = m̂₇ = 0), û₁..û₆ mismatch, and the recovered "mask" is a
+  bit-reversed-within-vector-width copy of the wrong orientation.
+  *Fix:* analysis/vocoder_decode_disambiguations.md §10 with both
+  packing options and recommended transmission-order implementation.
+  Impl spec §1.6 updated to pack transmission-order with a CRITICAL
+  warning referencing the analysis entry; the `MASK_RANGE` helper now
+  shifts by `(len − 1 − k)` instead of `k`.
+  *Noted by:* downstream implementer, 2026-04-14, during DVSI vector
+  bringup. Second finding to come from downstream implementation
+  rather than a Phase 4 agent run — demonstrates that external
+  reference comparison catches a class of bugs that no amount of
+  self-consistent unit testing can detect.
+
 - **Missing V/UV band-to-harmonic mapping** for both rates.
   *Location:* full-rate in BABA-A §5.2 Eq. 32–33; half-rate in §13.2
   Eq. 147–149.
