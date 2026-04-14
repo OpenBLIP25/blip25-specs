@@ -90,6 +90,86 @@ The 88 bits encode these speech model parameters:
 Total bits across all parameters = 88 for every valid L value. The bit allocation
 tables (Annexes F and G) ensure the budget sums to 88 regardless of L.
 
+#### 1.3.1 Pitch Index ↔ Fundamental Frequency Mapping
+
+Source: BABA-A Section 6.1 Fundamental Frequency Encoding and Decoding,
+pages 21–22 (Eqs. 45–48) and Section 5.1.5 (Eq. 31 for L̂ from ω̂₀).
+
+The full-rate pitch quantizer is analytical, not a lookup table. Eight bits of
+b̂₀ (unsigned, 0–255) represent ω̂₀ at half-sample pitch resolution.
+
+**Encode (Eq. 45):**
+```
+b̂₀ = floor(4π / ω̂₀ − 39)
+```
+
+**Decode (Eq. 46):**
+```
+ω̃₀ = 4π / (b̃₀ + 39.5)
+```
+
+**Number of harmonics L̃ (Eq. 47, same form as Eq. 31):**
+```
+L̃ = floor(0.9254 · floor(π / ω̃₀ + 0.25))
+```
+Note the double-floor: the inner floor rounds π/ω̃₀ to the nearest integer with
+a 0.25 offset before scaling. Constrained to 9 ≤ L̃ ≤ 56.
+
+**Number of V/UV bands K̃ (Eq. 48):**
+```
+K̃ = floor((L̃ + 2) / 3)   if L̃ ≤ 36
+K̃ = 12                    otherwise
+```
+
+**Valid range and reserved values:** Per §6.1, the pitch estimator restricts ω̂₀
+to [2π/123.125, 2π/19.875] rad/sample, which confines b̂₀ to **0 ≤ b̂₀ ≤ 207**.
+The 48 values 208–255 are **reserved for future use** and should not be
+transmitted. A decoder receiving b̃₀ ∈ [208, 255] has encountered either
+uncorrectable FEC errors or a non-conformant encoder; handle as a bad frame.
+
+At 8 kHz sample rate, this range corresponds to fundamental frequencies of
+roughly 65 Hz (b̂₀ = 207) to 405 Hz (b̂₀ = 0).
+
+**Robustness note:** K̃ and L̃ control all subsequent bit allocation at the
+receiver, so they must equal K̂ and L̂ exactly. This is why the six MSBs of b̂₀
+are placed in û₀ (protected by the strongest [23,12] Golay FEC) — see §1.4.
+
+```rust
+use std::f64::consts::PI;
+
+/// Encode a refined fundamental frequency omega_0 (rad/sample) into the
+/// 8-bit pitch index b_0. Caller must ensure omega_0 is within the
+/// pitch estimator's range (2*pi/123.125 to 2*pi/19.875).
+fn pitch_encode(omega_0: f64) -> u8 {
+    let b0 = ((4.0 * PI / omega_0) - 39.0).floor() as i32;
+    debug_assert!((0..=207).contains(&b0), "omega_0 out of range");
+    b0 as u8
+}
+
+/// Decode the 8-bit pitch index b_0 to the reconstructed fundamental
+/// frequency omega_0 (rad/sample). Returns None for reserved values (208-255).
+fn pitch_decode(b0: u8) -> Option<f64> {
+    if b0 > 207 {
+        return None;  // reserved
+    }
+    Some(4.0 * PI / (b0 as f64 + 39.5))
+}
+
+/// Compute the number of harmonics L from omega_0, per Eq. 31/47.
+/// Result is always in 9..=56 for valid omega_0.
+fn harmonics_count(omega_0: f64) -> u8 {
+    let inner = (PI / omega_0 + 0.25).floor();
+    let l = (0.9254 * inner).floor() as u8;
+    debug_assert!((9..=56).contains(&l));
+    l
+}
+
+/// Compute the number of V/UV bands K from L, per Eq. 48.
+fn vuv_band_count(l: u8) -> u8 {
+    if l <= 36 { (l + 2) / 3 } else { 12 }
+}
+```
+
 ### 1.4 Bit Prioritization Scan Order
 
 The encoder scans voice parameters b0 through b_{L+2} into vectors u0..u7 by
@@ -103,10 +183,12 @@ b0 (pitch index) before the remaining parameters can be unpacked.
 ```
 Decode order:
 1. Golay-decode u0 -> extract b0 (8-bit pitch index)
-2. From b0, compute L = floor(pi / omega_0), constrained 9 <= L <= 56
-3. Using L, look up bit allocation tables (Annexes F, G) to determine
+2. From b0, compute omega_0 = 4*pi / (b0 + 39.5)  (Eq. 46)
+3. Compute L = floor(0.9254 * floor(pi/omega_0 + 0.25))  (Eq. 47)
+   Constrained to 9 <= L <= 56; see §1.3.1 for details.
+4. Using L, look up bit allocation tables (Annexes F, G) to determine
    how many bits each parameter gets
-4. Unpack u1..u7 using the scan order for this L value
+5. Unpack u1..u7 using the scan order for this L value
 ```
 
 ### 1.5 FEC Encoding -- Full-Rate
