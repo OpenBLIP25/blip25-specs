@@ -1,0 +1,16 @@
+# TIA-102.BBAB annex_A_hd8psk_bit_symbol_mapping.csv — H-D8PSK Bit-to-Symbol Mapping
+# Source: TIA-102.BBAB PDF, page 19 (Annex A, Table A.1)
+# Informative only — H-D8PSK is not a normative modulation for Phase 2
+# Invariant verified: 8 rows for 3-bit input (2^3 = 8); symbol values are
+#   odd integers {-7,-5,-3,-1,+1,+3,+5,+7} — monotonically ordered in
+#   Gray-code sequence matching pi/8-DQPSK phase increments.
+# Extraction: read directly from pdftotext -layout output (lines 1134-1148).
+b2,b1,b0,symbol
+0,1,0,+7
+0,1,1,+5
+0,0,1,+3
+0,0,0,+1
+1,0,0,-1
+1,0,1,-3
+1,1,1,-5
+1,1,0,-7
