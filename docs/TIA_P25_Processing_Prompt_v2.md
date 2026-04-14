@@ -1,6 +1,6 @@
 # TIA/P25 Standards Document Processing Prompt
-# Version: 2.1
-# Last updated: 2026-04-12
+# Version: 2.2
+# Last updated: 2026-04-13
 # Usage: Paste this prompt when starting a new conversation to process a TIA spec PDF.
 #        Upload the PDF alongside this prompt.
 #        For documents >50 pages, split first per instructions below.
@@ -51,12 +51,14 @@ Based on the Phase 1 classification, produce additional implementation-focused f
 Produce a standalone implementation spec (.md) for each significant algorithm. Include:
 - Complete mathematical definitions with all constants as code-ready data (hex arrays, bit masks)
 - Pseudocode for the full processing pipeline
-- Any matrices, lookup tables, or generator polynomials as literal arrays
+- Generator polynomials shown inline with both their coefficient form and hex/octal encoding
 - Test vectors with worked examples
 - Cross-validation references (SDRTrunk, OP25, or other open-source implementations)
-- Language-agnostic but include Rust-specific notes where relevant
+- **Language-neutral output (see "Language and Data Conventions" below)** — inline code snippets in C, bulk numerical data in CSV files under `annex_tables/`. Do not emit Rust, C++, Python, or other language-specific code.
 
-**CRITICAL: Extract matrices and large constant tables programmatically from the PDF** (PyMuPDF text extraction, then parse). Do NOT hand-transcribe — this session proved that manual transcription of 44x44 binary matrices introduces errors in ~30% of rows.
+**CRITICAL: Extract matrices and large constant tables programmatically from the PDF** (`pdftotext -layout` or PyMuPDF, then parse). Do NOT hand-transcribe — prior extractions proved that manual transcription of 44x44 binary matrices introduces errors in ~30% of rows.
+
+**CRITICAL: Verify every extracted numerical artifact against at least one invariant before committing** (see the invariant table in `docs/TIA_P25_Processing_Prompt_v3_Phase4.md` Step 3). FEC generator matrices must be full rank; interleave tables must exhaustively cover all bit positions; partition tables must sum to the partition total; bit-allocation tables must sum to the frame's information-bit budget. An invariant failure is either an OCR artifact to fix or a data feature to document in the CSV header — never a silent skip.
 
 ### For MESSAGE_FORMAT documents:
 Produce a message parsing spec (.md) including:
@@ -77,10 +79,45 @@ Produce a state machine / procedures spec (.md) including:
 - SACCH/FACCH ultraframe scheduling rules if applicable
 
 ### For VOCODER documents:
-Produce parameter extraction only (tables of quantization values, frame structure). Note that full vocoder implementation typically requires the JMBE/AMBE codec libraries.
+Produce full parameter extraction: all quantization tables, frame structure, FEC matrices, interleave tables, bit-allocation tables, block-length partitions, and all equations referenced in the frame-processing pipeline (bit modulation, PN generation, pitch encode/decode, harmonic count derivation, etc.). Anything the prose references by equation or annex number must be inlined in the spec or emitted as a CSV; no "see Equation N" dangling references. Note that full vocoder **synthesis** (the speech model) typically requires the JMBE/AMBE codec libraries, but everything up to the MBE parameter boundary is in scope and must be specified completely.
 
 ### For MEASUREMENT / CONFORMANCE / OVERVIEW documents:
 No implementation spec needed. Phase 2 extraction is sufficient.
+
+## Language and Data Conventions
+
+Implementation specs in this repository are **language-neutral**. They are read and used by implementers working in Rust, C, C++, Go, Python, and other languages, so the spec must not bias toward any one of them.
+
+**Bulk numerical data → CSV files** under `standards/<DOC_ID>/annex_tables/`, one file per annex. Each CSV has a three-line `#`-prefixed header documenting the title, PDF page reference, and a one-line verification invariant summary, followed by a column-name row and the data rows. Example header:
+
+```
+# TIA-102.BABA-A annex_j_block_lengths.csv — Log Magnitude Prediction Residual Block Lengths
+# Source: BABA-A PDF, page 105
+# Extracted from pdftotext -layout output with verification: each row's J1..J6 sums exactly to L
+L,J1,J2,J3,J4,J5,J6
+9,1,1,1,2,2,2
+...
+```
+
+**Inline code snippets → C**, specifically:
+- `<stdint.h>` types (`uint8_t`, `uint16_t`, `uint32_t`, etc.), `<stdbool.h>` where needed
+- `typedef struct { ... } name_t;` rather than language-specific class/record syntax
+- `static const` arrays for fixed tables
+- Function prototypes (not full implementations) for illustrative consumer signatures
+- Hex constants (`0xAE3u`) for binary data — NOT C23 `0b` / `'` digit separators, so the code compiles on C99 / C11 without flags
+
+**Never emit** Rust, C++, Python, Go, or other language-specific code in the spec body. The spec is a reference document, not a reference implementation. If a C prototype is too cumbersome for a complex algorithm, use prose pseudocode instead.
+
+**Sample consumer signatures** in the spec should show how a downstream implementer *loads* the CSV and *uses* the data — not how it's pre-baked into their binary. Example:
+
+```c
+/* Typical consumer signature */
+extern const float imbe_gain_levels[64];  /* loaded from annex_e_gain_quantizer.csv */
+uint8_t imbe_gain_encode(float G1);
+float   imbe_gain_decode(uint8_t b2);
+```
+
+See `standards/TIA-102.BABA-A/P25_Vocoder_Implementation_Spec.md` §12 for a worked example of the CSV-reference + C-signature pattern.
 
 ## Processing Strategy
 
@@ -119,10 +156,17 @@ Before delivering, verify:
 - [ ] All formulas reconstructed and flagged if ambiguous
 - [ ] Tables extracted with correct column alignment
 - [ ] Matrices/constants extracted programmatically, not hand-transcribed
+- [ ] **Each extracted numerical artifact verified against at least one invariant** (rank/coverage/sum as appropriate); invariant result noted in the CSV header
+- [ ] **Bulk tables emitted as CSV files under `standards/<DOC_ID>/annex_tables/`** with the mandatory 3-line header (title, source page, verification note)
+- [ ] **Inline code is C only** — no Rust, C++, Python, Go, or other language-specific blocks
+- [ ] **No placeholders survive** — search the output for `todo!`, `unimplemented`, `TBD`, "placeholder", "not extracted", "needs verification", "needs raster"; each must be resolved or explicitly marked out-of-scope with a one-sentence rationale
+- [ ] **Cross-references resolved** — every "see Equation N" / "see Annex X" / "see Figure N" in prose is either inlined or explicitly deferred in writing
 - [ ] Test vectors included for algorithm specs
 - [ ] Cross-references to SDRTrunk/OP25 included where applicable
 - [ ] Obsolete sections clearly marked
 - [ ] Document status (active/superseded/absorbed) confirmed via web search
 - [ ] File names follow the naming convention
+
+If any checklist item cannot be completed in this pass, flag the document for a Phase 4 uplift run (see `docs/TIA_P25_Processing_Prompt_v3_Phase4.md`). Do not ship with silent gaps.
 
 Please deliver all files for download.
