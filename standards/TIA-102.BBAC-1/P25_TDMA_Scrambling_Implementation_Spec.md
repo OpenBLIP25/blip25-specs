@@ -131,7 +131,7 @@ direct seed. SDRTrunk and OP25 use the latter.
 galois_lfsr(G_poly, M_MATRIX * seed)  ==  fibonacci_lfsr(G_reciprocal, seed)
 ```
 
-### 3.4 Generating the Scramble Sequence
+### 3.5 Generating the Scramble Sequence
 
 ```
 function generate_scramble_sequence(seed, length=4320) -> bit_array:
