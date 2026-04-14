@@ -1,0 +1,27 @@
+# TIA-102.BAAA-B bch_nid_generator_matrix.csv -- BCH(63,16,23)+P Generator Matrix
+# Source: TIA-102.BAAA-B PDF, Table 19 (NID Code Generator Matrix), page 45
+# Verification:
+#   16 rows, all unique: PASS
+#   Identity portion forms I_16: PASS
+#   Generator polynomial g(x) constant term = 1: PASS
+#   Generator polynomial g(x) monic (leading bit = 1): PASS
+# Format: row=1..16 (row 1 = NAC MSB); identity_oct = 16-bit identity in octal;
+#   parity_oct = 48-bit parity in octal (16 octal digits); full_row_hex = 64-bit row.
+# Usage: NID = XOR of full_row_hex[i] for each set bit i in 16-bit info word.
+row,identity_oct,parity_oct,full_row_hex
+1,10 0000,6331 1413 6723 5452,0x8000cd930bdd3b2a
+2,04 0000,5265 5216 1472 3276,0x4000ab5a8e33a6be
+3,02 0000,4603 7114 6116 4164,0x2000983e4cc4e874
+4,01 0000,2301 7446 3047 2072,0x10004c1f2662743a
+5,00 4000,7271 6230 7300 0466,0x0800eb9c98ec0136
+6,00 2000,5605 6507 5263 5660,0x0400b85d47ab3bb0
+7,00 1000,2702 7243 6531 6730,0x02005c2ea3d59dd8
+8,00 0400,1341 3521 7254 7354,0x01002e1751eaceec
+9,00 0200,0560 5650 7526 3566,0x0080170ba8f56776
+10,00 0100,6141 3337 5170 4220,0x0040c616dfa78890
+11,00 0040,3060 5557 6474 2110,0x0020630b6fd3c448
+12,00 0020,1430 2667 7236 1044,0x00103185b7e9e224
+13,00 0010,0614 1333 7517 0422,0x000818c2dbf4f112
+14,00 0004,6037 1146 1164 1642,0x0004c1f2662743a2
+15,00 0002,5326 5070 6351 5373,0x0002ad6a38ce9afb
+16,00 0001,4662 3027 5647 3127,0x00019b2617ba7657
