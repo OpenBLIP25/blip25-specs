@@ -960,73 +960,50 @@ This generates a field of 64 elements (including 0). Each symbol is 6 bits.
 
 #### 8.4.1 GF(2^6) Arithmetic Tables
 
-```rust
-/// Primitive polynomial for GF(2^6): x^6 + x + 1 = 0b1000011 = 0x43.
-const GF64_PRIMITIVE: u8 = 0x43;
+```c
+/* Primitive polynomial for GF(2^6): x^6 + x + 1 = 0b1000011 = 0x43. */
+#define GF64_PRIMITIVE 0x43u
 
-/// Exponential table: EXP[i] = alpha^i mod p(x), for i = 0..62.
-/// alpha^63 = alpha^0 = 1 (the field order is 63).
-const GF64_EXP: [u8; 64] = [
-    // From spec Table 6, octal values converted to decimal:
-    // e=0..7:  01 02 04 10 20 40 03 06  (octal) = 1,2,4,8,16,32,3,6
-    0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x03, 0x06,
-    // e=8..15:  14 30 25 63 73 11 22 44  (octal) = 12,24,21,51,59,9,18,36
-    0x0C, 0x18, 0x15, 0x33, 0x3B, 0x09, 0x12, 0x24,
-    // e=16..23: 23 46 21 36 74 73 65 51  (octal) = 19,38,17,30,60,59... 
-    // NOTE: The octal table in the spec has some ambiguities due to extraction.
-    // The definitive table must be generated programmatically from the primitive poly.
-    0x13, 0x26, 0x11, 0x1E, 0x3C, 0x3B, 0x35, 0x29,
-    // e=24..31
-    0x11, 0x22, 0x07, 0x0E, 0x1C, 0x38, 0x33, 0x25,
-    // e=32..39
-    0x09, 0x12, 0x24, 0x0B, 0x16, 0x2C, 0x1B, 0x36,
-    // e=40..47
-    0x2F, 0x1D, 0x37, 0x2D, 0x19, 0x32, 0x27, 0x0F,
-    // e=48..55
-    0x0D, 0x1A, 0x34, 0x2B, 0x15, 0x2A, 0x17, 0x2E,
-    // e=56..63
-    0x1F, 0x3E, 0x3F, 0x3D, 0x39, 0x31, 0x21, 0x01,
-    // NOTE: e=63 wraps to alpha^0 = 1. Index 63 = 0x01.
-];
+/*
+ * Exponential table: GF64_EXP[i] = alpha^i mod p(x), for i = 0..63.
+ * alpha^63 == alpha^0 == 1 (field order is 63).
+ * Programmatically generated from primitive polynomial x^6 + x + 1.
+ * Verification: EXP[LOG[b]] == b for b=1..63 (PASS); LOG[EXP[i]] == i for i=0..62 (PASS).
+ * See annex_tables/gf64_lookup_tables.csv for the full verified table.
+ * OCR errors in spec Table 6 corrected: rows e=8..15 had 0x15/0x33/0x3B (wrong);
+ *   correct values are 0x30=48 for e=10 (was 0x15=21), etc. Use this table.
+ */
+static const uint8_t GF64_EXP[64] = {
+    /* e=0..7   */ 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x03, 0x06,
+    /* e=8..15  */ 0x0c, 0x18, 0x30, 0x23, 0x05, 0x0a, 0x14, 0x28,
+    /* e=16..23 */ 0x13, 0x26, 0x0f, 0x1e, 0x3c, 0x3b, 0x35, 0x29,
+    /* e=24..31 */ 0x11, 0x22, 0x07, 0x0e, 0x1c, 0x38, 0x33, 0x25,
+    /* e=32..39 */ 0x09, 0x12, 0x24, 0x0b, 0x16, 0x2c, 0x1b, 0x36,
+    /* e=40..47 */ 0x2f, 0x1d, 0x3a, 0x37, 0x2d, 0x19, 0x32, 0x27,
+    /* e=48..55 */ 0x0d, 0x1a, 0x34, 0x2b, 0x15, 0x2a, 0x17, 0x2e,
+    /* e=56..63 */ 0x1f, 0x3e, 0x3f, 0x3d, 0x39, 0x31, 0x21, 0x01,
+};
 
-/// Logarithm table: LOG[b] = e where alpha^e = b, for b = 1..63.
-/// LOG[0] is undefined (conventionally set to 63 or 0xFF).
-const GF64_LOG: [u8; 64] = [
-    0xFF, // 0 -> undefined
-    0,    // 1 = alpha^0
-    1, 6, 2, 12, 7, 26, 3, 32, // b=2..9
-    13, 35, 8, 48, 27, 18,     // b=10..15
-    4, 24, 33, 16, 14, 52,     // b=16..21
-    20, 54, 9, 45, 49, 38,     // b=22..27
-    28, 41, 19, 56,            // b=28..31
-    5, 62, 25, 11, 34, 47,     // b=32..37
-    17, 60, 15, 23, 53, 51,    // b=38..43
-    37, 44, 55, 40,            // b=44..47
-    10, 61, 46, 30, 50, 22,    // b=48..53
-    39, 43, 29, 57, 42, 21,    // b=54..59
-    20, 59, 58, 63,            // b=60..63 -- NOTE: approximate, verify
-];
-// IMPORTANT: These tables MUST be verified by generating them from the primitive
-// polynomial. The spec extraction has some ambiguity in the octal table.
-// Generate programmatically:
-//   let mut val: u8 = 1;
-//   for i in 0..63 {
-//       EXP[i] = val;
-//       LOG[val] = i;
-//       val = gf64_mul2(val); // shift left, XOR with 0x03 if bit 6 set
-//   }
+/*
+ * Logarithm table: GF64_LOG[b] = e where alpha^e = b, for b = 1..63.
+ * GF64_LOG[0] = 0xFF (undefined; 0 has no discrete logarithm).
+ */
+static const uint8_t GF64_LOG[64] = {
+    /*  0 */ 0xFF,
+    /*  1 */   0,  1,  6,  2, 12,  7, 26,  3, 32, 13, 35,  8, 48, 27, 18,
+    /* 16 */   4, 24, 33, 16, 14, 52, 36, 54,  9, 45, 49, 38, 28, 41, 19, 56,
+    /* 32 */   5, 62, 25, 11, 34, 31, 17, 47, 15, 23, 53, 51, 37, 44, 55, 40,
+    /* 48 */  10, 61, 46, 30, 50, 22, 39, 43, 29, 60, 42, 21, 20, 59, 57, 58,
+};
 
-/// GF(2^6) multiplication.
-fn gf64_mul(a: u8, b: u8) -> u8 {
-    if a == 0 || b == 0 { return 0; }
-    let log_a = GF64_LOG[a as usize] as u16;
-    let log_b = GF64_LOG[b as usize] as u16;
-    let log_sum = (log_a + log_b) % 63;
-    GF64_EXP[log_sum as usize]
+/* GF(2^6) multiplication using EXP/LOG tables. */
+static uint8_t gf64_mul(uint8_t a, uint8_t b) {
+    if (a == 0 || b == 0) return 0;
+    return GF64_EXP[(GF64_LOG[a] + GF64_LOG[b]) % 63];
 }
 
-/// GF(2^6) addition (XOR).
-fn gf64_add(a: u8, b: u8) -> u8 { a ^ b }
+/* GF(2^6) addition is XOR. */
+static uint8_t gf64_add(uint8_t a, uint8_t b) { return a ^ b; }
 ```
 
 #### 8.4.2 RS(36,20,17) -- G_HDR (HDU)
