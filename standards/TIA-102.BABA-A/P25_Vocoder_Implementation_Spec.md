@@ -1059,16 +1059,20 @@ Both components use the Annex I synthesis window `wS(n)` (211 values,
        Ũ_w(m) = 0  for |m| < ⌈ã_1⌉  or  ⌈b̃_L̃⌉ ≤ |m| ≤ 128
    ```
 
-   `γ_w` is a **constant** depending only on `wS(n)` (synthesis window) and
-   `wR(n)` (pitch refinement window from BABA-A Annex C):
+   `γ_w` is a **constant** depending only on `wS(n)` (synthesis window,
+   Annex I / §12.7) and `wR(n)` (pitch refinement window, Annex C / §12.18):
    ```
    γ_w = [ Σ_{n=−110}^{110} wR(n) ] · sqrt( (Σ_{n=−104}^{104} wS²(n))
                                            / (Σ_{n=−110}^{110} wR²(n)) )     (Eq. 121)
    ```
-   This can be precomputed at decoder init — it's a fixed scalar. (Annex C
-   is not yet extracted; value of γ_w should be computed from
-   `annex_i_synthesis_window.csv` and BABA-A Annex C once extracted, or
-   captured as a test-vector fixture.)
+   Evaluated from the committed CSVs:
+   ```
+   Σ wR(n) for n=-110..110   = 110.019884
+   Σ wR²(n) for n=-110..110  = 80.683642
+   Σ wS²(n) for n=-104..104  = 143.340000
+   γ_w                        = 146.643269
+   ```
+   Precompute once at decoder init; it's a fixed scalar.
 
 4. **Inverse DFT** (Eq. 125):
    ```
@@ -1421,6 +1425,123 @@ bits across both lanes.
 void deinterleave_ambe_halfrate(const uint8_t dibits[36], uint32_t c_out[4]);
 ```
 
+### 2.7 Half-Rate Spectral Amplitude Enhancement
+
+Source: BABA-A §15 "Half-Rate Spectral Amplitude Enhancement", page 72.
+
+**The half-rate decoder uses the full-rate enhancement procedure verbatim.**
+BABA-A §15 is a one-paragraph pointer back to §8 (Eq. 105–111) — same
+formulas, same constants, same guardrail branches, same energy-preserving
+rescale, same S_E recurrence with floor 10000.
+
+See §1.10 of this spec for the complete algorithm and C reference. No
+parameter changes apply when using it for half-rate.
+
+### 2.8 Half-Rate Adaptive Smoothing, Frame Repeat / Mute
+
+Source: BABA-A §14.5 "Error Estimation" (Eq. 196–197), §14.6 "Frame Repeats"
+(Eq. 198–205), §14.7 "Frame Muting", pages 70–71.
+
+The structural pattern matches full-rate §1.11 but uses **different trigger
+thresholds and a different error-rate recurrence**. V/UV smoothing
+(Eq. 112–116) and amplitude smoothing are also applied — same formulas as
+full-rate §1.11.3, using the half-rate S_E and error parameters.
+
+#### 2.8.1 Error Parameters (Eq. 196–197)
+
+Count corrected bits per Golay codeword as `ε₀` (c̃₀ = [24,12] extended
+Golay) and `ε₁` (c̃₁ = [23,12] Golay). The half-rate recurrence is:
+
+```
+ε_T = ε₀ + ε₁                                                      (Eq. 196)
+ε_R(0) = 0.95 · ε_R(−1) + 0.001064 · ε_T                           (Eq. 197)
+```
+
+Initial `ε_R(−1) = 0`. Note the weight **0.001064** is specific to half-rate
+(full-rate uses 0.05 in Eq. 77-like recurrences and a different derivation
+for ε_R; half-rate's coefficient comes from 0.05/47 ≈ 0.001064 scaled by
+the different frame size).
+
+#### 2.8.2 Frame Repeat Trigger (Eq. 198–199)
+
+Trigger a frame repeat if **any** hold:
+
+```
+b̃₀ ∈ [120, 123]                (erasure frame type — see §13.1)
+ε₀ ≥ 4
+ε₀ ≥ 2   AND   ε_T ≥ 6          (Eq. 198 + Eq. 199 joint)
+```
+
+On repeat, copy forward Eq. 200–205:
+
+```
+ω̃₀(0) = ω̃₀(−1)                                                   (Eq. 200)
+L̃(0)  = L̃(−1)                                                    (Eq. 201)
+K̃(0)  = K̃(−1)                                                    (Eq. 202)
+ṽ_l(0) = ṽ_l(−1)   for 1 ≤ l ≤ L̃(−1)                              (Eq. 203)
+M̃_l(0) = M̃_l(−1)  for 1 ≤ l ≤ L̃(−1)                              (Eq. 204)
+M̄_l(0) = M̄_l(−1)  for 1 ≤ l ≤ L̃(−1)                              (Eq. 205)
+```
+
+Note half-rate copies `ṽ_l` (per-harmonic) directly — the codebook-based
+V/UV expansion (§2.3.6 Eq. 149) produces per-harmonic values, so the
+repeat copies those directly rather than per-band values as in full-rate
+(Eq. 102).
+
+#### 2.8.3 Frame Mute Trigger (§14.7)
+
+Mute if **either** hold:
+
+```
+ε_R(0) > 0.096
+4 consecutive voice frames have triggered frame repeat
+```
+
+On mute, run Eq. 200–205 to preserve state, bypass the synthesizer
+(§2.10), and emit random low-amplitude noise (or silence) as `s̃(n)`.
+
+#### 2.8.4 V/UV Smoothing
+
+Runs the same §1.11.3 algorithm with half-rate's S_E (from §2.7) and
+ε_R(0) from §2.8.1. V_M thresholds per Eq. 112 unchanged.
+
+### 2.9 Half-Rate Speech Synthesis
+
+Source: BABA-A §13.4 closing paragraph ("reconstructed spectral amplitudes
+M̃_l are then used by the synthesis algorithm, as described in Chapter 11"),
+page 66.
+
+**The half-rate decoder uses the full-rate synthesis pipeline verbatim.**
+Eq. 117–141 from full-rate §1.12 apply unchanged to half-rate, using:
+
+- `ω̃₀`, `L̃`, `K̃` from §1.3.1 / §12.8 (half-rate pitch Annex L)
+- `ṽ_l` from §2.3.6 Eq. 149 (not §1.3.2 — half-rate uses codebook expansion)
+- `M̄_l` from §2.7 enhancement + §2.8.4 smoothing
+- All cross-frame state per §1.13 (synthesizer state table applies to both
+  rates; the only differences are in how parameters are *recovered*, not in
+  how the synthesizer *uses* them)
+
+See §1.12.1 (unvoiced) and §1.12.2 (voiced) for the complete algorithm.
+
+### 2.10 Tone Frame Synthesis
+
+Source: BABA-A §16 "Tone Frames", pages 73–76, Table 19.
+
+Half-rate supports tone-frame transmission (DTMF, KNOX, single-frequency,
+call progress, silence). When `b̃₀ ∈ [120, 127]` the frame is not a voice
+frame — it's a Tone Frame, parsed per BABA-A Table 20 and synthesized
+from `annex_tables/annex_t_tone_params.csv` (§12.16).
+
+The tone synthesizer sums one or two sine generators at the specified
+frequencies, scaled to the received amplitude, windowed with wS(n) and
+overlap-added across frames just like the voiced synthesis (§1.12.2).
+ID 255 = silence (amplitude = 0). IDs in reserved ranges cause an erasure
+frame and frame repeat per §2.8.
+
+Full tone-frame bit format (which bits of u₀..u₃ encode the tone ID vs
+amplitude) is in BABA-A §16.2 Table 20, pages 74–75. Not inlined here —
+parse directly from the CSV and the PDF when implementing the tone path.
+
 ---
 
 ## 3. Voice Frame Placement in Air Interface Frames
@@ -1738,6 +1859,7 @@ Full-rate silence is indicated implicitly through the adaptive smoothing mechani
 
 **Full-Rate (complete):**
 - Annex B: Analysis window wI(n), 301 values (n=−150..150) — see §12.6 below
+- Annex C: Pitch refinement window wR(n), 221 values (n=−110..110) — see §12.18 below
 - Annex D: FIR LPF coefficients, 21 values — inlined in §7.4 below
 - Annex E: Gain quantizer (64 levels) — see §12.1 below
 - Annex F: Gain bit allocation by L (9..56) — see §12.2 below
@@ -2256,6 +2378,7 @@ per annex, in the `annex_tables/` directory:
 ```
 standards/TIA-102.BABA-A/annex_tables/
 ├── annex_b_analysis_window.csv   (301 rows)   Annex B: wI(n), n=-150..150
+├── annex_c_pitch_refinement_window.csv (221 rows) Annex C: wR(n), n=-110..110
 ├── annex_e_gain_quantizer.csv    (64 rows)    Annex E: full-rate gain levels
 ├── annex_f_gain_allocation.csv   (240 rows)   Annex F: gain bit alloc, 5 entries/L
 ├── annex_g_hoc_allocation.csv    (1272 rows)  Annex G: HOC bit alloc, L-6 entries/L
@@ -2647,3 +2770,20 @@ extern const bit_map_entry_t ambe_bit_map[49];
 const bit_map_entry_t *imbe_bit_map_for_L(uint8_t L);
 ```
 
+### 12.18 Annex C — Pitch Refinement Window
+
+**Source:** BABA-A pages 81–82.
+**File:** [`annex_tables/annex_c_pitch_refinement_window.csv`](annex_tables/annex_c_pitch_refinement_window.csv)
+**Schema:** `n, wR_n`
+
+FIR window `wR(n)` used in pitch refinement spectral estimation (§3.2,
+Eq. 29). 221 coefficients indexed n = −110..110. Symmetric around n = 0,
+peak value `wR(0) = 1.0` (verified during extraction).
+
+Also used by the decoder to compute the `γ_w` scaling constant in §1.12.1
+(Eq. 121), which scales per-band unvoiced magnitudes during synthesis.
+
+```c
+/* Typical consumer signature */
+extern const float imbe_pitch_refinement_window[221];   /* index 0 = n=−110 */
+```
