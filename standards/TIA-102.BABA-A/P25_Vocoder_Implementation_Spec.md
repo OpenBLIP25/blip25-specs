@@ -223,35 +223,100 @@ spectral amplitude bits.
 
 ### 1.6 PN Sequence Modulation
 
-After FEC encoding, each encoded vector is XORed with a pseudo-noise mask derived
-from the pitch index u0. This provides bit-level scrambling.
+Source: BABA-A Section 7.4 Bit Modulation, pages 37–38, Equations 84–94.
+
+After FEC encoding, each code vector v̂_i is XORed with a pseudo-noise mask m̂_i
+derived from the 12-bit Golay info word û₀. Vector v̂₀ is deliberately left
+unmodulated (m̂₀ = 0) so the decoder can Golay-decode c̃₀ first and reconstruct
+û₀ before demodulating the other vectors. Vector v̂₇ is also unmodulated
+(m̂₇ = 0) since it is uncoded pass-through.
+
+**PN sequence generator (Eq. 84–85) — a linear congruential generator mod 65536:**
+
+```
+p_r(0) = 16 · û₀                                  where û₀ ∈ [0, 4095]
+p_r(n) = (173 · p_r(n-1) + 13849) mod 65536       for 1 ≤ n ≤ 114
+```
+
+The seed uses all 12 bits of û₀ (pitch b0 plus spectral MSBs), not just the
+8-bit b0 pitch value. Each p_r(n) is a 16-bit unsigned integer in [0, 65535].
+
+**Mask bit extraction (Eq. 86–93):**
+
+Each mask bit is `⌊p_r(n) / 32768⌋`, i.e. bit 15 (MSB) of p_r(n) — equivalently,
+1 if p_r(n) ≥ 32768, else 0. Each vector consumes a contiguous range of PN
+indices:
+
+| Mask | Length | PN indices | Notes |
+|------|-------:|-----------:|-------|
+| m̂₀   | 23     | —          | All zeros (Eq. 86); v̂₀ is the Golay codeword carrying û₀ |
+| m̂₁   | 23     | 1..23      | Eq. 87 |
+| m̂₂   | 23     | 24..46     | Eq. 88 |
+| m̂₃   | 23     | 47..69     | Eq. 89 |
+| m̂₄   | 15     | 70..84     | Eq. 90 |
+| m̂₅   | 15     | 85..99     | Eq. 91 |
+| m̂₆   | 15     | 100..114   | Eq. 92 |
+| m̂₇   | 7      | —          | All zeros (Eq. 93); v̂₇ is uncoded |
+
+Total PN indices consumed: 114. Total mask bits: 23+23+23+23+15+15+15+7 = 144,
+matching the full-rate frame size.
+
+**Modulated code vectors (Eq. 94):**
+
+```
+c̃_i = v̂_i ⊕ m̂_i    for 0 ≤ i ≤ 7    (addition mod 2)
+```
 
 ```rust
-/// Generate PN sequence for IMBE bit modulation.
-/// Seed is derived from the decoded pitch index u0 (12-bit Golay info word,
-/// but only the 8-bit b0 pitch value matters).
-///
-/// Full-rate: generates 115 values (indices 0..114).
-/// Half-rate: generates 24 values (indices 0..23).
-fn imbe_pn_sequence(u0_pitch: u16, count: usize) -> Vec<u16> {
-    let mut pr = Vec::with_capacity(count);
-    pr.push(16 * (u0_pitch as u32));
-    for n in 1..count {
-        let val = (173u32 * pr[n - 1] + 13849) % 65536;
-        pr.push(val);
+/// Generate the 115-element PN sequence p_r(0..=114) for full-rate IMBE
+/// bit modulation. Seed is the 12-bit Golay info word u0 (range [0, 4095]).
+fn imbe_pn_sequence_fullrate(u0: u16) -> [u16; 115] {
+    debug_assert!(u0 < 4096);
+    let mut pr = [0u16; 115];
+    pr[0] = (16u32 * u0 as u32) as u16;  // p_r(0) = 16·u0, fits in u16 since u0 ≤ 4095
+    for n in 1..115 {
+        pr[n] = ((173u32 * pr[n - 1] as u32 + 13849) & 0xFFFF) as u16;
     }
-    // Mask bits are derived from specific bit positions of p_r(n).
-    // See BABA-A Equations 86-93 for the exact mask extraction.
-    pr.into_iter().map(|v| v as u16).collect()
+    pr
+}
+
+/// Extract one mask bit from p_r(n): bit 15 of the 16-bit value.
+#[inline]
+fn pn_mask_bit(pr_n: u16) -> u8 {
+    (pr_n >> 15) as u8
+}
+
+/// Compute the 8 modulation vectors m̂_0..m̂_7 for full-rate IMBE.
+/// Each vector is returned as (bits, length). Bits are packed LSB-first:
+/// vector element k is at bit position k.
+fn imbe_modulation_vectors(u0: u16) -> [(u32, u8); 8] {
+    let pr = imbe_pn_sequence_fullrate(u0);
+    let mask_range = |start: usize, len: usize| -> u32 {
+        let mut bits = 0u32;
+        for k in 0..len {
+            bits |= (pn_mask_bit(pr[start + k]) as u32) << k;
+        }
+        bits
+    };
+    [
+        (0,                            23),  // m_0 (Eq. 86)
+        (mask_range(1, 23),            23),  // m_1 (Eq. 87)
+        (mask_range(24, 23),           23),  // m_2 (Eq. 88)
+        (mask_range(47, 23),           23),  // m_3 (Eq. 89)
+        (mask_range(70, 15),           15),  // m_4 (Eq. 90)
+        (mask_range(85, 15),           15),  // m_5 (Eq. 91)
+        (mask_range(100, 15),          15),  // m_6 (Eq. 92)
+        (0,                             7),  // m_7 (Eq. 93)
+    ]
 }
 ```
 
 **Decode order for PN demodulation:**
-1. Golay-decode c0 to recover u0 (and thus b0 pitch index)
-2. Generate PN sequence from b0: `p_r(0) = 16 * u0`
-3. Compute masks m1..m7 from p_r sequence
-4. XOR c1..c7 with corresponding masks to recover v1..v7
-5. Then FEC-decode v1..v7 to recover u1..u7
+1. Golay-decode c̃₀ to recover û₀ (since m̂₀ = 0, so c̃₀ = v̂₀)
+2. Seed the PN generator: p_r(0) = 16·û₀ (uses the full 12-bit û₀)
+3. Compute masks m̂₁..m̂₆ from p_r(1..114); m̂₇ = 0
+4. XOR c̃_i with m̂_i to recover v̂_i for 1 ≤ i ≤ 6
+5. FEC-decode v̂₁..v̂₆ to recover û₁..û₆; û₇ = c̃₇ directly
 
 ### 1.7 Interleaving -- Full-Rate (Annex H)
 
