@@ -211,12 +211,70 @@ extraction artifact), it's flagged as **SPEC BUG** for emphasis.
 
 ---
 
+## TIA-102.AABF-D (Link Control Word Formats and Messages)
+
+### 2026-04-14 — Phase 4 uplift
+
+- **SPEC BUG — LCO $07 (Telephone Interconnect Answer Request), octet 5 digit label**
+  PDF page 12 section 7.3.7 prints octet 5 as "Digit 8 | Digit 10" instead of
+  "Digit 9 | Digit 10". The nibble-pair sequential pattern (1-2, 3-4, 5-6, 7-8, 9-10)
+  unambiguously identifies "Digit 8" as a typo for "Digit 9".
+  *Location:* TIA-102.AABF-D §7.3.7, page 12.
+  *Invariant that caught it:* sequential nibble-pair pattern coverage — digit 9
+  was missing from the sequence.
+  *Fix:* commit `2e50f98`. Impl spec §4.5.
+
+- **COMPLETENESS GAP — LCO $11 (Unit Registration Command) field layout**
+  Prior extraction placed Reserved at octet 5 and had ambiguous Target ID
+  boundaries. PDF section 7.3.10 clearly shows: octets 5-7 = Target ID (24 bits),
+  octet 8 = Reserved.
+  *Location:* TIA-102.AABF-D §7.3.10, page 14.
+  *Invariant that caught it:* total field bit-count: 8+20+12+24+8 = 72 bits (PASS
+  with corrected layout; FAIL with original which had a phantom extra Reserved).
+  *Fix:* commit `2e50f98`. Impl spec §4.10.
+
+- **COMPLETENESS GAP — LCO $20 (System Service Broadcast) field split**
+  Prior extraction had Reserved at octet 3, Services Available at octets 4-6 (only
+  partial), and Services Supported at octets 7-8 (only 16 bits). The PDF shows
+  a clean 3+3 octet split: Available = octets 3-5 (24 bits), Supported = octets 6-8
+  (24 bits). The "Reserved" octet 3 was fabricated in the extraction.
+  *Location:* TIA-102.AABF-D §7.3.13, page 16.
+  *Invariant that caught it:* total bit-count: 8+8+24+24 = 64 information bits
+  in octets 1-8 (PASS with corrected layout).
+  *Fix:* commit `2e50f98`. Impl spec §4.21.
+
+- **COMPLETENESS GAP — Subscriber Unit Address table constant name mismatch**
+  Prior spec Section 6 labeled $FFFFFD as `ADDR_FNE_DISPATCH` and $FFFFFE as
+  `ADDR_SYSTEM_DEFAULT`. PDF page 36 defines: $FFFFFC = "Reserved for FNE Use",
+  $FFFFFD = "System Default", $FFFFFE = "Registration Default". The prior constant
+  names were mapped one entry off and the two middle entries were conflated.
+  *Location:* TIA-102.AABF-D §7.4 "Subscriber Unit Address" field, page 36.
+  *Invariant that caught it:* address range boundary non-overlap check — 4 distinct
+  special values above $FFFFFB (PASS with correction).
+  *Fix:* commit `2e50f98`. Impl spec §6 and
+  `annex_tables/subscriber_unit_address_table.csv`.
+
+- **AMBIGUITY — LCO usage matrix for LCO 9 and 10 (conventional vs trunked only)**
+  Prior extraction Section 2.1 marked LCO 9 (Source ID Extension) and LCO 10
+  (Unit-to-Unit VCU - Extended) with 'x' in the Conventional Outbound/Inbound
+  columns. PDF Table 3 (page 39) does NOT mark these for conventional — they are
+  trunked only. The error is plausible because LCO 0 (Group Voice Channel User),
+  which can trigger Source ID Extension, does support conventional — but the
+  extension message itself is restricted to trunked per the table.
+  *Location:* TIA-102.AABF-D Table 3, page 39.
+  *Invariant that caught it:* cross-reference between impl spec Section 2.1 and
+  PDF Table 3.
+  *Fix:* commit `2e50f98`. Impl spec §2.1 usage matrix corrected.
+
+---
+
 ## Cumulative Score (2026-04-14)
 
-- **7 real spec correctness bugs caught and fixed**: 3 in BABA-A (Golay
+- **8 real spec correctness bugs caught and fixed**: 3 in BABA-A (Golay
   matrix, Annex H c9(5), Annex S c0(5)), 3 in BAAA-B (frame sync, GF64,
-  BCH matrix), 2 in BBAC-A (I-ISCH, DUID). One of the BABA-A items is also
-  an inter-spec cross-validation (Annex S confirmed against BBAC-1).
+  BCH matrix), 2 in BBAC-A (I-ISCH, DUID), 1 in AABF-D (LCO $07 digit label
+  OCR artifact). One of the BABA-A items is also an inter-spec cross-validation
+  (Annex S confirmed against BBAC-1).
 - **Dozens of completeness gaps filled** (missing algorithms, missing
   tables, missing cross-references, missing disambiguations).
 - **Zero false-positive invariant failures** — every invariant that fired
