@@ -34,30 +34,32 @@ Used by both H-CPM and H-DQPSK. First bit in the frame is MSB (b1).
 | `0b10` | -1 |
 | `0b11` | -3 |
 
-```rust
-/// Map a dibit (2 bits, MSB first) to a quaternary symbol.
-/// Input: bits in range 0..=3 where bit layout is [b1 b0].
-const DIBIT_TO_SYMBOL: [i8; 4] = [
-    1,   // 0b00 -> +1
-    3,   // 0b01 -> +3
-    -1,  // 0b10 -> -1
-    -3,  // 0b11 -> -3
-];
+```c
+#include <stdint.h>
 
-/// Inverse mapping: symbol to dibit.
-fn symbol_to_dibit(sym: i8) -> u8 {
-    match sym {
-         3 => 0b01,
-         1 => 0b00,
-        -1 => 0b10,
-        -3 => 0b11,
-        _ => unreachable!(),
+/* Map a dibit (2 bits, MSB first) to a quaternary symbol.
+ * Index is the 2-bit value [b1 b0] in range 0..3. */
+static const int8_t DIBIT_TO_SYMBOL[4] = {
+     1,   /* 0x00 -> +1 */
+     3,   /* 0x01 -> +3 */
+    -1,   /* 0x02 -> -1 */
+    -3,   /* 0x03 -> -3 */
+};
+
+/* Inverse mapping: symbol to dibit. Returns 0xFF on invalid input. */
+static uint8_t symbol_to_dibit(int8_t sym) {
+    switch (sym) {
+        case  3: return 0x01;
+        case  1: return 0x00;
+        case -1: return 0x02;
+        case -3: return 0x03;
+        default: return 0xFF;
     }
 }
 ```
 
-**Rust note:** The symbol alphabet `{-3, -1, +1, +3}` maps naturally to `i8`. For DSP
-pipelines, convert to `f32`/`f64` at modulator input.
+**Note:** The symbol alphabet `{-3, -1, +1, +3}` fits in `int8_t`. For DSP
+pipelines, convert to `float`/`double` at modulator input.
 
 ---
 
@@ -85,21 +87,27 @@ s(t) = integral{ sqrt(E_s/T) * exp(j * phi(tau, I)) * h(t - tau) d_tau }
 
 where `h(t)` is the IQ pulse-shaping filter.
 
-```rust
-/// Differential phase encoder state.
-struct DqpskEncoder {
-    /// Accumulated phase in radians.
-    phase: f64,
+```c
+#include <math.h>
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
+/* Differential phase encoder state. */
+typedef struct {
+    double phase;  /* accumulated phase in radians */
+} DqpskEncoder;
+
+static void dqpsk_encoder_init(DqpskEncoder *enc) {
+    enc->phase = 0.0;
 }
 
-impl DqpskEncoder {
-    fn new() -> Self { Self { phase: 0.0 } }
-
-    /// Encode one symbol, return (I, Q) of the unfiltered constellation point.
-    fn encode(&mut self, symbol: i8) -> (f64, f64) {
-        self.phase += (symbol as f64) * std::f64::consts::FRAC_PI_4;
-        (self.phase.cos(), self.phase.sin())
-    }
+/* Encode one symbol; write (I, Q) of the unfiltered constellation point. */
+static void dqpsk_encode(DqpskEncoder *enc, int8_t symbol,
+                         double *out_i, double *out_q) {
+    enc->phase += (double)symbol * (M_PI / 4.0);
+    *out_i = cos(enc->phase);
+    *out_q = sin(enc->phase);
 }
 ```
 
@@ -125,7 +133,7 @@ where:
 | Symbol rate | 6000 symbols/sec |
 | Samples per symbol (suggested) | 8..16 for implementation |
 
-**Rust note:** Generate the filter impulse response by IFFT of `H(f)` or analytically. With
+**Note:** Generate the filter impulse response by IFFT of `H(f)` or analytically. With
 alpha=1 full rolloff, the time-domain pulse is a sinc(t/T)*cos(pi*t/T)/(1-(2t/T)^2) shape
 truncated to a practical length (8-16 symbol spans). Apply as FIR filter to upsampled I/Q
 streams independently.
@@ -212,53 +220,53 @@ delta_phi_k = 2*pi*h * I_k * q(L*T) = 2*pi*(1/3) * I_k * (1/2) = pi/3 * I_k
 
 ### 3.4 Frequency Pulse Computation
 
-```rust
-use std::f64::consts::PI;
+```c
+#include <math.h>
+#include <stddef.h>
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
-const H: f64 = 1.0 / 3.0;
-const LAMBDA: f64 = 0.75;
-const L: usize = 4;
-const G: f64 = 4.3455e-4;
-const SYMBOL_RATE: f64 = 6000.0;
-const T: f64 = 1.0 / SYMBOL_RATE;  // 166.667 us
-const LT: f64 = L as f64 * T;       // 4 * T
+#define HCPM_H           (1.0 / 3.0)
+#define HCPM_LAMBDA      0.75
+#define HCPM_L           4
+#define HCPM_G           4.3455e-4
+#define HCPM_SYMBOL_RATE 6000.0
+#define HCPM_T           (1.0 / HCPM_SYMBOL_RATE)   /* 166.667 us */
+#define HCPM_LT          (HCPM_L * HCPM_T)           /* 4 * T      */
 
-/// Compute frequency pulse g(t) at time t (seconds).
-/// Returns 0.0 outside [0, L*T].
-fn frequency_pulse(t: f64) -> f64 {
-    if t < 0.0 || t > LT {
-        return 0.0;
-    }
-    let centered = t - LT / 2.0;
-    let sinc_arg = LAMBDA / T * centered;
-    let sinc_val = if sinc_arg.abs() < 1e-12 {
-        1.0
-    } else {
-        (PI * sinc_arg).sin() / (PI * sinc_arg)
-    };
-    let cos2_arg = PI / LT * centered;
-    let cos2_val = cos2_arg.cos().powi(2);
-    (1.0 / G) * sinc_val * cos2_val
+/* Compute frequency pulse g(t) at time t (seconds).
+ * Returns 0.0 outside [0, L*T]. Equation (3), TIA-102.BBAB p.10. */
+static double frequency_pulse(double t) {
+    double centered, sinc_arg, sinc_val, cos2_arg;
+    if (t < 0.0 || t > HCPM_LT) return 0.0;
+    centered = t - HCPM_LT / 2.0;
+    sinc_arg = (HCPM_LAMBDA / HCPM_T) * centered;
+    sinc_val = (fabs(sinc_arg) < 1e-12) ? 1.0
+               : sin(M_PI * sinc_arg) / (M_PI * sinc_arg);
+    cos2_arg = (M_PI / HCPM_LT) * centered;
+    return (1.0 / HCPM_G) * sinc_val * cos(cos2_arg) * cos(cos2_arg);
 }
 
-/// Compute phase pulse q(t) by numerical integration of g(t).
-/// Uses Simpson's rule with `n_steps` intervals.
-fn phase_pulse(t: f64, n_steps: usize) -> f64 {
-    if t <= 0.0 { return 0.0; }
-    if t >= LT { return 0.5; }
-    let dt = t / n_steps as f64;
-    let mut sum = frequency_pulse(0.0) + frequency_pulse(t);
-    for i in 1..n_steps {
-        let ti = i as f64 * dt;
-        let weight = if i % 2 == 0 { 2.0 } else { 4.0 };
-        sum += weight * frequency_pulse(ti);
+/* Compute phase pulse q(t) by numerical integration of g(t).
+ * Uses Simpson's rule with n_steps intervals (must be even). */
+static double phase_pulse(double t, size_t n_steps) {
+    double dt, sum, ti;
+    size_t i;
+    if (t <= 0.0) return 0.0;
+    if (t >= HCPM_LT) return 0.5;
+    dt  = t / (double)n_steps;
+    sum = frequency_pulse(0.0) + frequency_pulse(t);
+    for (i = 1; i < n_steps; i++) {
+        ti   = (double)i * dt;
+        sum += ((i % 2 == 0) ? 2.0 : 4.0) * frequency_pulse(ti);
     }
-    sum * dt / 3.0
+    return sum * dt / 3.0;
 }
 ```
 
-**Rust note:** For real-time operation, precompute `q(t)` as a lookup table at the
-desired oversampling rate (e.g., 48 kHz -> 8 samples/symbol). Interpolate for
+**Note:** For real-time operation, precompute `q(t)` as a lookup table at the
+desired oversampling rate (e.g., 48 kHz = 8 samples/symbol). Interpolate for
 fractional indices.
 
 ### 3.5 CPM Modulator (Phase Accumulation)
@@ -266,18 +274,16 @@ fractional indices.
 The CPM modulator maintains a trellis of L-1 = 3 previous symbols as correlative state
 plus a cumulative phase state theta_n.
 
-```rust
-/// Simplified CPM modulator using precomputed phase pulse table.
-struct HcpmModulator {
-    /// Phase pulse LUT: q_lut[i] = q(i * dt) for i in 0..lut_len.
-    q_lut: Vec<f64>,
-    /// Samples per symbol period.
-    samples_per_symbol: usize,
-    /// Ring buffer of recent symbols (last L symbols).
-    symbol_history: [i8; L],
-    /// Current accumulated phase (radians).
-    phase_accum: f64,
-}
+```c
+/* Simplified H-CPM modulator using precomputed phase pulse lookup table.
+ * Caller must allocate q_lut[lut_len] and symbol_history[HCPM_L]. */
+typedef struct {
+    double  *q_lut;           /* q_lut[i] = q(i * dt) for i in 0..lut_len */
+    size_t   lut_len;
+    size_t   samples_per_symbol;
+    int8_t   symbol_history[HCPM_L]; /* ring buffer, most-recent last */
+    double   phase_accum;            /* accumulated phase (radians) */
+} HcpmModulator;
 ```
 
 ### 3.6 H-CPM Demodulation (MLSE Concept)
@@ -297,10 +303,10 @@ State space size with h=1/3, M=4, L=4:
 - Correlative states: `M^(L-1) = 4^3 = 64`
 - Total trellis states: `3 * 64 = 192` (manageable for Viterbi)
 
-**Rust note:** The MLSE demodulator is the most computationally intensive component.
+**Note:** The MLSE demodulator is the most computationally intensive component.
 Consider:
 - Precomputed branch metric tables for all 192 states x 4 transitions.
-- Fixed-point LLR representation (`i16` with 3-4 fractional bits) for FEC input.
+- Fixed-point LLR representation (`int16_t` with 3-4 fractional bits) for FEC input.
 - The Viterbi path memory depth should be at least 5*L = 20 symbols for reliable
   traceback.
 
@@ -366,15 +372,16 @@ Subscriber units transmit in bursts, one slot at a time.
 | PILOT_NB2 (P2) | 4 | 0.667 ms | `[-1, +1, -1, +1]` (all bursts) |
 | INTERSLOT_FILL2 | 6 | 1.0 ms | All zeros (ramp-down / guard) |
 
-```rust
-/// Interslot fill: 6 zero-valued symbols fed to modulator during guard time.
-const INTERSLOT_FILL: [i8; 6] = [0, 0, 0, 0, 0, 0];
+```c
+/* Interslot fill: 6 zero-valued symbols fed to modulator during guard time.
+ * These are not modulated; zero-valued symbols suppress RF during ramp guard. */
+static const int8_t INTERSLOT_FILL[6] = {0, 0, 0, 0, 0, 0};
 
-/// Pilot sequence P1 (beginning of inbound no-sync bursts).
-const PILOT_P1: [i8; 4] = [1, -1, 1, -1];
+/* Pilot sequence P1: beginning of inbound no-sync bursts, 4 symbols. */
+static const int8_t PILOT_P1[4] = {1, -1, 1, -1};
 
-/// Pilot sequence P2 (end of all inbound bursts).
-const PILOT_P2: [i8; 4] = [-1, 1, -1, 1];
+/* Pilot sequence P2: end of all inbound bursts, 4 symbols. */
+static const int8_t PILOT_P2[4] = {-1, 1, -1, 1};
 ```
 
 **Note:** For inbound signaling bursts with sync, the first 4 symbols of the sync sequence
@@ -465,15 +472,18 @@ Ultraframe_mark  = (Minutes * 8000 + Micro_Slots) MOD 192
 where Micro_Slots counts at 7.5 ms per tick (0-7999 per minute).
 Every third minute boundary aligns both superframe and ultraframe starts.
 
-```rust
-/// Compute superframe index from time alignment parameters.
-fn superframe_mark(minutes: u32, micro_slots: u32) -> u32 {
-    (minutes * 8000 + micro_slots) % 48
+```c
+#include <stdint.h>
+
+/* Compute superframe index (0..47) from SYNC_BCST time-alignment parameters.
+ * minutes: current UTC minute counter; micro_slots: 0..7999 (7.5 ms ticks). */
+static uint32_t superframe_mark(uint32_t minutes, uint32_t micro_slots) {
+    return (minutes * 8000u + micro_slots) % 48u;
 }
 
-/// Compute ultraframe index from time alignment parameters.
-fn ultraframe_mark(minutes: u32, micro_slots: u32) -> u32 {
-    (minutes * 8000 + micro_slots) % 192
+/* Compute ultraframe index (0..191) from SYNC_BCST time-alignment parameters. */
+static uint32_t ultraframe_mark(uint32_t minutes, uint32_t micro_slots) {
+    return (minutes * 8000u + micro_slots) % 192u;
 }
 ```
 
@@ -488,13 +498,14 @@ From TIA-102.BBAC-1 Table 5-1 (corrected). All values are signed dibit symbols
 
 Used in inbound signaling bursts (FACCH/SACCH).
 
-```rust
-/// IEMI sync sequence, 22 symbols, transmission order [S(21)..S(0)].
-const IEMI_SYNC: [i8; 22] = [
-    3, 3, -3, -3, 3, 3, 3, -3,  // S(21)..S(14)
-    3, -3, -3, 3, 3, 3, 3, -3,  // S(13)..S(6)
-    3, -3, -3, -3, -3, -3,      // S(5)..S(0)
-];
+```c
+/* IEMI sync sequence, 22 symbols, transmission order S(21)..S(0).
+ * Source: TIA-102.BBAC-1 Table 5-1. */
+static const int8_t IEMI_SYNC[22] = {
+     3,  3, -3, -3,  3,  3,  3, -3,  /* S(21)..S(14) */
+     3, -3, -3,  3,  3,  3,  3, -3,  /* S(13)..S(6)  */
+     3, -3, -3, -3, -3, -3,          /* S(5)..S(0)   */
+};
 ```
 
 Hex encoding (mapping +3 -> 0, -3 -> 1, packed MSB-first into bytes, 22 bits):
@@ -508,13 +519,14 @@ Hex (padded to 24 bits): 0x31_61_7C
 
 Used in outbound signaling bursts (FACCH with sync).
 
-```rust
-/// S-OEMI sync sequence, 21 symbols, transmission order [S(20)..S(0)].
-const S_OEMI_SYNC: [i8; 21] = [
-    -3, -3, -3, -3, 3, 3, 3, 3,  // S(20)..S(13)
-    3, -3, 3, -3, -3, -3, 3, 3,  // S(12)..S(5)
-    -3, -3, -3, 3, 3,            // S(4)..S(0)
-];
+```c
+/* S-OEMI sync sequence, 21 symbols, transmission order S(20)..S(0).
+ * Source: TIA-102.BBAC-1 Table 5-1. */
+static const int8_t S_OEMI_SYNC[21] = {
+    -3, -3, -3, -3,  3,  3,  3,  3,  /* S(20)..S(13) */
+     3, -3,  3, -3, -3, -3,  3,  3,  /* S(12)..S(5)  */
+    -3, -3, -3,  3,  3,              /* S(4)..S(0)   */
+};
 ```
 
 Hex encoding (+3->0, -3->1, 21 bits):
@@ -528,13 +540,14 @@ Hex (padded to 24 bits): 0xF0_5C_E0
 
 Used in the S-ISCH on voice channels for late-entry synchronization.
 
-```rust
-/// VCH S-ISCH sync sequence, 20 symbols, transmission order [S(19)..S(0)].
-const VCH_SISCH_SYNC: [i8; 20] = [
-    3, 3, 3, -3, 3, 3, -3, 3,    // S(19)..S(12)
-    3, 3, 3, -3, -3, -3, 3, -3,  // S(11)..S(4)
-    -3, -3, -3, -3,              // S(3)..S(0)
-];
+```c
+/* VCH S-ISCH sync sequence, 20 symbols, transmission order S(19)..S(0).
+ * Source: TIA-102.BBAC-1 Table 5-1. */
+static const int8_t VCH_SISCH_SYNC[20] = {
+     3,  3,  3, -3,  3,  3, -3,  3,  /* S(19)..S(12) */
+     3,  3,  3, -3, -3, -3,  3, -3,  /* S(11)..S(4)  */
+    -3, -3, -3, -3,                  /* S(3)..S(0)   */
+};
 ```
 
 Hex encoding (+3->0, -3->1, 20 bits):
@@ -549,13 +562,14 @@ Hex (padded to 24 bits): 0x12_1D_F0
 
 Used on control channels. Informative only -- not normative.
 
-```rust
-/// CCH S-ISCH sync sequence, 20 symbols (informative).
-const CCH_SISCH_SYNC: [i8; 20] = [
-    -3, -3, -3, -3, -3, 3, -3, -3,  // S(19)..S(12)
-    -3, 3, 3, 3, 3, -3, 3, 3,       // S(11)..S(4)
-    -3, 3, 3, 3,                     // S(3)..S(0)
-];
+```c
+/* CCH S-ISCH sync sequence, 20 symbols (informative, control channels only).
+ * Source: TIA-102.BBAC-1 Table 5-1. */
+static const int8_t CCH_SISCH_SYNC[20] = {
+    -3, -3, -3, -3, -3,  3, -3, -3,  /* S(19)..S(12) */
+    -3,  3,  3,  3,  3, -3,  3,  3,  /* S(11)..S(4)  */
+    -3,  3,  3,  3,                  /* S(3)..S(0)   */
+};
 ```
 
 Hex encoding (+3->0, -3->1, 20 bits):
@@ -567,25 +581,24 @@ Hex (padded to 24 bits): 0xFB_84_80
 
 ### 6.5 Complete Sync Table (Code-Ready)
 
-```rust
-/// All sync sequences as a single lookup.
-/// Encoding: +3 and -3 only. No intermediate values.
-pub mod sync {
-    pub const IEMI: &[i8]       = &[ 3, 3,-3,-3, 3, 3, 3,-3, 3,-3,-3, 3, 3, 3, 3,-3, 3,-3,-3,-3,-3,-3];
-    pub const S_OEMI: &[i8]     = &[-3,-3,-3,-3, 3, 3, 3, 3, 3,-3, 3,-3,-3,-3, 3, 3,-3,-3,-3, 3, 3];
-    pub const VCH_SISCH: &[i8]  = &[ 3, 3, 3,-3, 3, 3,-3, 3, 3, 3, 3,-3,-3,-3, 3,-3,-3,-3,-3,-3];
-    pub const CCH_SISCH: &[i8]  = &[-3,-3,-3,-3,-3, 3,-3,-3,-3, 3, 3, 3, 3,-3, 3, 3,-3, 3, 3, 3];
-}
+```c
+/* All sync sequences as a single static array block.
+ * Encoding: +3 and -3 only (no intermediate values).
+ * Source: TIA-102.BBAC-1 Table 5-1. */
+static const int8_t SYNC_IEMI[22]      = { 3, 3,-3,-3, 3, 3, 3,-3, 3,-3,-3, 3, 3, 3, 3,-3, 3,-3,-3,-3,-3,-3 };
+static const int8_t SYNC_S_OEMI[21]    = {-3,-3,-3,-3, 3, 3, 3, 3, 3,-3, 3,-3,-3,-3, 3, 3,-3,-3,-3, 3, 3 };
+static const int8_t SYNC_VCH_SISCH[20] = { 3, 3, 3,-3, 3, 3,-3, 3, 3, 3, 3,-3,-3,-3, 3,-3,-3,-3,-3,-3 };
+static const int8_t SYNC_CCH_SISCH[20] = {-3,-3,-3,-3,-3, 3,-3,-3,-3, 3, 3, 3, 3,-3, 3, 3,-3, 3, 3, 3 };
 ```
 
 ### 6.6 Pilot Sequences
 
-```rust
-/// Pilot P1: beginning of inbound no-sync bursts, 4 symbols.
-pub const PILOT_P1: [i8; 4] = [1, -1, 1, -1];
+```c
+/* Pilot P1: beginning of inbound no-sync bursts, 4 symbols. */
+static const int8_t PILOT_P1_SYNC[4] = {1, -1, 1, -1};
 
-/// Pilot P2: end of all inbound bursts, 4 symbols.
-pub const PILOT_P2: [i8; 4] = [-1, 1, -1, 1];
+/* Pilot P2: end of all inbound bursts, 4 symbols. */
+static const int8_t PILOT_P2_SYNC[4] = {-1, 1, -1, 1};
 ```
 
 **Note on inbound sync bursts:** For inbound signaling bursts with sync, the first 4 symbols
@@ -620,22 +633,24 @@ of each slot (containing information, sync, and pilot) is not corrupted.
 
 ### 7.3 Ramp Profile
 
-**MISSING FROM TIA-102.BBAB:** The standard shows ramps "generically" as linear in the
-timing diagrams but does not specify a normative ramp shape (raised cosine, linear,
-polynomial, etc.). The ramp shape is left to the implementer.
+**Out-of-scope (implementation-defined):** TIA-102.BBAB Section 4.3 (p. 14–16) shows ramp
+profiles "generically as linear" in Figures 10–12, and explicitly leaves the ramp shape to
+the implementer. The only normative constraints are: (a) ramp duration shall not exceed
+1.2 ms, and (b) the center 28 ms of the burst (information, sync, pilot) must be
+unaffected. No raised-cosine or other specific profile is mandated.
 
 Common implementations use a raised-cosine ramp:
 
-```rust
-/// Raised-cosine power ramp over `n_samples` samples.
-/// Returns amplitude scaling factor [0.0, 1.0].
-fn ramp_up(sample: usize, n_samples: usize) -> f64 {
-    let t = sample as f64 / n_samples as f64;
-    0.5 * (1.0 - (std::f64::consts::PI * t).cos())
+```c
+/* Raised-cosine power ramp over n_samples samples.
+ * Returns amplitude scaling factor in [0.0, 1.0]. */
+static double ramp_up(size_t sample, size_t n_samples) {
+    double t = (double)sample / (double)n_samples;
+    return 0.5 * (1.0 - cos(M_PI * t));
 }
 
-fn ramp_down(sample: usize, n_samples: usize) -> f64 {
-    ramp_up(n_samples - sample, n_samples)
+static double ramp_down(size_t sample, size_t n_samples) {
+    return ramp_up(n_samples - sample, n_samples);
 }
 ```
 
@@ -714,16 +729,20 @@ LLR(b) = metric(best path with b=0) - metric(best path with b=1)
 Positive LLR indicates b=0 more likely; negative indicates b=1 more likely.
 Magnitude indicates confidence.
 
-```rust
-/// LLR output type. Positive = bit is 0, negative = bit is 1.
-/// Fixed-point: 4 fractional bits (multiply float LLR by 16 and round).
-type Llr = i16;
+```c
+#include <stdint.h>
+#include <math.h>
 
-const LLR_FRAC_BITS: u32 = 4;
+/* LLR output type. Positive = bit is 0, negative = bit is 1.
+ * Fixed-point with LLR_FRAC_BITS fractional bits (i.e., multiply float by 16 and round). */
+typedef int16_t llr_t;
+#define LLR_FRAC_BITS 4
 
-fn float_to_llr(llr_float: f64) -> Llr {
-    let scaled = llr_float * (1 << LLR_FRAC_BITS) as f64;
-    scaled.round().clamp(i16::MIN as f64, i16::MAX as f64) as i16
+static llr_t float_to_llr(double llr_float) {
+    double scaled = llr_float * (double)(1 << LLR_FRAC_BITS);
+    if (scaled >  32767.0) return  32767;
+    if (scaled < -32768.0) return -32768;
+    return (llr_t)round(scaled);
 }
 ```
 
@@ -810,9 +829,12 @@ The I-ISCH carries 9 bits of decoded information:
 The I-ISCH carries 9 information bits encoded into 40 bits (20 symbols) using a
 (40,9,16) binary coset code with minimum distance 16.
 
-**MISSING FROM TIA-102.BBAB:** The I-ISCH coset code generator matrix is defined in
-TIA-102.BBAC-A (not in the physical layer spec). Implementers must obtain the encoding
-matrix from the MAC layer specification.
+**Out-of-scope for TIA-102.BBAB:** The I-ISCH coset code generator matrix and coset
+vector are defined in TIA-102.BBAC-A (the MAC layer spec), not in this physical layer
+document. This is architecturally correct — BBAB defines the burst envelope and field
+locations; BBAC-A defines the encoding for the I-ISCH payload. Implementers should
+refer to the BBAC-A implementation spec for the (40,9,16) generator matrix and
+encoding algorithm.
 
 ### 10.2 S-ISCH: Sync Pattern Only
 
@@ -841,7 +863,7 @@ The following parameters are referenced in TIA-102.BBAB but not fully specified 
 | DUID (8,4,4) code | TIA-102.BBAC-A | Not extracted here; needed for burst identification |
 | Ramp shape (normative) | Not specified | Implementation-defined; raised cosine recommended |
 | LLR generation method | Not specified | Implementation-defined; conceptual MLSE described |
-| H-D8PSK parameters | TIA-102.BBAB Annex A | Informative only, not normative |
+| H-D8PSK parameters | TIA-102.BBAB Annex A | Informative only; extracted in Section 13 above |
 | Scrambling LFSR and seeds | TIA-102.BBAC-1 Section 7.2.5 | Extracted separately in P25_TDMA_Scrambling_Implementation_Spec.md |
 
 ---
@@ -865,5 +887,66 @@ The following parameters are referenced in TIA-102.BBAB but not fully specified 
 - Key files: `op25/gr-op25_repeater/lib/p25p2_tdma.cc`
 
 Both implementations are receive-only and do not implement transmit-side features
-(H-CPM modulation, power ramping, burst assembly). A Rust implementation targeting
+(H-CPM modulation, power ramping, burst assembly). An implementation targeting
 both TX and RX would need the full modulator and ramp profiles described above.
+
+---
+
+## 13. Annex A — H-D8PSK Modulation (Informative)
+
+**Source:** TIA-102.BBAB Annex A (p. 19–21). Informative only. H-D8PSK is NOT
+a normative modulation for P25 Phase 2; it is an optional simulcast-performance
+enhancement that never became a deployed standard.
+
+### 13.1 Parameters
+
+H-D8PSK is pi/8-DQPSK at 12 kbps with a symbol rate of 4000 symbols/sec
+(versus 6000 for H-DQPSK/H-CPM). It uses an 8-level symbol alphabet.
+
+| Parameter | Value |
+|-----------|-------|
+| Symbol rate | 4000 symbols/sec |
+| Bit rate | 12 kbps |
+| Bits per symbol | 3 |
+| Symbol alphabet | {-7, -5, -3, -1, +1, +3, +5, +7} |
+| Phase increment per symbol | (pi/8) * I_k |
+| IQ filter rolloff | raised cosine, alpha = 1 |
+| IQ filter 6 dB BW (option 1) | 3.6 kHz (same as H-DQPSK) |
+| IQ filter 6 dB BW (option 2) | 2.5 kHz (PAR approx 2.5 dB, matches H-DQPSK) |
+
+### 13.2 Bit-to-Symbol Mapping (Table A.1, p. 19)
+
+Full table in `annex_tables/annex_A_hd8psk_bit_symbol_mapping.csv`.
+
+| Input bits [b2 b1 b0] | Symbol |
+|------------------------|--------|
+| `010` | +7 |
+| `011` | +5 |
+| `001` | +3 |
+| `000` | +1 |
+| `100` | -1 |
+| `101` | -3 |
+| `111` | -5 |
+| `110` | -7 |
+
+**Invariant verified:** 8 rows for 3-bit input (2^3 = 8 expected). Symbol values are
+odd integers {-7,-5,-3,-1,+1,+3,+5,+7}, forming a complete octal Gray-coded
+alphabet consistent with pi/8-DQPSK phase increments. Monotonic Gray-code
+ordering confirmed.
+
+### 13.3 Signal Formula
+
+```
+s(t) = sqrt(E_s/T) * integral{ exp(j*phi(tau,I)) * h(t-tau) d_tau }
+
+phi(t, I) = (pi/8) * sum_{k<=n} I_k    for t <= n
+```
+
+The IQ filter h(t) uses the same raised-cosine form as H-DQPSK (Equation 6),
+but with BW = 2.5 kHz (recommended for PAR matching) or 3.6 kHz.
+
+### 13.4 Demodulation
+
+Differential phase detection (same structure as H-DQPSK, Figure A.2 p. 20).
+Phase differences fall at multiples of pi/8 for the 8 symbols.
+LLR generation is implementation-defined.
