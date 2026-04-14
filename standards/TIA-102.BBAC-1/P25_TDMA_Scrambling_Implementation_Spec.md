@@ -268,7 +268,7 @@ function gf2_matrix_vector_multiply(matrix[44], vector) -> result:
     return result
 ```
 
-**Rust note:** `u64` has a built-in `.count_ones()` method. The parity check is `(matrix[i] & vector).count_ones() & 1`.
+**C note:** Use `__builtin_parityll(product)` (GCC/Clang) or count set bits manually. The parity check for a 64-bit word is `__builtin_parityll(matrix[i] & vector)`.
 
 ## 7. Superframe Timing and Offsets
 
@@ -329,45 +329,67 @@ The DUID bits (Table 5-3 in the base spec) indicate whether SACCH/FACCH bursts a
 
 ## 9. Complete Pipeline Pseudocode
 
-```
-// === INITIALIZATION (once per system, or when Network Status Broadcast changes) ===
+```c
+#include <stdint.h>
+#include <stdbool.h>
 
-function init_scrambler(wacn_id: u32, system_id: u16, color_code: u16):
-    seed = ((wacn_id as u64) << 24)
-         + ((system_id as u64) << 12)
-         + (color_code as u64)
-    seed = seed & 0xFFF_FFFF_FFFF
-    if seed == 0:
-        seed = 0xFFF_FFFF_FFFF
-    
-    outbound_seed = seed
-    inbound_seed  = gf2_matrix_vector_multiply(SH_MATRIX, seed)
-    
-    return (outbound_seed, inbound_seed)
+#define MASK_44     UINT64_C(0xFFFFFFFFFFF)   /* (1<<44) - 1 */
+#define TAPS_GALOIS UINT64_C(0x10821000400)   /* (1<<40)|(1<<35)|(1<<29)|(1<<24)|(1<<10) */
 
+/* === INITIALIZATION (once per system or when Network Status Broadcast changes) ===
+ * Computes the outbound and inbound seeds from system identity parameters.
+ * All three inputs come from the Network Status Broadcast MAC message.
+ */
+void init_scrambler(uint32_t wacn_id, uint16_t system_id, uint16_t color_code,
+                    uint64_t *outbound_seed, uint64_t *inbound_seed)
+{
+    uint64_t seed = ((uint64_t)wacn_id << 24)
+                  + ((uint64_t)system_id << 12)
+                  + (uint64_t)color_code;
+    seed &= MASK_44;
+    if (seed == 0)
+        seed = MASK_44;   /* exclude zero per spec */
 
-// === PER-SUPERFRAME (called at start of each 360ms superframe) ===
-
-function generate_superframe_scramble(seed: u64) -> [u8; 4320]:
-    state = seed
-    sequence = new [u8; 4320]
-    for i in 0..4319:
-        output = (state >> 43) & 1
-        state = (state << 1) & 0xFFF_FFFF_FFFF
-        if output == 1:
-            state = state XOR 0x108_2100_0400
-        sequence[i] = output
-    return sequence
+    *outbound_seed = seed;
+    *inbound_seed  = gf2_matrix_vector_multiply(SH_MATRIX, seed);
+}
 
 
-// === PER-BURST (apply scrambling to specific bits) ===
+/* === PER-SUPERFRAME (called at start of each 360 ms superframe) ===
+ * Generates 4320 scramble bits by running the Galois LFSR for 4320 steps.
+ * Uses the Galois (internal-feedback) form; see §3.2 for the Fibonacci
+ * equivalent that avoids the M-matrix seed conversion.
+ */
+void generate_superframe_scramble(uint64_t seed, uint8_t sequence[4320])
+{
+    uint64_t state = seed;
+    for (int i = 0; i < 4320; i++) {
+        uint64_t output = (state >> 43) & 1;
+        state = (state << 1) & MASK_44;
+        if (output)
+            state ^= TAPS_GALOIS;
+        sequence[i] = (uint8_t)output;
+    }
+}
 
-function scramble_burst(burst_bits: &mut [u8], scramble_seq: &[u8], offset: usize):
-    // XOR each scrambable bit with corresponding scramble sequence bit
-    // Skip non-scrambled fields (ramp, guard, pilot, DUID, ISCH, sync)
-    // The offset is determined by the slot position within the superframe
-    for each (bit_index, scramble_index) in scramble_map:
-        burst_bits[bit_index] ^= scramble_seq[offset + scramble_index]
+
+/* === PER-BURST (apply scrambling to the scrambable bits of one burst) ===
+ * XORs each scrambable burst bit with the corresponding scramble sequence bit.
+ * Non-scrambable fields (ramp/guard, pilot, DUID, ISCH, sync) are skipped.
+ * offset = first bit index in the 4320-bit superframe sequence for this slot.
+ * scramble_map = array of (burst_bit_index, sequence_offset) pairs for this
+ *                burst type; derived from Annex E tables in
+ *                P25_TDMA_Annex_E_Burst_Bit_Tables.md.
+ */
+void scramble_burst(uint8_t *burst_bits, const uint8_t *scramble_seq,
+                    int offset, const int (*scramble_map)[2], int map_len)
+{
+    for (int k = 0; k < map_len; k++) {
+        int bit_idx      = scramble_map[k][0];
+        int seq_idx      = offset + scramble_map[k][1];
+        burst_bits[bit_idx] ^= scramble_seq[seq_idx];
+    }
+}
 ```
 
 ## 10. Test Vectors
@@ -445,20 +467,23 @@ The P25 Phase 2 scrambling is implemented in the SDRTrunk project:
 3. Capture OTA traffic from a known P25 Phase 2 system, descramble, verify voice
    frames decode correctly (CRC checks pass)
 
-## 12. Rust Implementation Notes
+## 12. C Implementation Notes
 
-- Store seeds and LFSR state as `u64` (44 bits used, upper 20 bits zero)
-- Matrix rows stored as `[u64; 44]`
-- The `count_ones()` method on `u64` gives popcount for parity checks
-- The LFSR stepping inner loop is branch-free-friendly:
+- Store seeds and LFSR state as `uint64_t` (44 bits used; upper 20 bits zero).
+- Matrix rows stored as `uint64_t[44]`.
+- Parity for GF(2) matrix-vector multiply: `__builtin_parityll(matrix[i] & vector)`
+  (GCC/Clang). On MSVC use `_mm_popcnt_u64(x) & 1`. Alternatively, fold a
+  `uint64_t` with six XOR-shift steps to get parity without a popcount intrinsic.
+- The LFSR inner loop can be made branch-free:
+  ```c
+  uint64_t output = (state >> 43) & 1;
+  state = ((state << 1) & MASK_44) ^ (TAPS_GALOIS * output);
+  /* TAPS_GALOIS * 0 = 0, TAPS_GALOIS * 1 = TAPS_GALOIS */
   ```
-  let output = (state >> 43) & 1;
-  state = ((state << 1) & MASK_44) ^ (TAPS * output);
-  ```
-- For bulk generation, unroll the LFSR loop and operate on `u64` chunks
-  (generate 64 bits at a time by stepping 64 times and packing into a word)
-- The `bitvec` crate may be useful for the per-burst scramble application,
-  but a simple `[u8; 4320]` byte array (one bit per byte) is clearest
+- For bulk generation (4320 bits per superframe), unroll the loop and pack
+  output bits into `uint64_t` words (64 bits per iteration) if throughput matters.
+- Per-burst scramble application: a plain `uint8_t[4320]` array (one bit per
+  byte) is simplest; index directly using the Annex E offset tables.
 
 ---
 
