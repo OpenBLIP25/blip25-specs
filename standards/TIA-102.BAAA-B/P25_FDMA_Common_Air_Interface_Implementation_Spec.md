@@ -290,33 +290,42 @@ verify from generator matrix below).
 The 64th bit (P) is an even parity bit over all 63 BCH code bits. This extends the
 minimum distance from 23 to 24 for even-weight error patterns.
 
-```rust
-/// BCH(63,16,23) + parity generator matrix.
-/// Each row is a 64-bit value: [16-bit info | 47-bit BCH parity | 1-bit overall parity].
-/// The parity columns are in octal in the spec; here converted to u64 with the
-/// identity portion included.
-/// Row i corresponds to information bit i (0 = MSB = NAC bit 11).
-///
-/// Usage: NID = XOR of GENERATOR_NID[i] for each set bit i in the 16-bit info word.
-const GENERATOR_NID: [u64; 16] = [
-    // Row 1: info bit 15 (NAC[11])
-    // Identity = 0x8000 << 48, parity from octal 6331 1413 6723 5452
-    // These must be computed from the octal values in the generator matrix.
-    // Each octal group maps to 3 bits. The full 64-bit row = identity | parity.
-    //
-    // IMPORTANT: Convert from the specification's octal notation carefully.
-    // The 48-bit parity for row 1 in octal is: 6 3 3 1  1 4 1 3  6 7 2 3  5 4 5 2
-    // = 110_011_011_001 001_100_001_011 110_111_010_011 101_100_101_010
-    // = 0xCD9_30B_BA5_2  ... (must verify bit-by-bit)
-    //
-    // NOTE: Exact u64 constants require careful octal-to-binary conversion.
-    // SDRTrunk and OP25 both provide pre-computed tables. See cross-reference below.
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // PLACEHOLDER -- see note
-];
-// TODO: Convert octal generator matrix rows to exact u64 values.
-// Cross-reference: SDRTrunk `BchCode_63_16_23.java`, OP25 `bch.cc`.
-// For production code, use the syndrome-based decoder from OP25 which
-// is more efficient than matrix multiplication for error correction.
+```c
+/*
+ * BCH(63,16,23)+P NID generator matrix.
+ * Each row is a 64-bit value: [16-bit info | 47-bit BCH parity | 1-bit overall parity].
+ * Converted from PDF Table 19 (page 45) octal values to hex.
+ * Row i encodes information bit (15-i), where bit 15 = NAC[11] (MSB).
+ *
+ * Verification (annex_tables/bch_nid_generator_matrix.csv):
+ *   16 unique rows: PASS
+ *   Identity portion = I_16: PASS
+ *   Generator poly constant term = 1 (monic): PASS
+ *
+ * Usage: NID = XOR of GENERATOR_NID[i] for each set bit i in the 16-bit info word.
+ *   info word = [NAC(11)..NAC(0) | DUID(3)..DUID(0)] (MSB first, bit 15 = NAC[11])
+ */
+static const uint64_t GENERATOR_NID[16] = {
+    0x8000cd930bdd3b2aULL,  /* row  1: NAC[11] (bit 15) */
+    0x4000ab5a8e33a6beULL,  /* row  2: NAC[10] (bit 14) */
+    0x2000983e4cc4e874ULL,  /* row  3: NAC[9]  (bit 13) */
+    0x10004c1f2662743aULL,  /* row  4: NAC[8]  (bit 12) */
+    0x0800eb9c98ec0136ULL,  /* row  5: NAC[7]  (bit 11) */
+    0x0400b85d47ab3bb0ULL,  /* row  6: NAC[6]  (bit 10) */
+    0x02005c2ea3d59dd8ULL,  /* row  7: NAC[5]  (bit  9) */
+    0x01002e1751eaceecULL,  /* row  8: NAC[4]  (bit  8) */
+    0x0080170ba8f56776ULL,  /* row  9: NAC[3]  (bit  7) */
+    0x0040c616dfa78890ULL,  /* row 10: NAC[2]  (bit  6) */
+    0x0020630b6fd3c448ULL,  /* row 11: NAC[1]  (bit  5) */
+    0x00103185b7e9e224ULL,  /* row 12: NAC[0]  (bit  4) */
+    0x000818c2dbf4f112ULL,  /* row 13: DUID[3] (bit  3) */
+    0x0004c1f2662743a2ULL,  /* row 14: DUID[2] (bit  2) */
+    0x0002ad6a38ce9afbULL,  /* row 15: DUID[1] (bit  1) */
+    0x00019b2617ba7657ULL,  /* row 16: DUID[0] (bit  0) */
+};
+/* Cross-reference: SDRTrunk BchCode_63_16_23.java, OP25 bch.cc. */
+/* For production decoding, use syndrome-based correction (t=11 error correction). */
+/* See also: annex_tables/bch_nid_generator_matrix.csv for the full source table. */
 ```
 
 **Decoding approach:** For a received 64-bit NID:
