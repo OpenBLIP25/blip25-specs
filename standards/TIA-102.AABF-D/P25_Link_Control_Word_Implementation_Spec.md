@@ -135,93 +135,91 @@ information content (source, group, service options) is semantically equivalent.
 ## 2. Complete LCO Dispatch Table
 
 All 64 possible LCO values. The "LCF" column shows the full octet 0 value when P=0.
-When P=1, add $80 to these values.
+When P=1, add $80 to these values. Full table extracted to
+`annex_tables/lco_dispatch_table.csv` (invariant verified: 64 unique values, complete
+coverage 0x00–0x3F).
 
-```rust
-/// LCO dispatch table — all 64 opcode values
-/// (lco, sf, alias, full_name, length_note)
-///
-/// SF: 0 = Explicit MFID (octet 1 = MFID), 1 = Implicit MFID ($00)
-/// When SF=0: payload in octets 2-8 (7 bytes)
-/// When SF=1: payload in octets 1-8 (8 bytes)
+```c
+/* LCO dispatch table — all 64 opcode values (Table 2, TIA-102.AABF-D p.32)
+ * Columns: lco_hex, sf_flag, alias, full_name
+ *   sf_flag: 0 = Explicit MFID (octet 1 = MFID, payload in octets 2-8)
+ *            1 = Implicit MFID ($00 assumed, payload in octets 1-8)
+ */
+typedef struct {
+    uint8_t     lco;
+    uint8_t     sf;      /* 0=explicit MFID, 1=implicit MFID=$00 */
+    const char *alias;
+    const char *full_name;
+} lco_entry_t;
 
-const LCO_DISPATCH: &[(u8, u8, &str, &str)] = &[
-    // === Voice Call User Messages ===
-    (0x00, 0, "LC_GRP_V_CH_USR",           "Group Voice Channel User"),                   // 7.3.1
-    (0x01, 0, "RESERVED",                   "Reserved"),
-    (0x02, 1, "LC_GRP_V_CH_UPDT",          "Group Voice Channel Update"),                 // 7.3.2
-    (0x03, 0, "LC_UU_V_CH_USR",            "Unit to Unit Voice Channel User"),             // 7.3.3
-    (0x04, 1, "LC_GRP_CH_UPDT_EXP",        "Group Voice Channel Update - Explicit"),       // 7.3.4
-    (0x05, 1, "LC_UU_ANS_REQ",             "Unit to Unit Answer Request"),                 // 7.3.5
-    (0x06, 1, "LC_TELE_INT_V_CH_USR",      "Telephone Interconnect Voice Channel User"),   // 7.3.6
-    (0x07, 1, "LC_TELE_INT_ANS_REQ",       "Telephone Interconnect Answer Request"),       // 7.3.7
-    (0x08, 0, "RESERVED",                   "Reserved"),
-    (0x09, 1, "LC_SOURCE_ID_EXT",           "Source ID Extension"),                         // 7.3.32
-    (0x0A, 1, "LC_UU_V_CH_USR_EXT",        "Unit-to-Unit Voice Channel User - Extended"),  // 7.3.29
-    (0x0B, 0, "RESERVED",                   "Reserved"),
-    (0x0C, 0, "RESERVED",                   "Reserved"),
-    (0x0D, 0, "RESERVED",                   "Reserved"),
-    (0x0E, 0, "RESERVED",                   "Reserved"),
-
-    // === Call Lifecycle ===
-    (0x0F, 1, "LC_CALL_TRM_CAN",           "Call Termination/Cancellation"),               // 7.3.8
-
-    // === System Queries and Commands ===
-    (0x10, 1, "LC_GRP_AFF_Q",              "Group Affiliation Query"),                     // 7.3.9
-    (0x11, 1, "LC_U_REG_CMD",              "Unit Registration Command"),                   // 7.3.10
-    (0x12, 0, "RESERVED_OBSOLETE",          "Unit Authentication Command (OBSOLETE)"),      // 7.3.11
-    (0x13, 1, "LC_STS_Q",                  "Status Query"),                                // 7.3.12
-    (0x14, 1, "LC_STS_UPDT",               "Status Update"),                               // 7.3.18
-    (0x15, 1, "LC_MSG_UPDT",               "Message Update"),                              // 7.3.19
-    (0x16, 1, "LC_CALL_ALRT",              "Call Alert"),                                  // 7.3.20
-    (0x17, 1, "LC_EXT_FNCT_CMD",           "Extended Function Command"),                   // 7.3.21
-    (0x18, 1, "LC_CH_ID_UPDT",             "Channel Identifier Update"),                   // 7.3.22
-    (0x19, 1, "LC_CH_ID_UPDT_VU",          "Channel Identifier Update VU"),                // 7.3.26
-    (0x1A, 1, "LC_STS_UPDT_SRC_RQRD",     "Status Update - Source ID Required"),           // 7.3.30
-    (0x1B, 1, "LC_MSG_UPDT_SRC_RQRD",     "Message Update - Source ID Required"),          // 7.3.31
-    (0x1C, 1, "LC_EXT_FNCT_CMD_SRC_RQRD", "Extended Function Command - Source ID Required"), // 7.3.33
-    (0x1D, 0, "RESERVED",                   "Reserved"),
-    (0x1E, 0, "RESERVED",                   "Reserved"),
-    (0x1F, 0, "RESERVED",                   "Reserved"),
-
-    // === Network Identity Broadcasts ===
-    (0x20, 1, "LC_SYS_SRV_BCST",           "System Service Broadcast"),                   // 7.3.13
-    (0x21, 1, "LC_SCCB",                   "Secondary Control Channel Broadcast"),         // 7.3.14
-    (0x22, 1, "LC_ADJ_STS_BCST",           "Adjacent Site Status Broadcast"),              // 7.3.15
-    (0x23, 1, "LC_RFSS_STS_BCST",          "RFSS Status Broadcast"),                      // 7.3.16
-    (0x24, 1, "LC_NET_STS_BCST",           "Network Status Broadcast"),                   // 7.3.17
-    (0x25, 0, "RESERVED_OBSOLETE",          "Protection Parameter Broadcast (OBSOLETE)"),   // 7.3.23
-    (0x26, 1, "LC_SCCB_EXP",               "Secondary Control Channel Broadcast - Explicit"), // 7.3.24
-    (0x27, 1, "LC_ADJ_STS_BCST_EXP",       "Adjacent Site Status Broadcast - Explicit"),   // 7.3.25
-    (0x28, 1, "LC_RFSS_STS_BCST_EXP",      "RFSS Status Broadcast - Explicit"),            // 7.3.27
-    (0x29, 1, "LC_NET_STS_BCST_EXP",       "Network Status Broadcast - Explicit"),         // 7.3.28
-    (0x2A, 0, "LC_CONV_FALLBACK",           "Conventional Fallback Indication"),            // 7.3.34
-    // 0x2B - 0x3F: Reserved
-    (0x2B, 0, "RESERVED",                   "Reserved"),
-    (0x2C, 0, "RESERVED",                   "Reserved"),
-    (0x2D, 0, "RESERVED",                   "Reserved"),
-    (0x2E, 0, "RESERVED",                   "Reserved"),
-    (0x2F, 0, "RESERVED",                   "Reserved"),
-    (0x30, 0, "RESERVED",                   "Reserved"),
-    (0x31, 0, "RESERVED",                   "Reserved"),
-    (0x32, 0, "RESERVED",                   "Reserved"),
-    (0x33, 0, "RESERVED",                   "Reserved"),
-    (0x34, 0, "RESERVED",                   "Reserved"),
-    (0x35, 0, "RESERVED",                   "Reserved"),
-    (0x36, 0, "RESERVED",                   "Reserved"),
-    (0x37, 0, "RESERVED",                   "Reserved"),
-    (0x38, 0, "RESERVED",                   "Reserved"),
-    (0x39, 0, "RESERVED",                   "Reserved"),
-    (0x3A, 0, "RESERVED",                   "Reserved"),
-    (0x3B, 0, "RESERVED",                   "Reserved"),
-    (0x3C, 0, "RESERVED",                   "Reserved"),
-    (0x3D, 0, "RESERVED",                   "Reserved"),
-    (0x3E, 0, "RESERVED",                   "Reserved"),
-    (0x3F, 0, "RESERVED",                   "Reserved"),
-];
+static const lco_entry_t LCO_DISPATCH[64] = {
+    /* === Voice Call User Messages === */
+    { 0x00, 0, "LC_GRP_V_CH_USR",           "Group Voice Channel User"                          }, /* 7.3.1  */
+    { 0x01, 0, "RESERVED",                   "Reserved"                                          },
+    { 0x02, 1, "LC_GRP_V_CH_UPDT",          "Group Voice Channel Update"                        }, /* 7.3.2  */
+    { 0x03, 0, "LC_UU_V_CH_USR",            "Unit to Unit Voice Channel User"                   }, /* 7.3.3  */
+    { 0x04, 1, "LC_GRP_CH_UPDT_EXP",        "Group Voice Channel Update - Explicit"             }, /* 7.3.4  */
+    { 0x05, 1, "LC_UU_ANS_REQ",             "Unit to Unit Answer Request"                       }, /* 7.3.5  */
+    { 0x06, 1, "LC_TELE_INT_V_CH_USR",      "Telephone Interconnect Voice Channel User"         }, /* 7.3.6  */
+    { 0x07, 1, "LC_TELE_INT_ANS_REQ",       "Telephone Interconnect Answer Request"             }, /* 7.3.7  */
+    { 0x08, 0, "RESERVED",                   "Reserved"                                          },
+    { 0x09, 1, "LC_SOURCE_ID_EXT",           "Source ID Extension"                               }, /* 7.3.32 */
+    { 0x0A, 1, "LC_UU_V_CH_USR_EXT",        "Unit-to-Unit Voice Channel User - Extended"        }, /* 7.3.29 */
+    { 0x0B, 0, "RESERVED",                   "Reserved"                                          },
+    { 0x0C, 0, "RESERVED",                   "Reserved"                                          },
+    { 0x0D, 0, "RESERVED",                   "Reserved"                                          },
+    { 0x0E, 0, "RESERVED",                   "Reserved"                                          },
+    /* === Call Lifecycle === */
+    { 0x0F, 1, "LC_CALL_TRM_CAN",           "Call Termination/Cancellation"                     }, /* 7.3.8  */
+    /* === System Queries and Commands === */
+    { 0x10, 1, "LC_GRP_AFF_Q",              "Group Affiliation Query"                           }, /* 7.3.9  */
+    { 0x11, 1, "LC_U_REG_CMD",              "Unit Registration Command"                         }, /* 7.3.10 */
+    { 0x12, 0, "RESERVED",                   "Reserved (Unit Auth Cmd — OBSOLETE)"               }, /* 7.3.11 */
+    { 0x13, 1, "LC_STS_Q",                  "Status Query"                                      }, /* 7.3.12 */
+    { 0x14, 1, "LC_STS_UPDT",               "Status Update"                                     }, /* 7.3.18 */
+    { 0x15, 1, "LC_MSG_UPDT",               "Message Update"                                    }, /* 7.3.19 */
+    { 0x16, 1, "LC_CALL_ALRT",              "Call Alert"                                        }, /* 7.3.20 */
+    { 0x17, 1, "LC_EXT_FNCT_CMD",           "Extended Function Command"                         }, /* 7.3.21 */
+    { 0x18, 1, "LC_CH_ID_UPDT",             "Channel Identifier Update"                         }, /* 7.3.22 */
+    { 0x19, 1, "LC_CH_ID_UPDT_VU",          "Channel Identifier Update VU"                      }, /* 7.3.26 */
+    { 0x1A, 1, "LC_STS_UPDT_SRC_RQRD",     "Status Update - Source ID Required"                }, /* 7.3.30 */
+    { 0x1B, 1, "LC_MSG_UPDT_SRC_RQRD",     "Message Update - Source ID Required"               }, /* 7.3.31 */
+    { 0x1C, 1, "LC_EXT_FNCT_CMD_SRC_RQRD", "Extended Function Command - Source ID Required"    }, /* 7.3.33 */
+    { 0x1D, 0, "RESERVED",                   "Reserved"                                          },
+    { 0x1E, 0, "RESERVED",                   "Reserved"                                          },
+    { 0x1F, 0, "RESERVED",                   "Reserved"                                          },
+    /* === Network Identity Broadcasts === */
+    { 0x20, 1, "LC_SYS_SRV_BCST",           "System Service Broadcast"                          }, /* 7.3.13 */
+    { 0x21, 1, "LC_SCCB",                   "Secondary Control Channel Broadcast"               }, /* 7.3.14 */
+    { 0x22, 1, "LC_ADJ_STS_BCST",           "Adjacent Site Status Broadcast"                    }, /* 7.3.15 */
+    { 0x23, 1, "LC_RFSS_STS_BCST",          "RFSS Status Broadcast"                             }, /* 7.3.16 */
+    { 0x24, 1, "LC_NET_STS_BCST",           "Network Status Broadcast"                          }, /* 7.3.17 */
+    { 0x25, 0, "RESERVED",                   "Reserved (Protection Param Bcast — OBSOLETE)"      }, /* 7.3.23 */
+    { 0x26, 1, "LC_SCCB_EXP",               "Secondary Control Channel Broadcast - Explicit"    }, /* 7.3.24 */
+    { 0x27, 1, "LC_ADJ_STS_BCST_EXP",       "Adjacent Site Status Broadcast - Explicit"         }, /* 7.3.25 */
+    { 0x28, 1, "LC_RFSS_STS_BCST_EXP",      "RFSS Status Broadcast - Explicit"                  }, /* 7.3.27 */
+    { 0x29, 1, "LC_NET_STS_BCST_EXP",       "Network Status Broadcast - Explicit"               }, /* 7.3.28 */
+    { 0x2A, 0, "LC_CONV_FALLBACK",           "Conventional Fallback Indication"                  }, /* 7.3.34 */
+    /* 0x2B - 0x3F: Reserved */
+    { 0x2B, 0, "RESERVED", "Reserved" }, { 0x2C, 0, "RESERVED", "Reserved" },
+    { 0x2D, 0, "RESERVED", "Reserved" }, { 0x2E, 0, "RESERVED", "Reserved" },
+    { 0x2F, 0, "RESERVED", "Reserved" }, { 0x30, 0, "RESERVED", "Reserved" },
+    { 0x31, 0, "RESERVED", "Reserved" }, { 0x32, 0, "RESERVED", "Reserved" },
+    { 0x33, 0, "RESERVED", "Reserved" }, { 0x34, 0, "RESERVED", "Reserved" },
+    { 0x35, 0, "RESERVED", "Reserved" }, { 0x36, 0, "RESERVED", "Reserved" },
+    { 0x37, 0, "RESERVED", "Reserved" }, { 0x38, 0, "RESERVED", "Reserved" },
+    { 0x39, 0, "RESERVED", "Reserved" }, { 0x3A, 0, "RESERVED", "Reserved" },
+    { 0x3B, 0, "RESERVED", "Reserved" }, { 0x3C, 0, "RESERVED", "Reserved" },
+    { 0x3D, 0, "RESERVED", "Reserved" }, { 0x3E, 0, "RESERVED", "Reserved" },
+    { 0x3F, 0, "RESERVED", "Reserved" },
+};
 ```
 
 ### 2.1 LCO Usage Matrix
+
+Source: TIA-102.AABF-D Table 3 (page 39). Full table extracted to
+`annex_tables/lco_usage_matrix.csv` (invariant verified: 64 LCO values,
+complete coverage).
 
 | LCO | Name | Conv Out | Conv In | Trunk Out | Trunk In |
 |-----|------|:--------:|:-------:|:---------:|:--------:|
@@ -238,8 +236,8 @@ const LCO_DISPATCH: &[(u8, u8, &str, &str)] = &[
 | 16  | Group Affiliation Query          |   |   | x |   |
 | 17  | Unit Registration Command        |   |   | x |   |
 | 19  | Status Query                     |   |   | x | x |
-| 20  | Status Update                    |   |   | x |   |
-| 21  | Message Update                   |   |   | x |   |
+| 20  | Status Update                    |   |   | x | x |
+| 21  | Message Update                   |   |   | x | x |
 | 22  | Call Alert                       |   |   | x | x |
 | 23  | Extended Function Command        |   |   | x | x |
 | 24  | Channel Identifier Update        |   |   | x | x |
@@ -251,12 +249,18 @@ const LCO_DISPATCH: &[(u8, u8, &str, &str)] = &[
 | 33  | Secondary CC Broadcast           |   |   | x |   |
 | 34  | Adjacent Site Status Broadcast   |   |   | x | x |
 | 35  | RFSS Status Broadcast            |   |   | x | x |
-| 36  | Network Status Broadcast         |   |   | x |   |
+| 36  | Network Status Broadcast         |   |   | x | x |
 | 38  | Secondary CC Broadcast - Explicit|   |   | x |   |
 | 39  | Adjacent Site Status - Explicit  |   |   | x |   |
 | 40  | RFSS Status Broadcast - Explicit |   |   | x |   |
 | 41  | Network Status Broadcast - Exp   |   |   | x |   |
 | 42  | Conventional Fallback            |   |   | x | x |
+
+**Note (corrected from prior extraction):** LCO 9 (Source ID Extension) and
+LCO 10 (Unit-to-Unit VCU - Extended) are trunked only per Table 3. They do not
+appear in the conventional columns. Also corrected: LCO 20 (Status Update) and
+LCO 21 (Message Update) support both Trunked Outbound AND Trunked Inbound
+per Table 3; the trunked inbound columns had been omitted previously.
 
 ---
 
@@ -383,15 +387,15 @@ Bit:    7     6     5     4     3     2     1     0
 | [3] | R - Reserved | Set to 0, ignored on receive |
 | [2:0] | Priority Level | 3-bit priority (0-7), per TIA-102.AABC |
 
-**Constants:**
+**Constants (TIA-102.AABF-D Section 7.4, page 34):**
 
-```rust
-const SERVICE_OPT_EMERGENCY: u8    = 0x80;  // bit 7
-const SERVICE_OPT_PROTECTED: u8    = 0x40;  // bit 6
-const SERVICE_OPT_DUPLEX: u8       = 0x20;  // bit 5
-const SERVICE_OPT_PACKET_MODE: u8  = 0x10;  // bit 4
-const SERVICE_OPT_RESERVED: u8     = 0x08;  // bit 3
-const SERVICE_OPT_PRIORITY_MASK: u8 = 0x07; // bits 2:0
+```c
+#define SERVICE_OPT_EMERGENCY     ((uint8_t)0x80U)  /* bit 7 */
+#define SERVICE_OPT_PROTECTED     ((uint8_t)0x40U)  /* bit 6 */
+#define SERVICE_OPT_DUPLEX        ((uint8_t)0x20U)  /* bit 5 */
+#define SERVICE_OPT_PACKET_MODE   ((uint8_t)0x10U)  /* bit 4 */
+#define SERVICE_OPT_RESERVED      ((uint8_t)0x08U)  /* bit 3 — set 0 on TX, ignore on RX */
+#define SERVICE_OPT_PRIORITY_MASK ((uint8_t)0x07U)  /* bits 2:0 */
 ```
 
 ---
@@ -481,15 +485,17 @@ Octet   Field                   Width
   2     Digit 3[7:4] | Digit 4[3:0]   8 bits
   3     Digit 5[7:4] | Digit 6[3:0]   8 bits
   4     Digit 7[7:4] | Digit 8[3:0]   8 bits
-  5     Digit 9[7:4] | Digit 10[3:0]  8 bits   (NOTE: PDF rendering ambiguous here)
+  5     Digit 9[7:4] | Digit 10[3:0]  8 bits
   6     Target Address[23:16]   8 bits  ─┐
   7     Target Address[15:8]    8 bits   │ 24-bit Target Address
   8     Target Address[7:0]     8 bits  ─┘
 ```
 
-> **EXTRACTION CAVEAT:** The PDF scan for octet 5 is ambiguous — the digit numbering
-> may have a rendering artifact. Logically, 5 nibble-pair octets carry digits 1-10.
-> Flag for manual verification against a clean copy of AABF-D.
+**PDF OCR note:** The published PDF (page 12) has a rendering artifact in octet 5
+showing "Digit 8 | Digit 10" — the correct values are "Digit 9 | Digit 10" as
+confirmed by the sequential nibble-pair pattern (1-2, 3-4, 5-6, 7-8, 9-10) and
+by cross-checking with TIA-102.AABC "Digit field" definition. Logged in phase4
+findings as SPEC BUG.
 
 ### 4.6 LCO $09 — Source ID Extension (SF=1)
 
@@ -572,18 +578,18 @@ Octet   Field                   Width
 ------  ----------------------  ------
   0     LCF ($51)               8 bits
   1     Network ID[19:12]       8 bits   ─┐
-  2     Network ID[11:4]        8 bits    │ 20-bit WACN
-  3     Network ID[3:0] | SysID[11:8]  8 bits ─┘
-  4     System ID[7:0]          8 bits
-  5     Reserved                8 bits
-  6     Target ID[23:16]        8 bits   ─┐
-  7     Target ID[15:8]         8 bits    │ 24-bit Target Unit ID
-  8     Target ID[7:0]          8 bits   ─┘   (NOTE: extraction shows Reserved in octet 8)
+  2     Network ID[11:4]        8 bits    │ 20-bit WACN (Network ID)
+  3     Network ID[3:0] | SysID[11:8]  8 bits ─┘ packed with top 4 bits of System ID
+  4     System ID[7:0]          8 bits   bottom 8 bits of 12-bit System ID
+  5     Target ID[23:16]        8 bits   ─┐
+  6     Target ID[15:8]         8 bits    │ 24-bit Target Unit ID
+  7     Target ID[7:0]          8 bits   ─┘
+  8     Reserved                8 bits   Set to 0 on transmit, ignored on receive
 ```
 
-> **EXTRACTION NOTE:** The PDF extraction for LCO $11 shows octets 5-8 as
-> "Reserved / Target ID / Reserved" with some ambiguity in exact byte boundaries.
-> The layout above reflects the logical structure but may need verification.
+**PDF source (page 14, section 7.3.10):** Octets 5-7 are Target ID (24 bits),
+octet 8 is Reserved. A prior extraction draft incorrectly placed Reserved in
+octet 5 and had ambiguous boundaries. Verified from PDF layout table directly.
 
 ### 4.11 LCO $13 — Status Query (SF=1)
 
@@ -773,21 +779,22 @@ Announces current system services on the primary control channel.
 Octet   Field                       Width
 ------  --------------------------  ------
   0     LCF ($60)                   8 bits
-  1     T_wuid_validity             8 bits   WUID validity timer
-  2     Reserved[7:3] | Req Priority Lvl[2:0]  8 bits
-  3     Reserved                    8 bits
-  4     Sys Services Available[23:16] 8 bits ─┐
-  5     Sys Services Available[15:8]  8 bits  │ 24-bit service availability bitmap
-  6     Sys Services Available[7:0]   8 bits ─┘  (NOTE: extraction ambiguous on exact split)
-  7     Sys Services Supported[15:8]  8 bits ─┐ services the site is equipped to handle
-  8     Sys Services Supported[7:0]   8 bits ─┘
+  1     T_wuid_validity             8 bits   WUID validity timer (see TIA-102.AABC)
+  2     Reserved[7:3] | Req Priority Lvl[2:0]  8 bits   3-bit request priority threshold
+  3     Sys Services Available[23:16] 8 bits ─┐
+  4     Sys Services Available[15:8]  8 bits  │ 24-bit service availability bitmap
+  5     Sys Services Available[7:0]   8 bits ─┘ (see TIA-102.AABC for bit positions)
+  6     Sys Services Supported[23:16] 8 bits ─┐
+  7     Sys Services Supported[15:8]  8 bits  │ 24-bit services-equipped bitmap
+  8     Sys Services Supported[7:0]   8 bits ─┘ (same bit positions as Available field)
 ```
 
-> **EXTRACTION CAVEAT:** The boundary between "Available" and "Supported" across
-> octets 4-8 may not be exactly as shown. The original document shows octets 4-5 as
-> "System Services Available" and octets 6-8 as "System Services Supported" (24 bits
-> each), but that would require 6 octets for two 24-bit fields which exceeds the
-> available space. Cross-reference with TIA-102.AABC for exact bit assignments.
+**PDF source (page 16, section 7.3.13):** The layout clearly assigns octets 3-5 to
+"System Services Available" and octets 6-8 to "System Services Supported" — each
+field is exactly 24 bits (3 octets). A prior extraction draft incorrectly placed a
+Reserved octet at position 3 and showed Available starting at octet 4, which was
+wrong. Correction verified from PDF table layout. The Available field includes a
+TYPE FLAG, EXTENSION FLAG, and NETWORK ACTIVE FLAG as defined in TIA-102.AABC.
 
 ### 4.22 LCO $21 — Secondary Control Channel Broadcast (SF=1)
 
@@ -985,19 +992,27 @@ are not part of the TIA-102.AABF-D standard.
 
 ## 6. Subscriber Unit Address Space
 
-24-bit address values used in Source Address, Target Address, and Source/Target ID fields:
+24-bit address values used in Source Address, Target Address, and Source/Target ID fields.
+Full table extracted to `annex_tables/subscriber_unit_address_table.csv`.
+Source: TIA-102.AABF-D Section 7.4 (page 36), "Subscriber Unit Address" field definition.
 
-```rust
-const ADDR_NO_UNIT: u32         = 0x000000;  // No unit / placeholder
-// 0x000001 - 0xFFFFFC = Assignable subscriber unit addresses
-const ADDR_FNE_DISPATCH: u32    = 0xFFFFFD;  // Reserved for FNE dispatch functions
-const ADDR_SYSTEM_DEFAULT: u32  = 0xFFFFFE;  // FNE call processing (registration, mobility)
-const ADDR_ALL_UNITS: u32       = 0xFFFFFF;  // Broadcast to ALL subscriber units
-
-// Registration Default address noted in spec — may overlap with System Default
-// due to possible typo in original document. Implementations typically treat
-// $FFFFFE as both "Registration Default" and "System Default".
+```c
+/* Subscriber Unit Address special values (TIA-102.AABF-D Section 7.4, page 36) */
+#define ADDR_NO_UNIT                ((uint32_t)0x000000U) /* placeholder; no specific unit */
+/* 0x000001 - 0xFFFFFB: assignable subscriber unit addresses */
+#define ADDR_ASSIGNABLE_MIN         ((uint32_t)0x000001U)
+#define ADDR_ASSIGNABLE_MAX         ((uint32_t)0xFFFFFBU)
+#define ADDR_FNE_USE                ((uint32_t)0xFFFFFCU) /* FNE radio control/dispatch */
+#define ADDR_SYSTEM_DEFAULT         ((uint32_t)0xFFFFFDU) /* FNE call processing (reg/mobility) */
+#define ADDR_REGISTRATION_DEFAULT   ((uint32_t)0xFFFFFEU) /* pre-registration transactions */
+#define ADDR_ALL_UNITS              ((uint32_t)0xFFFFFFU) /* broadcast to ALL subscriber units */
 ```
+
+**Address range correction:** The PDF (page 36) defines five reserved/special values
+at the top of the 24-bit space: $FFFFFC (FNE Use), $FFFFFD (System Default),
+$FFFFFE (Registration Default), $FFFFFF (ALL). A prior extraction had conflated
+$FFFFFD/"System Default" with $FFFFFE/"Registration Default" and labeled them
+incorrectly. These are distinct entries — see `annex_tables/subscriber_unit_address_table.csv`.
 
 **Group Address:** 16-bit value. $0000 = no group. $0001-$FFFF = assignable.
 Group addresses are unique within a System.
@@ -1025,553 +1040,290 @@ Actual frequency = Base Frequency + (Channel Number * Channel Spacing) +/- Trans
 
 ## 8. LCW Parser Pseudocode
 
-```
-function parse_lcw(data: [u8; 9]) -> LinkControlWord:
-    // Step 1: Extract LCF (octet 0)
-    lcf = data[0]
-    p_flag   = (lcf >> 7) & 0x01       // Protected
-    sf_flag  = (lcf >> 6) & 0x01       // Implicit/Explicit MFID
-    lco      = lcf & 0x3F              // Link Control Opcode
+```c
+/*
+ * parse_lcw() — parse a 72-bit Link Control Word from 9 octets
+ * Returns: caller-defined result struct (type tag + fields)
+ */
+void parse_lcw(const uint8_t data[9], lcw_result_t *out)
+{
+    /* Step 1: Extract LCF (octet 0) */
+    uint8_t lcf     = data[0];
+    uint8_t p_flag  = (lcf >> 7) & 0x01;   /* Protected */
+    uint8_t sf_flag = (lcf >> 6) & 0x01;   /* Implicit/Explicit MFID */
+    uint8_t lco     = lcf & 0x3FU;         /* Link Control Opcode */
 
-    // Step 2: Handle encryption
-    if p_flag == 1:
-        // Octets 1-8 (SF=1) or 2-8 (SF=0) are encrypted
-        // Cannot parse payload without decryption keys
-        // Log as encrypted LC with LCO value
-        return EncryptedLC { lco, raw: data }
+    /* Step 2: Handle encryption */
+    if (p_flag) {
+        /* Octets 1-8 (SF=1) or 2-8 (SF=0) are encrypted.
+         * Cannot parse payload without decryption keys. */
+        out->type = LCW_ENCRYPTED;
+        out->lco  = lco;
+        memcpy(out->raw, data, 9);
+        return;
+    }
 
-    // Step 3: Determine MFID
-    if sf_flag == 1:
-        mfid = 0x00  // Implicit standard MFID
-        payload_start = 1
-    else:
-        mfid = data[1]
-        payload_start = 2
-        if mfid != 0x00 and mfid != 0x01:
-            // Non-standard manufacturer — cannot parse further
-            return ManufacturerLC { lco, mfid, raw: data }
+    /* Step 3: Determine MFID */
+    uint8_t mfid;
+    uint8_t payload_start;
+    if (sf_flag) {
+        mfid          = 0x00U; /* Implicit standard MFID */
+        payload_start = 1;
+    } else {
+        mfid          = data[1];
+        payload_start = 2;
+        if (mfid != 0x00U && mfid != 0x01U) {
+            /* Non-standard manufacturer — cannot parse further */
+            out->type = LCW_MANUFACTURER;
+            out->lco  = lco;
+            out->mfid = mfid;
+            memcpy(out->raw, data, 9);
+            return;
+        }
+    }
 
-    // Step 4: Dispatch on LCO
-    match lco:
-        0x00:  // Group Voice Channel User
-            service_options = data[payload_start]
-            s_flag = data[payload_start + 1] & 0x01
-            group_addr = (data[payload_start + 2] as u16) << 8
-                       | (data[payload_start + 3] as u16)
-            source_addr = (data[payload_start + 4] as u32) << 16
-                        | (data[payload_start + 5] as u32) << 8
-                        | (data[payload_start + 6] as u32)
-            emergency = (service_options >> 7) & 0x01
-            protected = (service_options >> 6) & 0x01
-            priority  = service_options & 0x07
-            return GroupVoiceChannelUser {
-                mfid, service_options, emergency, protected,
-                priority, s_flag, group_addr, source_addr
-            }
-
-        0x03:  // Unit-to-Unit Voice Channel User
-            service_options = data[payload_start]
-            target_addr = (data[payload_start + 1] as u32) << 16
-                        | (data[payload_start + 2] as u32) << 8
-                        | (data[payload_start + 3] as u32)
-            source_addr = (data[payload_start + 4] as u32) << 16
-                        | (data[payload_start + 5] as u32) << 8
-                        | (data[payload_start + 6] as u32)
-            return UnitToUnitVoiceChannelUser {
-                mfid, service_options, target_addr, source_addr
-            }
-
-        0x02:  // Group Voice Channel Update
-            ch_a = (data[1] as u16) << 8 | (data[2] as u16)
-            grp_a = (data[3] as u16) << 8 | (data[4] as u16)
-            ch_b = (data[5] as u16) << 8 | (data[6] as u16)
-            grp_b = (data[7] as u16) << 8 | (data[8] as u16)
-            return GroupVoiceChannelUpdate { ch_a, grp_a, ch_b, grp_b }
-
-        0x09:  // Source ID Extension
-            wacn = (data[2] as u32) << 12
-                 | (data[3] as u32) << 4
-                 | (data[4] as u32) >> 4
-            sys_id = ((data[4] & 0x0F) as u16) << 8
-                   | (data[5] as u16)
-            unit_id = (data[6] as u32) << 16
-                    | (data[7] as u32) << 8
-                    | (data[8] as u32)
-            return SourceIdExtension { wacn, sys_id, unit_id }
-
-        0x0F:  // Call Termination
-            addr = (data[6] as u32) << 16
-                 | (data[7] as u32) << 8
-                 | (data[8] as u32)
-            return CallTermination { address: addr }
-
-        0x20:  // System Service Broadcast
-            t_wuid = data[1]
-            req_priority = data[2] & 0x07
-            // Remaining octets carry service bitmaps
-            return SystemServiceBroadcast { t_wuid, req_priority, raw: data }
-
-        0x22..=0x24:  // Adjacent/RFSS/Network Status
-            return parse_status_broadcast(lco, data)
-
-        _:
-            if lco >= 0x2B:
-                return Reserved { lco }
-            return UnhandledLC { lco, raw: data }
+    /* Step 4: Dispatch on LCO */
+    switch (lco) {
+    case 0x00: { /* Group Voice Channel User */
+        uint8_t svc  = data[payload_start];
+        uint8_t s    = data[payload_start + 1] & 0x01U;
+        uint16_t grp = ((uint16_t)data[payload_start + 2] << 8)
+                      | data[payload_start + 3];
+        uint32_t src = ((uint32_t)data[payload_start + 4] << 16)
+                     | ((uint32_t)data[payload_start + 5] << 8)
+                     |  data[payload_start + 6];
+        out->type = LCW_GRP_V_CH_USR;
+        out->mfid = mfid;  out->service_options = svc;
+        out->s_flag = s;   out->group_addr = grp;  out->source_addr = src;
+        break;
+    }
+    case 0x03: { /* Unit-to-Unit Voice Channel User */
+        uint8_t svc  = data[payload_start];
+        uint32_t tgt = ((uint32_t)data[payload_start + 1] << 16)
+                     | ((uint32_t)data[payload_start + 2] << 8)
+                     |  data[payload_start + 3];
+        uint32_t src = ((uint32_t)data[payload_start + 4] << 16)
+                     | ((uint32_t)data[payload_start + 5] << 8)
+                     |  data[payload_start + 6];
+        out->type = LCW_UU_V_CH_USR;
+        out->mfid = mfid;  out->service_options = svc;
+        out->target_addr = tgt;  out->source_addr = src;
+        break;
+    }
+    case 0x02: { /* Group Voice Channel Update (SF=1, no explicit MFID) */
+        out->type    = LCW_GRP_V_CH_UPDT;
+        out->ch_a    = ((uint16_t)data[1] << 8) | data[2];
+        out->grp_a   = ((uint16_t)data[3] << 8) | data[4];
+        out->ch_b    = ((uint16_t)data[5] << 8) | data[6];
+        out->grp_b   = ((uint16_t)data[7] << 8) | data[8];
+        break;
+    }
+    case 0x09: { /* Source ID Extension (SF=1) */
+        uint32_t wacn   = ((uint32_t)data[2] << 12)
+                        | ((uint32_t)data[3] <<  4)
+                        | ((uint32_t)data[4] >>  4);
+        uint16_t sys_id = (((uint16_t)data[4] & 0x0FU) << 8)
+                        |   data[5];
+        uint32_t uid    = ((uint32_t)data[6] << 16)
+                        | ((uint32_t)data[7] <<  8)
+                        |  data[8];
+        out->type = LCW_SOURCE_ID_EXT;
+        out->wacn = wacn;  out->sys_id = sys_id;  out->unit_id = uid;
+        break;
+    }
+    case 0x0F: { /* Call Termination/Cancellation (SF=1) */
+        uint32_t addr = ((uint32_t)data[6] << 16)
+                      | ((uint32_t)data[7] <<  8)
+                      |  data[8];
+        out->type = LCW_CALL_TRM;
+        out->address = addr;
+        break;
+    }
+    case 0x20: { /* System Service Broadcast (SF=1) */
+        /* Octets 3-5: Services Available (24 bits), 6-8: Services Supported (24 bits) */
+        out->type             = LCW_SYS_SRV_BCST;
+        out->t_wuid           = data[1];
+        out->req_priority     = data[2] & 0x07U;
+        out->svc_available    = ((uint32_t)data[3] << 16)
+                              | ((uint32_t)data[4] <<  8)
+                              |  data[5];
+        out->svc_supported    = ((uint32_t)data[6] << 16)
+                              | ((uint32_t)data[7] <<  8)
+                              |  data[8];
+        break;
+    }
+    default:
+        if (lco >= 0x2BU) {
+            out->type = LCW_RESERVED;
+        } else {
+            out->type = LCW_UNHANDLED;
+        }
+        out->lco = lco;
+        memcpy(out->raw, data, 9);
+        break;
+    }
+}
 ```
 
 ---
 
-## 9. Rust Type Definitions
+## 9. C Type Definitions
 
-```rust
-/// Link Control Opcode values — all 64 possible values
-#[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum LinkControlOpcode {
-    GroupVoiceChannelUser           = 0x00,
-    // 0x01 reserved
-    GroupVoiceChannelUpdate         = 0x02,
-    UnitToUnitVoiceChannelUser      = 0x03,
-    GroupVoiceChannelUpdateExplicit = 0x04,
-    UnitToUnitAnswerRequest         = 0x05,
-    TelephoneInterconnectVCU        = 0x06,
-    TelephoneInterconnectAnsReq     = 0x07,
-    // 0x08 reserved
-    SourceIdExtension               = 0x09,
-    UnitToUnitVCUExtended           = 0x0A,
-    // 0x0B-0x0E reserved
-    CallTermination                 = 0x0F,
-    GroupAffiliationQuery           = 0x10,
-    UnitRegistrationCommand         = 0x11,
-    // 0x12 reserved (obsolete Unit Auth Cmd)
-    StatusQuery                     = 0x13,
-    StatusUpdate                    = 0x14,
-    MessageUpdate                   = 0x15,
-    CallAlert                       = 0x16,
-    ExtendedFunctionCommand         = 0x17,
-    ChannelIdentifierUpdate         = 0x18,
-    ChannelIdentifierUpdateVU       = 0x19,
-    StatusUpdateSrcIdReq            = 0x1A,
-    MessageUpdateSrcIdReq           = 0x1B,
-    ExtFunctionCmdSrcIdReq          = 0x1C,
-    // 0x1D-0x1F reserved
-    SystemServiceBroadcast          = 0x20,
-    SecondaryControlChannelBcast    = 0x21,
-    AdjacentSiteStatusBroadcast     = 0x22,
-    RfssStatusBroadcast             = 0x23,
-    NetworkStatusBroadcast          = 0x24,
-    // 0x25 reserved (obsolete Protection Param Bcast)
-    SecondaryControlChannelBcastExp = 0x26,
-    AdjacentSiteStatusBcastExp      = 0x27,
-    RfssStatusBroadcastExplicit     = 0x28,
-    NetworkStatusBroadcastExplicit  = 0x29,
-    ConventionalFallback            = 0x2A,
-    // 0x2B-0x3F reserved
+```c
+#include <stdint.h>
+#include <stdbool.h>
+#include <string.h>
+
+/* LCO type tag — all 21 defined opcodes + special cases */
+typedef enum {
+    LCW_GRP_V_CH_USR         = 0x00, /* Group Voice Channel User              */
+    LCW_GRP_V_CH_UPDT        = 0x02, /* Group Voice Channel Update            */
+    LCW_UU_V_CH_USR          = 0x03, /* Unit-to-Unit Voice Channel User       */
+    LCW_GRP_V_CH_UPDT_EXP    = 0x04, /* Group Voice CH Update - Explicit      */
+    LCW_UU_ANS_REQ           = 0x05, /* Unit-to-Unit Answer Request           */
+    LCW_TELE_INT_V_CH_USR    = 0x06, /* Telephone Interconnect VCU            */
+    LCW_TELE_INT_ANS_REQ     = 0x07, /* Telephone Interconnect Answer Request */
+    LCW_SOURCE_ID_EXT        = 0x09, /* Source ID Extension                   */
+    LCW_UU_V_CH_USR_EXT      = 0x0A, /* Unit-to-Unit VCU - Extended           */
+    LCW_CALL_TRM             = 0x0F, /* Call Termination/Cancellation         */
+    LCW_GRP_AFF_Q            = 0x10, /* Group Affiliation Query               */
+    LCW_U_REG_CMD            = 0x11, /* Unit Registration Command             */
+    LCW_STS_Q                = 0x13, /* Status Query                          */
+    LCW_STS_UPDT             = 0x14, /* Status Update                         */
+    LCW_MSG_UPDT             = 0x15, /* Message Update                        */
+    LCW_CALL_ALRT            = 0x16, /* Call Alert                            */
+    LCW_EXT_FNCT_CMD         = 0x17, /* Extended Function Command             */
+    LCW_CH_ID_UPDT           = 0x18, /* Channel Identifier Update             */
+    LCW_CH_ID_UPDT_VU        = 0x19, /* Channel Identifier Update VU          */
+    LCW_STS_UPDT_SRC_RQRD    = 0x1A, /* Status Update - Src ID Required       */
+    LCW_MSG_UPDT_SRC_RQRD    = 0x1B, /* Message Update - Src ID Required      */
+    LCW_EXT_FNCT_SRC_RQRD    = 0x1C, /* Ext Function Cmd - Src ID Required    */
+    LCW_SYS_SRV_BCST         = 0x20, /* System Service Broadcast              */
+    LCW_SCCB                 = 0x21, /* Secondary CC Broadcast                */
+    LCW_ADJ_STS_BCST         = 0x22, /* Adjacent Site Status Broadcast        */
+    LCW_RFSS_STS_BCST        = 0x23, /* RFSS Status Broadcast                 */
+    LCW_NET_STS_BCST         = 0x24, /* Network Status Broadcast              */
+    LCW_SCCB_EXP             = 0x26, /* Secondary CC Broadcast - Explicit     */
+    LCW_ADJ_STS_BCST_EXP     = 0x27, /* Adjacent Site Status Bcast - Explicit */
+    LCW_RFSS_STS_BCST_EXP    = 0x28, /* RFSS Status Broadcast - Explicit      */
+    LCW_NET_STS_BCST_EXP     = 0x29, /* Network Status Broadcast - Explicit   */
+    LCW_CONV_FALLBACK         = 0x2A, /* Conventional Fallback Indication      */
+    /* Synthetic tags for special handling */
+    LCW_ENCRYPTED            = 0x80, /* P=1; payload not parseable            */
+    LCW_MANUFACTURER         = 0x81, /* Non-standard MFID                     */
+    LCW_RESERVED             = 0x82, /* Reserved/undefined LCO                */
+    LCW_UNHANDLED            = 0x83, /* Defined but not yet implemented        */
+} lcw_type_t;
+
+/* Service Options byte (Section 3.5 / TIA-102.AABF-D Section 7.4) */
+typedef struct {
+    bool    emergency;      /* bit 7 — emergency status                  */
+    bool    protected_mode; /* bit 6 — encrypted resources (avoid 'protected' keyword) */
+    bool    duplex;         /* bit 5 — full duplex                       */
+    bool    packet_mode;    /* bit 4 — packet (vs circuit) mode          */
+    uint8_t priority;       /* bits 2:0 — priority 0-7                   */
+} service_options_t;
+
+static inline service_options_t svc_opt_decode(uint8_t val) {
+    service_options_t s;
+    s.emergency      = (val & 0x80U) != 0;
+    s.protected_mode = (val & 0x40U) != 0;
+    s.duplex         = (val & 0x20U) != 0;
+    s.packet_mode    = (val & 0x10U) != 0;
+    s.priority       = val & 0x07U;
+    return s;
+}
+static inline uint8_t svc_opt_encode(const service_options_t *s) {
+    return (uint8_t)((s->emergency      ? 0x80U : 0)
+                   | (s->protected_mode ? 0x40U : 0)
+                   | (s->duplex         ? 0x20U : 0)
+                   | (s->packet_mode    ? 0x10U : 0)
+                   | (s->priority & 0x07U));
 }
 
-impl LinkControlOpcode {
-    pub fn from_u8(val: u8) -> Option<Self> {
-        match val {
-            0x00 => Some(Self::GroupVoiceChannelUser),
-            0x02 => Some(Self::GroupVoiceChannelUpdate),
-            0x03 => Some(Self::UnitToUnitVoiceChannelUser),
-            0x04 => Some(Self::GroupVoiceChannelUpdateExplicit),
-            0x05 => Some(Self::UnitToUnitAnswerRequest),
-            0x06 => Some(Self::TelephoneInterconnectVCU),
-            0x07 => Some(Self::TelephoneInterconnectAnsReq),
-            0x09 => Some(Self::SourceIdExtension),
-            0x0A => Some(Self::UnitToUnitVCUExtended),
-            0x0F => Some(Self::CallTermination),
-            0x10 => Some(Self::GroupAffiliationQuery),
-            0x11 => Some(Self::UnitRegistrationCommand),
-            0x13 => Some(Self::StatusQuery),
-            0x14 => Some(Self::StatusUpdate),
-            0x15 => Some(Self::MessageUpdate),
-            0x16 => Some(Self::CallAlert),
-            0x17 => Some(Self::ExtendedFunctionCommand),
-            0x18 => Some(Self::ChannelIdentifierUpdate),
-            0x19 => Some(Self::ChannelIdentifierUpdateVU),
-            0x1A => Some(Self::StatusUpdateSrcIdReq),
-            0x1B => Some(Self::MessageUpdateSrcIdReq),
-            0x1C => Some(Self::ExtFunctionCmdSrcIdReq),
-            0x20 => Some(Self::SystemServiceBroadcast),
-            0x21 => Some(Self::SecondaryControlChannelBcast),
-            0x22 => Some(Self::AdjacentSiteStatusBroadcast),
-            0x23 => Some(Self::RfssStatusBroadcast),
-            0x24 => Some(Self::NetworkStatusBroadcast),
-            0x26 => Some(Self::SecondaryControlChannelBcastExp),
-            0x27 => Some(Self::AdjacentSiteStatusBcastExp),
-            0x28 => Some(Self::RfssStatusBroadcastExplicit),
-            0x29 => Some(Self::NetworkStatusBroadcastExplicit),
-            0x2A => Some(Self::ConventionalFallback),
-            _ => None,
-        }
-    }
+/* LCF — Link Control Format (octet 0 of every LCW) */
+typedef struct {
+    bool    p_flag;       /* bit 7 — Protected (payload encrypted)       */
+    bool    sf_flag;      /* bit 6 — Implicit MFID (true) / Explicit (false) */
+    uint8_t lco;          /* bits 5:0 — Link Control Opcode              */
+    uint8_t raw;          /* full LCF byte                               */
+} lcf_t;
+
+static inline lcf_t lcf_decode(uint8_t val) {
+    lcf_t f;
+    f.p_flag  = (val & 0x80U) != 0;
+    f.sf_flag = (val & 0x40U) != 0;
+    f.lco     = val & 0x3FU;
+    f.raw     = val;
+    return f;
 }
 
-/// Service Options byte — carried in voice channel user LC messages
-#[derive(Debug, Clone, Copy)]
-pub struct ServiceOptions {
-    pub emergency: bool,       // bit 7 — emergency status
-    pub protected: bool,       // bit 6 — encrypted resources
-    pub duplex: bool,          // bit 5 — full duplex capable
-    pub packet_mode: bool,     // bit 4 — packet (vs circuit) mode
-    pub priority: u8,          // bits 2:0 — priority level 0-7
-}
+/*
+ * lcw_result_t — flat union-based result from parse_lcw().
+ * The 'type' field selects which fields are valid.
+ */
+typedef struct {
+    lcw_type_t type;
+    lcf_t      lcf;
+    uint8_t    lco;         /* redundant with lcf.lco; preserved for convenience  */
+    uint8_t    mfid;        /* octets 1 (explicit) or 0x00 (implicit)             */
+    uint8_t    raw[9];      /* full raw octet array (always populated)            */
 
-impl ServiceOptions {
-    pub fn from_u8(val: u8) -> Self {
-        Self {
-            emergency: (val & 0x80) != 0,
-            protected: (val & 0x40) != 0,
-            duplex: (val & 0x20) != 0,
-            packet_mode: (val & 0x10) != 0,
-            priority: val & 0x07,
-        }
-    }
+    /* Voice channel user fields (LCO 0, 3, 4, 5, 6, 10) */
+    service_options_t service_options;
+    bool       s_flag;      /* Source ID Extension Required                        */
+    uint32_t   source_addr; /* 24-bit WUID of originator                           */
+    uint32_t   target_addr; /* 24-bit WUID of recipient                            */
+    uint16_t   group_addr;  /* 16-bit TGID                                         */
 
-    pub fn to_u8(&self) -> u8 {
-        let mut val = self.priority & 0x07;
-        if self.emergency { val |= 0x80; }
-        if self.protected { val |= 0x40; }
-        if self.duplex { val |= 0x20; }
-        if self.packet_mode { val |= 0x10; }
-        val
-    }
-}
+    /* Source ID Extension fields (LCO 9) */
+    uint32_t   wacn;        /* 20-bit Network ID                                   */
+    uint16_t   sys_id;      /* 12-bit System ID                                    */
+    uint32_t   unit_id;     /* 24-bit Unit ID                                      */
 
-/// Link Control Format header — octet 0 of every LCW
-#[derive(Debug, Clone, Copy)]
-pub struct LinkControlFormat {
-    pub protected: bool,              // P flag (bit 7)
-    pub implicit_mfid: bool,          // SF flag (bit 6) — true = implicit MFID $00
-    pub opcode: u8,                   // LCO (bits 5:0)
-    pub raw: u8,                      // Full LCF byte
-}
+    /* Channel Update fields (LCO 2, 4) */
+    uint16_t   ch_a;        uint16_t grp_a;
+    uint16_t   ch_b;        uint16_t grp_b;
+    uint16_t   ch_t;        /* explicit T channel                                  */
+    uint16_t   ch_r;        /* explicit R channel                                  */
 
-impl LinkControlFormat {
-    pub fn from_u8(val: u8) -> Self {
-        Self {
-            protected: (val & 0x80) != 0,
-            implicit_mfid: (val & 0x40) != 0,
-            opcode: val & 0x3F,
-            raw: val,
-        }
-    }
-}
+    /* Call Timer (LCO 6) */
+    uint16_t   call_timer;  /* 100ms units; 0 = unlimited                         */
 
-/// Parsed Link Control Word — the 72-bit LC payload after error correction
-#[derive(Debug, Clone)]
-pub enum LinkControlWord {
-    /// LCO 0x00: Group Voice Channel User
-    GroupVoiceChannelUser {
-        lcf: LinkControlFormat,
-        mfid: u8,
-        service_options: ServiceOptions,
-        source_id_extension_required: bool,  // S flag
-        group_address: u16,                   // 16-bit TGID
-        source_address: u32,                  // 24-bit WUID
-    },
+    /* Telephone Interconnect (LCO 7) */
+    uint8_t    digits[10];  /* BCD nibbles, digits[0] = digit 1                   */
 
-    /// LCO 0x02: Group Voice Channel Update (two channel/group pairs)
-    GroupVoiceChannelUpdate {
-        lcf: LinkControlFormat,
-        channel_a: u16,
-        group_address_a: u16,
-        channel_b: u16,
-        group_address_b: u16,
-    },
+    /* Status / Message / Extended Function (LCO 0x13-0x1C) */
+    uint16_t   status;      uint16_t message;
+    uint32_t   ext_function; /* 24-bit (Class + Operand + Args)                   */
 
-    /// LCO 0x03: Unit-to-Unit Voice Channel User
-    UnitToUnitVoiceChannelUser {
-        lcf: LinkControlFormat,
-        mfid: u8,
-        service_options: ServiceOptions,
-        target_address: u32,                  // 24-bit target WUID
-        source_address: u32,                  // 24-bit source WUID
-    },
+    /* Channel Identifier Update (LCO 0x18, 0x19) */
+    uint8_t    ch_identifier; /* 4-bit channel identifier                          */
+    uint16_t   bandwidth;     uint16_t tx_offset;  uint16_t ch_spacing;
+    uint32_t   base_freq;    /* 24-bit base frequency                              */
 
-    /// LCO 0x04: Group Voice Channel Update - Explicit
-    GroupVoiceChannelUpdateExplicit {
-        lcf: LinkControlFormat,
-        service_options: ServiceOptions,
-        group_address: u16,
-        channel_t: u16,                       // Transmit channel
-        channel_r: u16,                       // Receive channel
-    },
+    /* System Service Broadcast (LCO 0x20) */
+    uint8_t    t_wuid;           /* WUID validity timer                            */
+    uint8_t    req_priority;     /* 3-bit minimum priority for service             */
+    uint32_t   svc_available;    /* 24-bit services-available bitmap               */
+    uint32_t   svc_supported;    /* 24-bit services-supported bitmap               */
 
-    /// LCO 0x05: Unit-to-Unit Answer Request
-    UnitToUnitAnswerRequest {
-        lcf: LinkControlFormat,
-        service_options: ServiceOptions,
-        source_id_extension_required: bool,
-        target_address: u32,
-        source_address: u32,
-    },
+    /* Site Identity Broadcasts (LCO 0x21-0x29) */
+    uint8_t    lra;         /* Location Registration Area                          */
+    uint8_t    rfss_id;     /* RF Sub-System ID                                    */
+    uint8_t    site_id;     /* Site ID                                             */
+    uint8_t    svc_class;   /* System Service Class                                */
+    bool       flag_c;      bool flag_f;  bool flag_v;  bool flag_a; /* CFVA flags */
+    uint16_t   channel;     /* primary control channel (non-explicit messages)     */
 
-    /// LCO 0x06: Telephone Interconnect Voice Channel User
-    TelephoneInterconnectVCU {
-        lcf: LinkControlFormat,
-        service_options: ServiceOptions,
-        call_timer: u16,                      // 100ms units, 0=unlimited
-        address: u32,                         // source (inbound) or target (outbound)
-    },
+    /* Conventional Fallback (LCO 0x2A) */
+    bool       alert_tone;       /* T flag                                         */
+    bool       failsoft_network; /* N flag                                         */
+    uint8_t    fallback_ch_ids[6];
 
-    /// LCO 0x07: Telephone Interconnect Answer Request
-    TelephoneInterconnectAnswerRequest {
-        lcf: LinkControlFormat,
-        digits: [u8; 10],                     // BCD digits 1-10
-        target_address: u32,
-    },
-
-    /// LCO 0x09: Source ID Extension
-    SourceIdExtension {
-        lcf: LinkControlFormat,
-        wacn: u32,                            // 20-bit WACN (Network ID)
-        system_id: u16,                       // 12-bit System ID
-        source_id: u32,                       // 24-bit Unit ID
-    },
-
-    /// LCO 0x0A: Unit-to-Unit Voice Channel User - Extended
-    UnitToUnitVCUExtended {
-        lcf: LinkControlFormat,
-        service_options: ServiceOptions,
-        source_id_extension_required: bool,   // Always true
-        target_address: u32,
-        source_id: u32,
-    },
-
-    /// LCO 0x0F: Call Termination/Cancellation
-    CallTermination {
-        lcf: LinkControlFormat,
-        address: u32,                         // source (inbound) or target (outbound)
-    },
-
-    /// LCO 0x10: Group Affiliation Query
-    GroupAffiliationQuery {
-        lcf: LinkControlFormat,
-        target_address: u32,
-        source_address: u32,
-    },
-
-    /// LCO 0x11: Unit Registration Command
-    UnitRegistrationCommand {
-        lcf: LinkControlFormat,
-        wacn: u32,                            // 20-bit Network ID
-        system_id: u16,                       // 12-bit System ID
-        target_id: u32,                       // 24-bit target
-    },
-
-    /// LCO 0x13: Status Query
-    StatusQuery {
-        lcf: LinkControlFormat,
-        source_id_extension_required: bool,
-        target_address: u32,
-        source_address: u32,
-    },
-
-    /// LCO 0x14: Status Update
-    StatusUpdate {
-        lcf: LinkControlFormat,
-        status: u16,
-        target_address: u32,
-        source_address: u32,
-    },
-
-    /// LCO 0x15: Message Update
-    MessageUpdate {
-        lcf: LinkControlFormat,
-        message: u16,
-        target_address: u32,
-        source_address: u32,
-    },
-
-    /// LCO 0x16: Call Alert
-    CallAlert {
-        lcf: LinkControlFormat,
-        source_id_extension_required: bool,
-        target_address: u32,
-        source_address: u32,
-    },
-
-    /// LCO 0x17: Extended Function Command
-    ExtendedFunctionCommand {
-        lcf: LinkControlFormat,
-        extended_function: u32,               // 24-bit (Class + Operand + Args)
-        target_address: u32,
-    },
-
-    /// LCO 0x18: Channel Identifier Update
-    ChannelIdentifierUpdate {
-        lcf: LinkControlFormat,
-        identifier: u8,                       // 4-bit channel identifier
-        bandwidth: u16,                       // bandwidth value
-        transmit_offset: u16,                 // TX offset
-        channel_spacing: u16,                 // channel spacing
-        base_frequency: u32,                  // 24-bit base frequency
-    },
-
-    /// LCO 0x19: Channel Identifier Update VU
-    ChannelIdentifierUpdateVU {
-        lcf: LinkControlFormat,
-        identifier: u8,
-        bandwidth_vu: u16,
-        transmit_offset_vu: u16,
-        channel_spacing: u16,
-        base_frequency: u32,
-    },
-
-    /// LCO 0x1A: Status Update - Source ID Required
-    StatusUpdateSrcIdReq {
-        lcf: LinkControlFormat,
-        status: u16,
-        target_address: u32,
-        source_id: u32,
-    },
-
-    /// LCO 0x1B: Message Update - Source ID Required
-    MessageUpdateSrcIdReq {
-        lcf: LinkControlFormat,
-        message: u16,
-        target_address: u32,
-        source_id: u32,
-    },
-
-    /// LCO 0x1C: Extended Function Command - Source ID Required
-    ExtFunctionCmdSrcIdReq {
-        lcf: LinkControlFormat,
-        extended_function: u32,
-        target_id: u32,
-    },
-
-    /// LCO 0x20: System Service Broadcast
-    SystemServiceBroadcast {
-        lcf: LinkControlFormat,
-        t_wuid_validity: u8,
-        request_priority_level: u8,           // 3-bit
-        services_available: u32,              // 24-bit bitmap (approximate)
-        services_supported: u32,              // 24-bit bitmap (approximate)
-    },
-
-    /// LCO 0x21: Secondary Control Channel Broadcast
-    SecondaryControlChannelBroadcast {
-        lcf: LinkControlFormat,
-        rfss_id: u8,
-        site_id: u8,
-        channel_a: u16,
-        service_class_a: u8,
-        channel_b: u16,
-        service_class_b: u8,
-    },
-
-    /// LCO 0x22: Adjacent Site Status Broadcast
-    AdjacentSiteStatusBroadcast {
-        lcf: LinkControlFormat,
-        lra: u8,
-        conventional: bool,                   // C flag
-        site_failure: bool,                   // F flag
-        valid: bool,                          // V flag
-        active: bool,                         // A flag
-        system_id: u16,                       // 12-bit
-        rfss_id: u8,
-        site_id: u8,
-        channel: u16,
-        service_class: u8,
-    },
-
-    /// LCO 0x23: RFSS Status Broadcast
-    RfssStatusBroadcast {
-        lcf: LinkControlFormat,
-        lra: u8,
-        system_id: u16,                       // 12-bit
-        rfss_id: u8,
-        site_id: u8,
-        channel: u16,                         // Primary control channel
-        service_class: u8,
-    },
-
-    /// LCO 0x24: Network Status Broadcast
-    NetworkStatusBroadcast {
-        lcf: LinkControlFormat,
-        wacn: u32,                            // 20-bit Network ID
-        system_id: u16,                       // 12-bit
-        channel: u16,                         // Primary control channel
-        service_class: u8,
-    },
-
-    /// LCO 0x26: Secondary CC Broadcast - Explicit
-    SecondaryControlChannelBcastExplicit {
-        lcf: LinkControlFormat,
-        rfss_id: u8,
-        site_id: u8,
-        channel_t: u16,
-        channel_r: u16,
-        service_class: u8,
-    },
-
-    /// LCO 0x27: Adjacent Site Status Broadcast - Explicit
-    AdjacentSiteStatusBcastExplicit {
-        lcf: LinkControlFormat,
-        lra: u8,
-        channel_t: u16,
-        rfss_id: u8,
-        site_id: u8,
-        channel_r: u16,
-        conventional: bool,
-        site_failure: bool,
-        valid: bool,
-        active: bool,
-    },
-
-    /// LCO 0x28: RFSS Status Broadcast - Explicit
-    RfssStatusBroadcastExplicit {
-        lcf: LinkControlFormat,
-        lra: u8,
-        channel_r: u16,
-        rfss_id: u8,
-        site_id: u8,
-        channel_t: u16,
-        service_class: u8,
-    },
-
-    /// LCO 0x29: Network Status Broadcast - Explicit
-    NetworkStatusBroadcastExplicit {
-        lcf: LinkControlFormat,
-        wacn: u32,                            // 20-bit
-        system_id: u16,                       // 12-bit
-        channel_t: u16,
-        channel_r: u16,
-    },
-
-    /// LCO 0x2A: Conventional Fallback
-    ConventionalFallback {
-        lcf: LinkControlFormat,
-        mfid: u8,
-        alert_tone: bool,                     // T flag
-        failsoft_network: bool,               // N flag
-        fallback_channel_ids: [u8; 6],
-    },
-
-    /// Encrypted LC — cannot parse payload
-    Encrypted {
-        lcf: LinkControlFormat,
-        raw_payload: [u8; 8],                 // octets 1-8
-    },
-
-    /// Manufacturer-specific LC (non-standard MFID)
-    ManufacturerSpecific {
-        lcf: LinkControlFormat,
-        mfid: u8,
-        payload: [u8; 7],                     // octets 2-8
-    },
-
-    /// Reserved or unrecognized LCO
-    Reserved {
-        lcf: LinkControlFormat,
-        raw: [u8; 9],
-    },
-}
+    /* Address field (LCO 0x0F, etc.) */
+    uint32_t   address;     /* source (inbound) or target (outbound) 24-bit addr  */
+} lcw_result_t;
 ```
 
 ---
@@ -1685,32 +1437,33 @@ encrypted, ... }`).
 
 ## 12. Extraction Gaps and Caveats
 
-The following items could not be fully verified from the PDF extraction and may need
-manual verification against a clean copy of TIA-102.AABF-D:
+Items resolved by Phase 4 uplift (2026-04-14):
 
-1. **LCO $07 (Telephone Interconnect Answer Request):** Digit numbering in octet 5
-   is ambiguous in the PDF — rendering artifact may obscure digit 9 vs digit 8.
+1. **LCO $07 (Telephone Interconnect Answer Request):** RESOLVED. Octet 5 digit
+   label was a PDF OCR artifact — "Digit 8 | Digit 10" corrected to "Digit 9 | Digit 10".
+   See Phase 4 findings log entry (SPEC BUG).
 
-2. **LCO $11 (Unit Registration Command):** The exact byte boundary between Network ID,
-   System ID, Target ID, and Reserved fields in octets 5-8 needs verification.
+2. **LCO $11 (Unit Registration Command):** RESOLVED. PDF section 7.3.10 (page 14)
+   clearly shows octets 5-7 as Target ID (24 bits) and octet 8 as Reserved.
+   Layout corrected in Section 4.10.
 
-3. **LCO $20 (System Service Broadcast):** The split between "Services Available" (24 bits)
-   and "Services Supported" (24 bits) across octets 3-8 is ambiguous — the 48 total bits
-   do not cleanly fit 5 octets. The extraction may have missed a boundary detail or the
-   fields may have different widths than described in the summary. Cross-reference with
-   TIA-102.AABC for exact bit assignments.
+3. **LCO $20 (System Service Broadcast):** RESOLVED. PDF section 7.3.13 (page 16)
+   shows octets 3-5 = System Services Available (24 bits) and octets 6-8 = System
+   Services Supported (24 bits). Layout corrected in Section 4.21. For bit definitions
+   within the bitmaps see TIA-102.AABC "System Services Available field".
 
-4. **LCO $18/$19 (Channel Identifier Update / VU):** The intra-octet bit boundaries for
-   Identifier, BW, Transmit Offset, and Channel Spacing fields require cross-reference
-   with TIA-102.AABC/AABB for exact widths. The extraction captures octet-level layout only.
+4. **LCO $18/$19 (Channel Identifier Update / VU):** DEFERRED. The octet-level layout
+   is confirmed from PDF sections 7.3.22 and 7.3.26. Intra-octet sub-field boundaries
+   (exact widths of BW, Transmit Offset, Channel Spacing) require cross-reference
+   with TIA-102.AABC/AABB. Out-of-scope for AABF-D alone.
 
-5. **Subscriber Unit Address table:** The original document may have overlapping entries
-   for $FFFFFE (Registration Default vs System Default). Extracted as shown in the PDF
-   with a note about possible typo.
+5. **Subscriber Unit Address table:** RESOLVED. PDF page 36 defines five distinct
+   special values ($FFFFFC through $FFFFFF). Prior confusion between $FFFFFD
+   (System Default) and $FFFFFE (Registration Default) corrected in Section 6
+   and `annex_tables/subscriber_unit_address_table.csv`.
 
-6. **ETDU frame format details:** The LC embedding in ETDU frames is defined in TIA-102.BAAA,
-   not AABF-D. This spec covers the LC content only, not the frame-level encoding.
+6. **ETDU frame format details:** OUT OF SCOPE. LC embedding in ETDU frames is
+   defined in TIA-102.BAAA. This spec covers LC content only.
 
-7. **Encryption details:** The encryption algorithm applied to LC payload octets (when P=1)
-   is defined in TIA-102.AAAD (Block Encryption Protocol). AABF-D only specifies which
-   octets are encrypted, not how.
+7. **Encryption details:** OUT OF SCOPE. Encryption of LC payload octets is defined
+   in TIA-102.AAAD. AABF-D only specifies which octets are subject to encryption.

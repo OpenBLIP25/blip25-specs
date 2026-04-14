@@ -1,0 +1,71 @@
+# TIA-102.AABF-D Table 3: Link Control Word Usages
+# Source: TIA-102.AABF-D (April 2015), Table 3, page 39
+# Extraction: programmatic from pdftotext -layout, 2026-04-14
+# Invariant: 64 LCO values 0-63, complete coverage (PASS)
+# Note: LCO 9 and 10 are trunked-only per Table 3 — NOT conventional
+#   The prior spec section 2.1 incorrectly marked these as conventional; corrected in uplift
+lco,name,conventional_outbound,conventional_inbound,trunked_outbound,trunked_inbound
+0,Group Voice Channel User,x,x,x,x
+1,Reserved,,,,
+2,Group Voice Channel Update,,,x,
+3,Unit to Unit Voice Channel User,x,x,x,x
+4,Group Voice Channel Update - Explicit,,,x,
+5,Unit to Unit Answer Request,,,x,
+6,Telephone Interconnect VCU,x,x,x,x
+7,Telephone Interconnect Answer Request,,,x,
+8,Reserved,,,,
+9,Source ID Extension,,,x,x
+10,Unit-to-Unit VCU - Extended,,,x,x
+11,Reserved,,,,
+12,Reserved,,,,
+13,Reserved,,,,
+14,Reserved,,,,
+15,Call Termination/Cancellation,x,x,x,x
+16,Group Affiliation Query,,,x,
+17,Unit Registration Command,,,x,
+18,Reserved,,,,
+19,Status Query,,,x,x
+20,Status Update,,,x,x
+21,Message Update,,,x,x
+22,Call Alert,,,x,x
+23,Extended Function Command,,,x,x
+24,Channel Identifier Update,,,x,x
+25,Channel Identifier Update VU,,,x,
+26,Status Update - Source ID Required,,,x,
+27,Message Update - Source ID Required,,,x,
+28,Ext Function Cmd - Src ID Required,,,x,
+29,Reserved,,,,
+30,Reserved,,,,
+31,Reserved,,,,
+32,System Service Broadcast,,,x,x
+33,Secondary Control Channel Broadcast,,,x,
+34,Adjacent Site Status Broadcast,,,x,x
+35,RFSS Status Broadcast,,,x,x
+36,Network Status Broadcast,,,x,x
+37,Reserved,,,,
+38,Secondary CC Broadcast - Explicit,,,x,
+39,Adjacent Site Status Bcast - Explicit,,,x,
+40,RFSS Status Broadcast - Explicit,,,x,
+41,Network Status Broadcast - Explicit,,,x,
+42,Conventional Fallback Indication,,,x,x
+43,Reserved,,,,
+44,Reserved,,,,
+45,Reserved,,,,
+46,Reserved,,,,
+47,Reserved,,,,
+48,Reserved,,,,
+49,Reserved,,,,
+50,Reserved,,,,
+51,Reserved,,,,
+52,Reserved,,,,
+53,Reserved,,,,
+54,Reserved,,,,
+55,Reserved,,,,
+56,Reserved,,,,
+57,Reserved,,,,
+58,Reserved,,,,
+59,Reserved,,,,
+60,Reserved,,,,
+61,Reserved,,,,
+62,Reserved,,,,
+63,Reserved,,,,

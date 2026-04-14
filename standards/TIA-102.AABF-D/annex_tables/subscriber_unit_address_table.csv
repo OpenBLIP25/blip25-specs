@@ -1,0 +1,16 @@
+# TIA-102.AABF-D Subscriber Unit Address Table
+# Source: TIA-102.AABF-D (April 2015), Section 7.4 field definitions, page 36
+# Extraction: programmatic from pdftotext -layout, 2026-04-14
+# Invariant: address range coverage verified — all boundary values present, ranges non-overlapping
+# Note: $FFFFFC = FNE Use (dispatch/radio control), $FFFFFD = System Default (call processing),
+#        $FFFFFE = Registration Default (pre-registration), $FFFFFF = ALL units
+# The spec in Section 6 had $FFFFFD labeled 'FNE_DISPATCH' and $FFFFFE 'SYSTEM_DEFAULT'.
+# The PDF (Table at page 36) uses: $FFFFFC=FNE Use, $FFFFFD=System Default, $FFFFFE=Registration Default.
+# These are NOT the same — the spec's constant names were mapped wrong. Fixed in uplift.
+address_hex,address_decimal,description,constant_name
+0x000000,0,No unit (placeholder - identifies no specific unit),ADDR_NO_UNIT
+0x000001-0xFFFFFB,1-16777211,Assignable Unit address,ADDR_ASSIGNABLE_MIN=0x000001 ADDR_ASSIGNABLE_MAX=0xFFFFFB
+0xFFFFFC,16777212,Reserved for FNE Use (radio control/dispatch),ADDR_FNE_USE
+0xFFFFFD,16777213,System Default (FNE call processing; registration/mobility),ADDR_SYSTEM_DEFAULT
+0xFFFFFE,16777214,Registration Default (pre-registration transactions),ADDR_REGISTRATION_DEFAULT
+0xFFFFFF,16777215,ALL unit (broadcast to all subscriber units),ADDR_ALL_UNITS

@@ -1,0 +1,71 @@
+# TIA-102.AABF-D Table 2: LCO - Link Control Opcode
+# Source: TIA-102.AABF-D (April 2015), Table 2, page 32
+# Extraction: programmatic from pdftotext -layout output, 2026-04-14
+# Invariant verified: all 64 LCO values 0x00-0x3F present exactly once (coverage check PASS)
+# Note: LCO 0x12 was Unit Authentication Command in older revisions; Reserved in AABF-D
+# Note: LCO 0x25 was Protection Parameter Broadcast in older revisions; Reserved in AABF-D
+lco_hex,lco_decimal,lco_binary,defined,alias,full_name,mnemonic,sf_flag,notes
+0x00,0,%00,000,1,LC_GRP_V_CH_USR,Group Voice Channel User,LCGVR,0,SF=0
+0x01,1,%00,001,0,RESERVED,Reserved,,1,
+0x02,2,%00,010,1,LC_GRP_V_CH_UPDT,Group Voice Channel Update,LCGVU,1,SF=1
+0x03,3,%00,011,1,LC_UU_V_CH_USR,Unit to Unit Voice Channel User,LCUVR,1,SF=0
+0x04,4,%00,100,1,LC_GRP_CH_UPDT_EXP,Group Voice Channel Update - Explicit,LCGVUX,1,SF=1
+0x05,5,%00,101,1,LC_UU_ANS_REQ,Unit to Unit Answer Request,LCUAQ,1,SF=1
+0x06,6,%00,110,1,LC_TELE_INT_V_CH_USR,Telephone Interconnect Voice Channel User,LCTVR,1,SF=1
+0x07,7,%00,111,1,LC_TELE_INT_ANS_REQ,Telephone Interconnect Answer Request,LCTAQ,1,SF=1
+0x08,8,%01,000,0,RESERVED,Reserved,,1,
+0x09,9,%01,001,1,LC_SOURCE_ID_EXT,Source ID Extension,,1,SF=1
+0x0A,10,%01,010,1,LC_UU_V_CH_USR_EXT,Unit-to-Unit Voice Channel User - Extended,,1,SF=1
+0x0B,11,%01,011,0,RESERVED,Reserved,,1,
+0x0C,12,%01,100,0,RESERVED,Reserved,,1,
+0x0D,13,%01,101,0,RESERVED,Reserved,,1,
+0x0E,14,%01,110,0,RESERVED,Reserved,,1,
+0x0F,15,%01,111,1,LC_CALL_TRM_CAN,Call Termination/Cancellation,LCCT,1,SF=1
+0x10,16,%10,000,1,LC_GRP_AFF_Q,Group Affiliation Query,LCGAQ,1,SF=1
+0x11,17,%10,001,1,LC_U_REG_CMD,Unit Registration Command,LCRC,1,SF=1
+0x12,18,%10,010,0,RESERVED,Reserved (was Unit Auth Cmd - OBSOLETE),,1,LCO=18 in older docs
+0x13,19,%10,011,1,LC_STS_Q,Status Query,LCSQ,1,SF=1
+0x14,20,%10,100,1,LC_STS_UPDT,Status Update,LCSU,1,SF=1
+0x15,21,%10,101,1,LC_MSG_UPDT,Message Update,LCMU,1,SF=1
+0x16,22,%10,110,1,LC_CALL_ALRT,Call Alert,LCCA,1,SF=1
+0x17,23,%10,111,1,LC_EXT_FNCT_CMD,Extended Function Command,LCEFC,1,SF=1
+0x18,24,%11,000,1,LC_CH_ID_UPDT,Channel Identifier Update,LCCIU,1,SF=1
+0x19,25,%11,001,1,LC_CH_ID_UPDT_EXP,Channel Identifier Update VU,,1,SF=1
+0x1A,26,%11,010,1,LC_STS_UPDT_SRC_RQRD,Status Update - Source ID Required,,1,SF=1
+0x1B,27,%11,011,1,LC_MSG_UPDT_SRC_RQRD,Message Update - Source ID Required,,1,SF=1
+0x1C,28,%11,100,1,LC_EXT_FNCT_CMD_SRC_RQRD,Extended Function Command - Source ID Required,,1,SF=1
+0x1D,29,%11,101,0,RESERVED,Reserved,,1,
+0x1E,30,%11,110,0,RESERVED,Reserved,,1,
+0x1F,31,%11,111,0,RESERVED,Reserved,,1,
+0x20,32,%100,000,1,LC_SYS_SRV_BCST,System Service Broadcast,LCSSB,1,SF=1
+0x21,33,%100,001,1,LC_SCCB,Secondary Control Channel Broadcast,LCSCB,1,SF=1
+0x22,34,%100,010,1,LC_ADJ_STS_BCST,Adjacent Site Status Broadcast,LCASB,1,SF=1
+0x23,35,%100,011,1,LC_RFSS_STS_BCST,RFSS Status Broadcast,LCRSB,1,SF=1
+0x24,36,%100,100,1,LC_NET_STS_BCST,Network Status Broadcast,LCNSB,1,SF=1
+0x25,37,%100,101,0,RESERVED,Reserved (was Protection Parameter Bcast - OBSOLETE),,1,LCO=37 in older docs
+0x26,38,%100,110,1,LC_SCCB_EXP,Secondary Control Channel Broadcast - Explicit,LCSCBX,1,SF=1
+0x27,39,%100,111,1,LC_ADJ_STS_BCST_EXP,Adjacent Site Status Broadcast - Explicit,LCASBX,1,SF=1
+0x28,40,%101,000,1,LC_RFSS_STS_BCST_EXP,RFSS Status Broadcast - Explicit,LCRSBX,1,SF=1
+0x29,41,%101,001,1,LC_NET_STS_BCST_EXP,Network Status Broadcast - Explicit,LCNSBX,1,SF=1
+0x2A,42,%101,010,1,LC_CONV_FALLBACK,Conventional Fallback Indication,,1,SF=0 MFID=$00
+0x2B,43,%101,011,0,RESERVED,Reserved,,1,
+0x2C,44,%101,100,0,RESERVED,Reserved,,1,
+0x2D,45,%101,101,0,RESERVED,Reserved,,1,
+0x2E,46,%101,110,0,RESERVED,Reserved,,1,
+0x2F,47,%101,111,0,RESERVED,Reserved,,1,
+0x30,48,%110,000,0,RESERVED,Reserved,,1,
+0x31,49,%110,001,0,RESERVED,Reserved,,1,
+0x32,50,%110,010,0,RESERVED,Reserved,,1,
+0x33,51,%110,011,0,RESERVED,Reserved,,1,
+0x34,52,%110,100,0,RESERVED,Reserved,,1,
+0x35,53,%110,101,0,RESERVED,Reserved,,1,
+0x36,54,%110,110,0,RESERVED,Reserved,,1,
+0x37,55,%110,111,0,RESERVED,Reserved,,1,
+0x38,56,%111,000,0,RESERVED,Reserved,,1,
+0x39,57,%111,001,0,RESERVED,Reserved,,1,
+0x3A,58,%111,010,0,RESERVED,Reserved,,1,
+0x3B,59,%111,011,0,RESERVED,Reserved,,1,
+0x3C,60,%111,100,0,RESERVED,Reserved,,1,
+0x3D,61,%111,101,0,RESERVED,Reserved,,1,
+0x3E,62,%111,110,0,RESERVED,Reserved,,1,
+0x3F,63,%111,111,0,RESERVED,Reserved,,1,
