@@ -595,6 +595,223 @@ air interface layer. At the receiver:
 void deinterleave_imbe_fullrate(const uint8_t dibits[72], uint32_t c_out[8]);
 ```
 
+### 1.8 Spectral Amplitude Reconstruction (Full-Rate)
+
+Source: BABA-A §6.4 "Spectral Amplitudes Decoding", pages 29–31
+(Equations 65–79) and §6.5 "Synchronization Encoding and Decoding"
+(Equation 80, page 31).
+
+This subsection covers the last decode stage: turning the dequantized
+quantizer indices b̃₂..b̃_{L̃+1} (plus the previous frame's reconstructed
+spectral amplitudes) into the L̃ spectral amplitudes M̃_l that feed the MBE
+synthesizer. The pipeline has four steps: **dequantize → inverse DCT per
+block → concatenate → inverse log-magnitude prediction.**
+
+#### 1.8.1 Block Layout (Eq. 65–67)
+
+The L̃ spectral amplitudes are partitioned into 6 blocks of lengths
+J̃_1..J̃_6 (from Annex J / §12.5). Blocks satisfy:
+
+```
+Σ J̃_i = L̃                                                     (Eq. 65)
+⌊L̃/6⌋ ≤ J̃_i ≤ J̃_{i+1} ≤ ⌈L̃/6⌉    for 1 ≤ i ≤ 5             (Eq. 66)
+```
+
+Each block has one "mean" coefficient C̃_{i,1} plus (J̃_i − 1) higher-order
+coefficients C̃_{i,2}..C̃_{i,J̃_i}. The mean is set from the decoded gain
+vector: **C̃_{i,1} = R̃_i**  (Eq. 67).
+
+#### 1.8.2 Inverse Uniform Quantizer (Eq. 68, 71)
+
+Both the transformed-gain coefficients G̃_2..G̃_6 (Annex F) and the
+higher-order DCT coefficients C̃_{i,k} (Annex G) use an identical
+midtread uniform quantizer. The decode formula with `+0.5` offset
+(midtread convention) is:
+
+```
+value = 0                                    if B̃_m = 0
+value = Δ̃_m · (b̃_m − 2^{B̃_m−1} + 0.5)      otherwise          (Eq. 68 / 71)
+```
+
+- **For Annex F (gain)**: m = 3..7, Δ̃_m from `annex_f_gain_allocation.csv`
+  directly (already the final step size).
+- **For Annex G (HOC)**: m = 8..L̃+1, Δ̃_m = **Table 3 step × Table 4 σ**:
+
+| B̃_m | Table 3 step | | C_{i,k} index k | Table 4 σ |
+|------|-------------:|---|-----------------|----------:|
+| 1    | 1.20 σ      | | k = 2           | 0.307     |
+| 2    | 0.85 σ      | | k = 3           | 0.241     |
+| 3    | 0.65 σ      | | k = 4           | 0.207     |
+| 4    | 0.40 σ      | | k = 5           | 0.190     |
+| 5    | 0.28 σ      | | k = 6           | 0.179     |
+| 6    | 0.15 σ      | | k = 7           | 0.173     |
+| 7    | 0.08 σ      | | k = 8           | 0.165     |
+| 8    | 0.04 σ      | | k = 9           | 0.170     |
+| 9    | 0.02 σ      | | k = 10          | 0.170     |
+| 10   | 0.01 σ      | |                 |           |
+
+So for HOC coefficient C̃_{i,k} with B̃_m bits:
+**Δ̃_m = (Table 3)[B̃_m] · (Table 4)[k]**
+
+Example: a 4-bit allocation at k=3 → Δ̃ = 0.40 · 0.241 = 0.0964.
+
+The relationship between m, i, and k (Eq. 64/72):
+```
+m = 6 + k + Σ_{n=1}^{i-1} J̃_n                                 (Eq. 72)
+```
+walks `[b̃₈..b̃_{L̃+1}] → [C̃_{1,2}, C̃_{1,3}, …, C̃_{1,J̃_1}, C̃_{2,2}, …, C̃_{6,J̃_6}]`
+(Annex G's `b_m`, `C_i`, `C_k` columns spell this out explicitly).
+
+#### 1.8.3 Gain Vector Recovery (Eq. 68, 69, 70)
+
+```
+G̃_1 = IMBE_GAIN_QUANTIZER[b̃₂]                    (Annex E / §12.1)
+G̃_2..G̃_6 per Eq. 68 above
+
+R̃_i = Σ_{m=1}^{6} α(m) · G̃_m · cos[ π·(m−1)·(i − 0.5) / J̃_i ]
+                                                     for 1 ≤ i ≤ 6   (Eq. 69)
+α(1) = 1,  α(m) = 2  for m > 1                                       (Eq. 70)
+```
+
+**Note:** this is a **per-block** inverse DCT — the cosine denominator is
+J̃_i, not 6. The basis frequency changes with block length, so R̃_i cannot
+be computed with a single fixed 6-point DCT table.
+
+#### 1.8.4 Higher-Order DCT Reconstruction (Eq. 73–74)
+
+After dequantizing all C̃_{i,k} per §1.8.2 and setting C̃_{i,1} = R̃_i,
+each block runs an inverse DCT to produce the per-block prediction-residual
+vector c̃_{i,j}:
+
+```
+c̃_{i,j} = Σ_{k=1}^{J̃_i} α(k) · C̃_{i,k} · cos[ π·(k−1)·(j − 0.5) / J̃_i ]
+                                                     for 1 ≤ j ≤ J̃_i   (Eq. 73)
+α(1) = 1,  α(k) = 2  for k > 1                                         (Eq. 74)
+```
+
+Concatenate the 6 blocks to form T̃_l for 1 ≤ l ≤ L̃:
+
+```
+T̃_l = c̃_{i,j}   where block i and position j satisfy
+                  l = j + Σ_{n=1}^{i-1} J̃_n
+```
+
+**T̃_l is the log₂-domain spectral-amplitude prediction residual** for the
+current frame.
+
+#### 1.8.5 Inverse Log-Magnitude Prediction (Eq. 75–79)
+
+Final reconstruction requires the previous frame's spectral amplitudes
+M̃_l(−1) and the previous harmonic count L̃(−1). Per-harmonic mapping to
+the prior frame uses linear interpolation:
+
+```
+k̃_l = L̃(−1) · l / L̃(0)                                       (Eq. 75)
+δ̃_l = k̃_l − ⌊k̃_l⌋                                            (Eq. 76)
+```
+
+The reconstructed log-magnitude:
+
+```
+log₂ M̃_l(0) = T̃_l
+             + ρ·(1−δ̃_l)·log₂ M̃_{⌊k̃_l⌋}(−1)
+             + ρ·δ̃_l    ·log₂ M̃_{⌊k̃_l⌋+1}(−1)
+             − (ρ / L̃(0)) · Σ_{λ=1}^{L̃(0)} [
+                   (1−δ̃_λ)·log₂ M̃_{⌊k̃_λ⌋}(−1)
+                 + δ̃_λ    ·log₂ M̃_{⌊k̃_λ⌋+1}(−1) ]           (Eq. 77)
+```
+
+where **ρ = 0.65** (prediction gain — stated in §6.3 and later reused
+in the half-rate §13.3 text).
+
+Edge cases (Eq. 78–79):
+```
+M̃_0(−1) = 1.0
+M̃_l(−1) = M̃_{L̃(−1)}(−1)  for l > L̃(−1)
+```
+
+**Initialization** (first frame): `M̃_l(−1) = 1 for all l; L̃(−1) = 30`
+(matches §10 Annex A decoder state init).
+
+**Final spectral amplitudes** (for the MBE synthesizer):
+```
+M̃_l = 2^{log₂ M̃_l(0)}   for 1 ≤ l ≤ L̃
+```
+
+#### 1.8.6 Frame Synchronization Bit b̂_{L̂+2} (Eq. 80)
+
+Source: BABA-A §6.5, page 31.
+
+The `b̂_{L̂+2}` bit carved out by §1.4.2's final placement slot (û₇[0])
+**is not a spectral amplitude coefficient** — it's a frame-sync helper.
+The encoder toggles it each frame:
+
+```
+b̂_{L̂+2}(0) = 0  if b̂_{L̂+2}(−1) = 1
+b̂_{L̂+2}(0) = 1  otherwise                                     (Eq. 80)
+```
+
+Initial value after reset: 0. The decoder may use this for frame-boundary
+detection (the bit is placed at a fixed offset in the 144-bit frame; see
+§1.4.2) or ignore it when external sync (e.g. from the air-interface
+frame format) is already established.
+
+#### 1.8.7 Complete C Pipeline
+
+```c
+/* Input:  quantizer values b̃₀..b̃_{L+2} already unpacked from û₀..û₇
+ * Output: M̃_l for l=1..L̃ (spectral amplitudes) and updated decoder state
+ * Requires:  Annex E (gain quantizer), Annex F (gain allocation),
+ *            Annex G (HOC allocation), Annex J (block lengths),
+ *            Tables 3 & 4 (HOC step size & σ) — inlined in §1.8.2.    */
+
+/* Table 3 & 4 values (§1.8.2). */
+static const float HOC_STEP[11]  = { 0.0f, 1.20f, 0.85f, 0.65f, 0.40f, 0.28f,
+                                      0.15f, 0.08f, 0.04f, 0.02f, 0.01f };
+static const float HOC_SIGMA[11] = { 0.0f, 0.0f, 0.307f, 0.241f, 0.207f, 0.190f,
+                                      0.179f, 0.173f, 0.165f, 0.170f, 0.170f };
+/* HOC_SIGMA indexed by k (DCT coefficient position, k=2..10); k=0,1 unused.
+ * Values k ≥ 10 clamp to 0.170 per Table 4 (last row). */
+
+#define RHO 0.65f    /* prediction gain */
+
+/* One-shot decoder: call per frame. prev_M has length prev_L+1 (index 0..prev_L).
+ * prev_M[0] = 1.0f always; prev_M[prev_L] used as fallback for l > prev_L.    */
+void imbe_reconstruct_spectral_amplitudes(
+    uint8_t  L,                       /* harmonics this frame, Eq. 47       */
+    uint8_t  prev_L,                  /* harmonics previous frame           */
+    const float prev_M[/* prev_L+1 */],
+    const uint8_t J[6],               /* block lengths from Annex J          */
+    float    G_tilde[6],              /* G̃_1..G̃_6, already dequantized   */
+    const float C_tilde[6][10],       /* C̃_{i,k} for k=2..J_i, dequantized  */
+    float    M_out[/* L+1 */]);       /* M̃_l written to index 1..L         */
+/* Reference implementation outline:
+ *   1. Build R̃_i per Eq. 69 for i=1..6 using G̃_1..G̃_6.
+ *   2. Set C̃_{i,1} = R̃_i.
+ *   3. Inverse block DCT per Eq. 73 to get c̃_{i,j} for j=1..J̃_i.
+ *   4. Concatenate into T̃_l per §1.8.4.
+ *   5. Apply Eq. 75–79 to get log₂ M̃_l(0).
+ *   6. M̃_l = exp2f(log2_M_l).
+ *   7. Caller updates decoder state (prev_M, prev_L) for next frame. */
+```
+
+### 1.9 Spectral Amplitude Reconstruction is Cross-Frame Stateful
+
+Unlike pitch, V/UV, and gain which are self-contained per frame, the
+reconstruction in §1.8.5 references the previous frame's M̃_l(−1) values.
+This means:
+- The decoder must maintain rolling state: last reconstructed M̃_l and L̃.
+- After a **frame mute** (§6), the previous-frame values should still be
+  preserved for use in the next valid frame, per BABA-A error-concealment
+  guidance.
+- After **frame repeat**, the repeated M̃_l becomes the "previous frame"
+  for the frame after.
+- After a **decoder cold start**, use the initialization values from
+  §10 (Annex A): `M̃_l(−1) = 1 for all l, L̃(−1) = 30`. Note ρ = 0.65
+  means the predictor contributions from the uniform initial state are
+  a constant bias, so the first few frames will settle toward steady
+  state over ≈ 3–5 frames.
+
 ---
 
 ## 2. Half-Rate AMBE+2 Vocoder (Phase 2 TDMA)
