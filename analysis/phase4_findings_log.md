@@ -268,12 +268,50 @@ extraction artifact), it's flagged as **SPEC BUG** for emphasis.
 
 ---
 
+## TIA-102.BBAC-1 (TDMA MAC Layer Addendum 1 — Scrambling)
+
+### 2026-04-14 — Phase 4 uplift of P25_TDMA_Scrambling_Implementation_Spec.md
+
+- **SPEC BUG — Wrong TAPS constant in §9 Galois pseudocode**
+  *Location:* §7.2.5 (scrambling), PDF page 5 (generator polynomial). §3.2
+  of the impl spec already contained an ERRATA block identifying the bug, but
+  §9's `generate_superframe_scramble` pseudocode still carried the old wrong
+  value `0x102_2100_0400` (bit 33 set) instead of the correct
+  `0x108_2100_0400` (bit 35 set, consistent with G(x) = x^44+x^40+x^35+...).
+  *Invariant that caught it:* Cross-check between the §3.2 ERRATA note and
+  the §9 pseudocode literal. Independently confirmed by derivation:
+  (1<<40)|(1<<35)|(1<<29)|(1<<24)|(1<<10) = 0x10821000400.
+  *Fix:* commit `323d62b`. Location: §9 of the scrambling impl spec.
+
+- **AMBIGUITY — SH_MATRIX convention: column vs. row vector**
+  *Location:* §7.2.5, PDF pages 8–9 (Figure 7-4, "Matrix to Advance External
+  LFSR 2^43 Shift Cycles"). The TIA spec defines `seed_inbound = seed_outbound
+  * SH(2^43)` with a row-vector (seed on the left). The impl spec's
+  `gf2_matrix_vector_multiply(SH_MATRIX, seed)` computes `SH_impl * seed`
+  (column convention). Phase 4 verification confirmed that SH_MATRIX as stored
+  equals SH_TIA^T (the transpose of the TIA-convention matrix), and that
+  `gf2_matrix_vector_multiply(SH_MATRIX, seed)` produces the correct inbound
+  seed (verified against test vector 1: SH * 0xBEE006B1293 = 0x4DC0288B12F).
+  Implementers: use `gf2_matrix_vector_multiply(SH_MATRIX, seed)` exactly as
+  shown; do NOT independently transpose SH_MATRIX before use.
+  *Invariant that caught it:* Functional test against test vector 1 ✓.
+  Bit-pattern check against PDF Figure 7-4: all 44 rows match exactly ✓.
+  *Fix:* commit `d17608a`. Ambiguity documented inline in §5 of scrambling spec.
+
+- **COMPLETENESS GAP — Duplicate §3.4 heading**
+  *Location:* §3 of the impl spec (two sections both labeled §3.4).
+  *Invariant that caught it:* Manual section-structure review (Phase 4 Step 1).
+  *Fix:* commit `faa0899`. Second §3.4 renamed §3.5.
+
+---
+
 ## Cumulative Score (2026-04-14)
 
-- **8 real spec correctness bugs caught and fixed**: 3 in BABA-A (Golay
+- **9 real spec correctness bugs caught and fixed**: 3 in BABA-A (Golay
   matrix, Annex H c9(5), Annex S c0(5)), 3 in BAAA-B (frame sync, GF64,
   BCH matrix), 2 in BBAC-A (I-ISCH, DUID), 1 in AABF-D (LCO $07 digit label
-  OCR artifact). One of the BABA-A items is also an inter-spec cross-validation
+  OCR artifact), 1 in BBAC-1 (wrong TAPS constant 0x102_ → 0x108_ in §9).
+  One of the BABA-A items is also an inter-spec cross-validation
   (Annex S confirmed against BBAC-1).
 - **Dozens of completeness gaps filled** (missing algorithms, missing
   tables, missing cross-references, missing disambiguations).
