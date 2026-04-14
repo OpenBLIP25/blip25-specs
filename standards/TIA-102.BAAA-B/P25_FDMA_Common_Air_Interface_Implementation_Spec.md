@@ -151,37 +151,37 @@ The pattern is derived from a 24-bit base value `0x04CF5F` where each bit is exp
 - bit `0` -> dibit `01`
 
 ```
-Base:     0000 0100 1100 1111 0101 1111
-Expanded: 01010101 01110101 11110101 11111111 01111111 11111111
-Hex:      0x5575F5FF7FFF
+Base (24 bits):   0000 0100 1100 1111 0101 1111
+Expanded (48 bits):
+  0101 0101  0111 0101  1111 0101  1111 1111  0111 0111  1111 1111
+    55          75         F5         FF         77         FF
 ```
 
-Wait -- let me reconcile. The document says the expanded dibit form is:
-```
-0101 0101  0111 0101  1111 0101  1111 1111  0111 1111  1111 1111
-  55          75         F5         FF         7F         FF
-```
+The 48-bit frame sync as a 6-byte hex value is: **`0x5575F5FF77FF`**
 
-So the 48-bit frame sync as a 6-byte hex value is: **`0x5575F5FF7FFF`**
+Bytes 5-6 of the base (`01 01 1111`) expand to `0111 0111 1111 1111` = `0x77FF`,
+not `0x7FFF`. The `0x77` (not `0x7F`) at byte 5 is confirmed in PDF Table 15 (page 43).
 
-```rust
-/// 48-bit frame sync pattern, MSB first (first transmitted bit is bit 47).
-const FRAME_SYNC: u64 = 0x5575_F5FF_7FFF;
-const FRAME_SYNC_MASK: u64 = 0xFFFF_FFFF_FFFF; // 48-bit mask
+```c
+/* 48-bit frame sync pattern, MSB first (first transmitted bit is bit 47). */
+/* PDF: Table 15 -- Frame Sync Word Sequence, page 43. */
+/* Verification: expand 24-bit base 0x04CF5F bit-by-bit; 0->01, 1->11: PASS */
+#define FRAME_SYNC      UINT64_C(0x5575F5FF77FF)
+#define FRAME_SYNC_MASK UINT64_C(0x0000FFFFFFFFFFFF)  /* 48-bit mask */
 
-/// Maximum Hamming distance for frame sync detection.
-/// OP25 uses threshold of 4-6 bit errors; SDRTrunk uses 6.
-const FRAME_SYNC_MAX_ERRORS: u32 = 6;
+/* Maximum Hamming distance for frame sync detection. */
+/* OP25 uses threshold of 4-6 bit errors; SDRTrunk uses 6. */
+#define FRAME_SYNC_MAX_ERRORS 6
 
-/// Detect frame sync in a sliding window of received bits.
-fn detect_frame_sync(window: u64) -> bool {
-    let diff = (window ^ FRAME_SYNC) & FRAME_SYNC_MASK;
-    diff.count_ones() <= FRAME_SYNC_MAX_ERRORS
+/* Detect frame sync in a 48-bit sliding window of received bits. */
+static bool detect_frame_sync(uint64_t window) {
+    uint64_t diff = (window ^ FRAME_SYNC) & FRAME_SYNC_MASK;
+    return __builtin_popcountll(diff) <= FRAME_SYNC_MAX_ERRORS;
 }
 ```
 
-**SDRTrunk cross-ref:** `P25P1FrameSync.java` uses this same 48-bit pattern.
-**OP25 cross-ref:** `p25_frame_assembler_impl.cc` searches for `0x5575F5FF7FFF`.
+**SDRTrunk cross-ref:** `P25P1FrameSync.java` uses the 48-bit pattern `0x5575F5FF77FF`.
+**OP25 cross-ref:** `p25_frame_assembler_impl.cc` searches for `0x5575F5FF77FF`.
 
 ---
 
