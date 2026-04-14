@@ -168,26 +168,141 @@ uint8_t imbe_vuv_band_count(uint8_t L) {
 }
 ```
 
-### 1.4 Bit Prioritization Scan Order
+### 1.4 Bit Prioritization Scan Algorithm
 
-The encoder scans voice parameters b0 through b_{L+2} into vectors u0..u7 by
-significance. The MSB of b0 (pitch) always goes into u0. The scan order is defined
-algorithmically in BABA-A Section 10 and depends on L.
+Source: BABA-A Section 7.1 "Bit Prioritization", pages 33–35 (prose only —
+Figures 22, 23, 24 are illustrative, not normative).
 
-**For implementation:** The bit prioritization is invertible. The decoder reconstructs
-b0..b_{L+2} from u0..u7 using the same scan tables. The L value is recovered from
-b0 (pitch index) before the remaining parameters can be unpacked.
+This section maps the 88 voice-parameter information bits of one full-rate
+IMBE frame into the 8 bit vectors û₀..û₇ in *significance order*. û₀ receives
+the most perceptually important bits (protected by the strongest Golay FEC),
+û₇ receives the least important (uncoded). Vector widths:
 
 ```
-Decode order:
-1. Golay-decode u0 -> extract b0 (8-bit pitch index)
-2. From b0, compute omega_0 = 4*pi / (b0 + 39.5)  (Eq. 46)
-3. Compute L = floor(0.9254 * floor(pi/omega_0 + 0.25))  (Eq. 47)
-   Constrained to 9 <= L <= 56; see §1.3.1 for details.
-4. Using L, look up bit allocation tables (Annexes F, G) to determine
-   how many bits each parameter gets
-5. Unpack u1..u7 using the scan order for this L value
+û₀..û₃ = 12 bits each    (total 48, all FEC-protected)
+û₄..û₆ = 11 bits each    (total 33, all FEC-protected)
+û₇     =  7 bits         (uncoded)
+Grand total             =  88 information bits
 ```
+
+Within each vector, bit (N−1) is the MSB and bit 0 is the LSB (N = vector width).
+
+#### 1.4.1 Priority Scan of Spectral Amplitudes b̂₃..b̂_{L̂+1} (Figure 22)
+
+The scan that threads through û₀..û₇ uses the spectral-amplitude quantizer
+values b̂₃, b̂₄, …, b̂_{L̂+1} (the transformed-gain DCT coefficients from
+Annex F for indices 3..7, and the higher-order DCT coefficients from Annex G
+for indices 8..L̂+1). Each b̂_l has B_l allocated bits (5..10 for Annex F,
+0..3 for Annex G; zero-bit coefficients are effectively absent from the scan).
+
+Arrange b̂₃..b̂_{L̂+1} as columns in Figure 22, with the MSB of each column at
+the top. The scan visits every allocated bit in the following order:
+
+```
+for bit_position from (max_B − 1) down to 0:           # MSB plane first
+    for l from 3 to L̂ + 1:                            # coefficient index
+        if B_l > bit_position:                          # this bit is allocated
+            emit (l, bit_position)
+```
+
+i.e. MSB plane of all coefficients (left-to-right), then next-MSB plane, and
+so on. This yields a total of Σ B_l bits, equal to **73 − K̃** (derived
+below; K̃ is the V/UV band count from §1.3.1, Eq. 48).
+
+#### 1.4.2 Placement Order
+
+The emission sequence from §1.4.1, together with the fixed assignments below,
+fills û₀..û₇ in the following order (each line below consumes bits strictly
+in the order shown; "scan" means "next bit from the §1.4.1 sequence"):
+
+```
+û₀[11..6]  = b̂₀[7..2]            # 6 MSBs of pitch
+û₀[5..3]   = b̂₂[5..3]            # 3 MSBs of gain
+û₀[2..0]   = 3 scan bits          # first 3 bits of the §1.4.1 scan
+û₁[11..0]  = 12 scan bits
+û₂[11..0]  = 12 scan bits
+û₃[11..0]  = 12 scan bits          # end of highest-priority section (48 bits)
+──────────────────────────────────
+û₄[10..0]  ─┐
+û₅[10..0]  ─┤ 36 bits total, filled in the following strict order:
+û₆[10..0]  ─┤
+û₇[6..4]   ─┤  1. all K̃ bits of b̂₁ (V/UV), MSB-first
+           ─┤  2. b̂₂[2], then b̂₂[1]  (2 more gain bits)
+           ─┘  3. remaining bits from the §1.4.1 scan
+──────────────────────────────────
+û₇[3]      = b̂₂[0]                # LSB of gain
+û₇[2]      = b̂₀[1]                # bit 1 of pitch
+û₇[1]      = b̂₀[0]                # LSB of pitch
+û₇[0]      = b̂_{L̂+2}[0]          # LSB of the final spectral amplitude
+```
+
+The scan from §1.4.1 produces exactly **(3) + (36) + (36 − K̃ − 2) = 73 − K̃**
+bits, which must equal Σ (B_l for l = 3..L̂+1) for any valid (L̂, K̃) pair.
+This is a useful invariant for testing: if your Annex F + Annex G bit sums
+don't satisfy it, something is mis-looked-up.
+
+#### 1.4.3 Full-Rate Bit Budget Identity
+
+```
+88  =  8           (pitch b̂₀, all bits used)
+    +  K̃          (V/UV b̂₁, all K̃ bits used)
+    +  6           (gain b̂₂, all 6 bits used)
+    +  (73 − K̃)   (spectral amplitudes b̂₃..b̂_{L̂+1} via scan)
+    +  1           (final spectral LSB b̂_{L̂+2}[0])
+```
+
+An implementation should assert this equality at table-load time. K̃ is given
+by Eq. 48 (see §1.3.1): K̃ = ⌊(L̃+2)/3⌋ if L̃ ≤ 36, else 12.
+
+#### 1.4.4 Pre-Computed CSV
+
+For implementers who prefer a table lookup over running the scan algorithm
+at load time, the file
+[`annex_tables/imbe_bit_prioritization.csv`](annex_tables/imbe_bit_prioritization.csv)
+contains the fully-expanded `(L, src_param, src_bit) → (dst_vec, dst_bit)`
+mapping for every L ∈ [9, 56]. **4224 rows = 48 L values × 88 bits per frame.**
+
+All three invariants above (88-bit budget, src coverage, dst coverage) were
+verified for every L during CSV generation (the generator script aborts on
+invariant failure). The CSV is therefore authoritative — if the scan
+algorithm in §1.4.1/§1.4.2 appears to disagree with the CSV, the CSV is
+right and the algorithm text is buggy. Encoders and decoders can index the
+CSV by `(L, src_param, src_bit)` to pack, or by `(L, dst_vec, dst_bit)` to
+unpack.
+
+#### 1.4.5 Decode Pseudocode
+
+The prioritization is invertible. Decoder:
+
+```c
+/* Inverse of §1.4: unpack parameters b̂_l from bit vectors û_0..û_7. */
+void imbe_unpack(const uint16_t u[8], int L, int K, int B[],
+                 uint8_t *b0, uint16_t *b1, uint8_t *b2,
+                 uint32_t b_spec[/* L-1 */]);
+/* B[] has length L+2, indexed by l (with B[0]=8, B[1]=K, B[2]=6,
+ * B[3..7] from Annex F for this L, B[8..L+1] from Annex G for this L,
+ * and B[L+2]=1 implicitly). */
+
+/* Step 1: pitch (must be decoded first to compute L and K):
+ *   b̂₀[7..2] = û₀[11..6];   b̂₀[1..0] = û₇[2..1]
+ * Step 2: omega_0 = 4π / (b̂₀ + 39.5)          (Eq. 46)
+ *         L = floor(0.9254 * floor(π/omega_0 + 0.25))   (Eq. 31/47)
+ *         K = (L <= 36) ? (L + 2) / 3 : 12               (Eq. 48)
+ * Step 3: load Annex F (for l=3..7) and Annex G (for l=8..L+1) → B[l].
+ * Step 4: gain b̂₂:
+ *   b̂₂[5..3] = û₀[5..3];    b̂₂[2..1] and b̂₂[0] come out of the §1.4.2
+ *   placement order (second block for [2..1]; fixed slot for [0]).
+ * Step 5: run §1.4.1 scan forward to build the ordered list of (l, bitpos)
+ *         emissions, then read bits back from û₀..û₇ in §1.4.2 placement
+ *         order into those (l, bitpos) slots. All 73-K scan bits should
+ *         land. */
+```
+
+> **Implementation tip:** build the scan as a vector of (l, bitpos) tuples
+> once per (L, K, B[]) tuple and cache it. The placement order is identical
+> for encode and decode — encode reads from b̂_l and writes to û_i; decode
+> does the reverse. Keep the two as one `enum { ENCODE, DECODE }` function
+> to guarantee they cannot drift.
 
 ### 1.5 FEC Encoding -- Full-Rate
 
@@ -465,20 +580,89 @@ void deinterleave_imbe_fullrate(const uint8_t dibits[72], uint32_t c_out[8]);
 
 ### 2.3 Half-Rate Bit Prioritization
 
-The 49 voice bits are scanned into 4 bit vectors u0..u3:
+Source: BABA-A Section 14.1 "Bit Prioritization", pages 66–67. Tables 15–18
+define the bit-by-bit mapping directly; no scan algorithm required.
 
-| Vector | Information Bits | FEC Code | Encoded Bits | Protection Level |
-|--------|-----------------|----------|-------------|-----------------|
-| u0 | 12 | [24,12] Extended Golay | 24 | Strongest (MSBs of b0, b1, b2, b3) |
-| u1 | 12 | [23,12] Golay | 23 | Strong |
-| u2 | 12 | [23,12] Golay | 23 | Moderate |
-| u3 | 13 | None (uncoded) | -- | None (carried in remaining bits) |
+Half-rate is conceptually simpler than full-rate: the 49 information bits
+are deterministic mappings from the 9 quantizer values b̂₀..b̂₈ into 4 bit
+vectors û₀..û₃. Vector widths:
 
-**Note on u3:** The 4th vector carries the least significant bits without FEC.
-Total encoded = 24 + 23 + 23 = 70 coded bits. The remaining 2 bits of the 72-bit
-frame carry the uncoded tail of u3. (Alternatively, some references show all 72 bits
-allocated across 4 encoded vectors; the exact split is defined in the bit prioritization
-algorithm, Section 16.7 of BABA-A.)
+```
+û₀ = 12 bits     (protected by [24,12] extended Golay → 24 coded bits)
+û₁ = 12 bits     (protected by [23,12] Golay          → 23 coded bits)
+û₂ = 11 bits     (protected by [23,12] Golay          → 23 coded bits, but only 11 info)
+û₃ = 14 bits     (uncoded                              → 2 raw bits on the wire)
+Grand total = 49 information bits, mapping to 24 + 23 + 23 + 2 = 72 channel bits
+```
+
+**Note on û₂ / û₃ widths:** The vector-widths given above match BABA-A §14.1
+exactly (12/12/11/14 info bits). Earlier prose in this spec spoke of û₂=12
+and û₃=13 and attributed the split to "§16.7" — that was incorrect; the
+§14.1 tables below are authoritative. The [23,12] Golay applied to û₂
+protects a 12-bit info word of which only 11 bits are actual payload; the
+12th bit is fixed (a known value) so the code parameters match.
+
+#### 2.3.1 Construction of û₀ (Table 15 of BABA-A)
+
+| Bit position in û₀ | 11 | 10 |  9 |  8 |  7 |  6 |  5 |  4 |  3 |  2 |  1 |  0 |
+|--------------------|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Source             |b̂₀(6)|b̂₀(5)|b̂₀(4)|b̂₀(3)|b̂₁(4)|b̂₁(3)|b̂₁(2)|b̂₁(1)|b̂₂(4)|b̂₂(3)|b̂₂(2)|b̂₂(1)|
+
+MSBs of pitch (4 bits of the 7-bit b̂₀), V/UV (4 bits of the 5-bit b̂₁),
+and gain (4 bits of the 5-bit b̂₂).
+
+#### 2.3.2 Construction of û₁ (Table 16)
+
+| Bit position in û₁ | 11 | 10 |  9 |  8 |  7 |  6 |  5 |  4 |  3 |  2 |  1 |  0 |
+|--------------------|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Source             |b̂₃(8)|b̂₃(7)|b̂₃(6)|b̂₃(5)|b̂₃(4)|b̂₃(3)|b̂₃(2)|b̂₃(1)|b̂₄(6)|b̂₄(5)|b̂₄(4)|b̂₄(3)|
+
+MSBs of PRBA24 (8 of 9 bits) and PRBA58 (4 of 7 bits).
+
+#### 2.3.3 Construction of û₂ (Table 17, 11 info bits)
+
+| Bit position in û₂ | 10 |  9 |  8 |  7 |  6 |  5 |  4 |  3 |  2 |  1 |  0 |
+|--------------------|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Source             |b̂₅(4)|b̂₅(3)|b̂₅(2)|b̂₅(1)|b̂₆(3)|b̂₆(2)|b̂₆(1)|b̂₇(3)|b̂₇(2)|b̂₇(1)|b̂₈(2)|
+
+MSBs of HOC1 (4 of 5), HOC2 (3 of 4), HOC3 (3 of 4), and HOC4 MSB only.
+
+#### 2.3.4 Construction of û₃ (Table 18, 14 bits)
+
+| Bit position in û₃ | 13 | 12 | 11 | 10 |  9 |  8 |  7 |  6 |  5 |  4 |  3 |  2 |  1 |  0 |
+|--------------------|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Source             |b̂₁(0)|b̂₂(0)|b̂₀(2)|b̂₀(1)|b̂₀(0)|b̂₃(0)|b̂₄(2)|b̂₄(1)|b̂₄(0)|b̂₅(0)|b̂₆(0)|b̂₇(0)|b̂₈(1)|b̂₈(0)|
+
+All remaining LSBs. Every parameter bit lands in exactly one slot across
+Tables 15–18 (verified: pitch 7, V/UV 5, gain 5, PRBA24 9, PRBA58 7, HOC1 5,
+HOC2 4, HOC3 4, HOC4 3 → sum = 49 ✓).
+
+#### 2.3.5 Consumer Signatures
+
+```c
+/* Half-rate bit prioritization is a deterministic table lookup, so the
+ * implementation is most naturally expressed as an explicit (src_param,
+ * src_bit) → (dst_vec, dst_bit) map of 49 entries. The inverse (decode)
+ * walks the same map in the opposite direction. */
+
+typedef struct {
+    uint8_t src_param;   /* 0..8 for b̂₀..b̂₈                           */
+    uint8_t src_bit;     /* 0..(width−1), LSB=0                         */
+    uint8_t dst_vec;     /* 0..3 for û₀..û₃                             */
+    uint8_t dst_bit;     /* 0..(width−1), LSB=0                         */
+} ambe_bit_map_entry_t;
+
+extern const ambe_bit_map_entry_t ambe_bit_map[49];  /* Tables 15..18 */
+
+void ambe_pack(const uint16_t b[9], uint16_t u[4]);
+void ambe_unpack(const uint16_t u[4], uint16_t b[9]);
+```
+
+The pre-computed map is available as
+[`annex_tables/ambe_bit_prioritization.csv`](annex_tables/ambe_bit_prioritization.csv)
+(49 rows, columns `src_param, src_bit, dst_vec, dst_bit`). The CSV was
+verified during generation to cover every (src_param, src_bit) slot in
+b̂₀..b̂₈ exactly once (coverage invariant PASS).
 
 ### 2.4 FEC Encoding -- Half-Rate
 
@@ -882,6 +1066,7 @@ Full-rate silence is indicated implicitly through the adaptive smoothing mechani
 - Annex R: HOC VQ codebooks (four sub-tables: 32+16+16+8 entries × 4 floats) — see §12.14 below
 - Annex S: Half-rate interleaving (36 symbols × 4 columns) — see §12.15 below
 - Annex T: Tone parameters (155 non-reserved entries × 3 values: f0, l1, l2) — see §12.16 below
+- Bit prioritization maps (full-rate and half-rate, derived from §7.1 and §14.1) — see §12.17 below
 
 ### 7.2 Tables NOT Extracted
 
@@ -1727,5 +1912,48 @@ extern const tone_param_t ambe_tone_params[155];  /* only non-reserved IDs */
 
 /* Lookup helper (NULL if reserved): */
 const tone_param_t *ambe_tone_lookup(uint8_t tone_id);
+```
+
+### 12.17 Bit Prioritization Maps (Full-Rate and Half-Rate)
+
+**Source:** BABA-A §7.1 (full-rate, pages 33–35) and §14.1 Tables 15–18
+(half-rate, pages 66–67). See §1.4 and §2.3 for the algorithms and table
+descriptions; the CSVs below are the pre-computed mappings derived from
+those sources.
+
+**Files:**
+- [`annex_tables/imbe_bit_prioritization.csv`](annex_tables/imbe_bit_prioritization.csv)
+  — full-rate, 4224 rows (48 L values × 88 mappings per L)
+- [`annex_tables/ambe_bit_prioritization.csv`](annex_tables/ambe_bit_prioritization.csv)
+  — half-rate, 49 rows (deterministic, L-independent)
+
+**Schema (both files):** `[L,] src_param, src_bit, dst_vec, dst_bit`
+(the `L` column is present only in the full-rate file).
+
+`src_param` identifies the voice quantizer value (0 = b̂₀ pitch, 1 = b̂₁
+V/UV, 2 = b̂₂ gain, 3+ = spectral amplitudes or PRBA/HOC VQ indices
+depending on mode). `src_bit` is the bit within that parameter (0 = LSB).
+`dst_vec` ∈ [0, 7] for full-rate or [0, 3] for half-rate. `dst_bit` is the
+bit within that output vector (0 = LSB).
+
+**Invariants verified during generation** (generator aborts on failure):
+- Full-rate: for each L, the 88-bit budget check `8 + K + 6 + (73-K) + 1 = 88`
+  holds; every `(src_param, src_bit)` slot is covered exactly once; every
+  `(dst_vec, dst_bit)` slot is covered exactly once.
+- Half-rate: every `(src_param, src_bit)` in b̂₀..b̂₈ is covered exactly
+  once; the 49 info bits map to 49 distinct `(dst_vec, dst_bit)` slots.
+
+```c
+/* Typical consumer signatures */
+typedef struct {
+    uint8_t src_param, src_bit, dst_vec, dst_bit;
+} bit_map_entry_t;
+
+/* Half-rate: fixed 49-entry map. */
+extern const bit_map_entry_t ambe_bit_map[49];
+
+/* Full-rate: indexed by L. Returns a pointer to the 88-entry array
+ * for the requested L (valid L ∈ [9, 56]). */
+const bit_map_entry_t *imbe_bit_map_for_L(uint8_t L);
 ```
 
