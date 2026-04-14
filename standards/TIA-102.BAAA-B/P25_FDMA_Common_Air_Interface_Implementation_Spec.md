@@ -721,13 +721,19 @@ pattern. The general structure between each pair of IMBE frames:
 The signaling bits carry portions of the LC word (LDU1) or ES word (LDU2) encoded
 with Hamming(10,6,3). Each 10-bit Hamming word carries 6 information bits.
 
-**CRITICAL NOTE:** The exact bit-by-bit interleaving pattern for voice frames within
-LDU1 and LDU2 is defined in Annex A of TIA-102.BAAA-B. The full text extraction
-contains the symbol-level structure (Section A.3 and A.4) but NOT the complete
-symbol-by-symbol table. The full Annex A tables (396 entries for HDU, 864 entries
-each for LDU1 and LDU2) would need to be extracted from the PDF raster images.
+The exact bit-by-bit interleaving pattern for voice frames within LDU1 and LDU2 is
+defined in Annex A of TIA-102.BAAA-B. The complete symbol-by-symbol tables have been
+extracted and are available as CSV files:
 
-**For implementation:** Use the bit position tables from SDRTrunk or OP25:
+- **HDU (396 symbols):** `annex_tables/annex_a2_hdu_transmit_bit_order.csv`
+- **LDU1 (864 symbols):** `annex_tables/annex_a3_ldu1_transmit_bit_order.csv`
+- **LDU2 (864 symbols):** `annex_tables/annex_a4_ldu2_transmit_bit_order.csv`
+
+Each CSV maps symbol (dibit) index to source field and bit names (e.g., `c_0(11)` for
+IMBE codeword c0 bit 11). Symbol indices are consecutive with no gaps (verified).
+
+**For implementation:** Use the bit position tables from these CSVs, or the corresponding
+arrays in SDRTrunk or OP25:
 - **SDRTrunk:** `P25P1Message.java` has hardcoded bit position arrays for extracting
   each IMBE frame from the deinterleaved LDU.
 - **OP25:** `imbe_decoder.cc` contains the voice frame extraction indices.
@@ -1184,39 +1190,38 @@ Voice data units use a different interleaving scheme specific to each frame type
 The IMBE voice bits, Hamming/Golay FEC bits, and signaling bits are placed at specific
 positions defined in Annex A of BAAA-B.
 
-**IMPORTANT:** The complete bit-position tables for HDU, LDU1, and LDU2 interleaving
-are NOT fully extracted in the text -- they require raster extraction from the PDF's
-Annex A tables (which are 396-entry, 864-entry, and 864-entry tables respectively).
+The complete bit-position tables for HDU, LDU1, and LDU2 interleaving have been
+extracted from PDF Annex A and are stored as CSVs (verified: complete symbol coverage):
 
-For implementation, the interleaving is typically handled by hardcoded position arrays.
-The general pattern is:
+- **HDU (396 symbols):** `annex_tables/annex_a2_hdu_transmit_bit_order.csv`
+- **LDU1 (864 symbols):** `annex_tables/annex_a3_ldu1_transmit_bit_order.csv`
+- **LDU2 (864 symbols):** `annex_tables/annex_a4_ldu2_transmit_bit_order.csv`
+
+The general structure within each frame:
 
 **HDU interleaving:**
 - 36 Golay(18,6,8) code words are arranged in a specific order within the 648-bit
-  header code word field.
+  header code word field, interleaved with FS, NID, and status symbols.
 
 **LDU1/LDU2 interleaving:**
-- 9 IMBE voice frames (each 144 FEC-encoded bits) are placed at fixed positions.
+- 9 IMBE voice frames (each 144 FEC-encoded bits) placed at fixed positions.
 - Between voice frames, 10-bit Hamming words carrying LC/ES data are inserted.
 - RS parity symbols are distributed throughout.
 - LSD code words appear after the 9th voice frame.
 
-**Cross-reference for complete interleaving tables:**
+**Cross-reference for pre-computed bit-index arrays:**
 - **OP25:** `p25p1_fdma.cc` contains `imbe_ldu_index_table[]` arrays
-- **SDRTrunk:** `P25P1MessageProcessor.java` has position arrays for each field within
-  LDU1 and LDU2
+- **SDRTrunk:** `P25P1MessageProcessor.java` has position arrays for each field
 
-### 9.3 Items Requiring PDF Raster Extraction
+### 9.3 Items Out of Scope for This Spec
 
-The following detailed tables are referenced in the spec but not fully captured in the
-text extraction and would need direct extraction from the PDF:
+The following are correctly deferred and not included here:
 
-1. **Annex A.2:** Complete 396-symbol HDU transmit bit order table
-2. **Annex A.3:** Complete 864-symbol LDU1 transmit bit order table
-3. **Annex A.4:** Complete 864-symbol LDU2 transmit bit order table
-4. **Annex A.5/A.6:** TDU and TDULC transmit bit order tables (noted as absent from
-   the 83-page edition)
-5. **IMBE voice frame internal interleaving** (defined in TIA-102.BABA, not BAAA-B)
+1. **Annex A.5/A.6: TDU and TDULC transmit bit order tables** — absent from the
+   83-page edition of TIA-102.BAAA-B. TDU has only null padding; TDULC structure
+   follows directly from the LC code word definition in Section 5.5.
+2. **IMBE voice frame internal interleaving** — defined in TIA-102.BABA (IMBE vocoder
+   spec), not in BAAA-B. See the BABA-A Implementation Spec for the 88-bit frame layout.
 
 ---
 
@@ -1680,35 +1685,62 @@ Implementation Spec for the complete opcode table). Some opcodes are TDMA-only
 
 ---
 
-## 15. Summary of Items Requiring PDF Raster Extraction
+## 15. Extracted Data and Out-of-Scope Items
 
-The following data is referenced in TIA-102.BAAA-B but could not be fully captured
-from the text extraction. These would need direct extraction from the PDF's raster
-images (tables in Annex A):
+### 15.1 Extracted Annex Tables
 
-1. **HDU Transmit Bit Order Table (Annex A.2):** 396 entries mapping each transmitted
-   dibit to its source field (FS, NAC, DUID, BCH_parity, MI, ALGID, KID, TGID,
-   Short_Golay_parity, RS_parity, SS). This defines the exact interleaving of the
-   HDU header code word.
+All normative Annex A transmit bit order tables have been extracted from the PDF
+and stored as CSV files in `annex_tables/`:
 
-2. **LDU1 Transmit Bit Order Table (Annex A.3):** 864 entries mapping each transmitted
-   dibit to its source (FS, NID, IMBE c0-c7, Short_Hamm_parity, LC_format, MFID,
-   LC_information, RS_parity, LSD_info, cyclic_parity, SS).
+1. **HDU Transmit Bit Order (Annex A.2):** 396 entries, symbols 0..395.
+   `annex_tables/annex_a2_hdu_transmit_bit_order.csv`
 
-3. **LDU2 Transmit Bit Order Table (Annex A.4):** 864 entries, same structure as LDU1
-   but with ES fields (MI, ALGID, KID) instead of LC fields.
+2. **LDU1 Transmit Bit Order (Annex A.3):** 864 entries, symbols 0..863.
+   `annex_tables/annex_a3_ldu1_transmit_bit_order.csv`
 
-4. **TDU/TDULC Transmit Bit Order Tables (Annex A.5/A.6):** Noted as absent from
-   the 83-page document edition. May be in a companion annex or later revision.
+3. **LDU2 Transmit Bit Order (Annex A.4):** 864 entries, symbols 864..1727.
+   `annex_tables/annex_a4_ldu2_transmit_bit_order.csv`
 
-5. **IMBE Voice Frame Internal Bit Ordering:** Defined in TIA-102.BABA (IMBE vocoder
-   spec), not in BAAA-B. Needed to map between the 88 IMBE information bits and the
-   144 FEC-encoded bits transmitted on the air interface.
+4. **GF(2^6) EXP/LOG Tables** (programmatically generated from x^6+x+1):
+   `annex_tables/gf64_lookup_tables.csv`
 
-6. **GF(2^6) Complete Lookup Tables:** The exponential and logarithm tables (Table 6)
-   were partially extracted but have extraction ambiguities. These should be
-   generated programmatically from the primitive polynomial `x^6 + x + 1` rather
-   than relying on OCR of the table. Code to generate:
+5. **BCH NID Generator Matrix** (from PDF Table 19, page 45):
+   `annex_tables/bch_nid_generator_matrix.csv`
+
+### 15.2 Items Out of Scope
+
+The following are correctly excluded from this spec:
+
+1. **TDU/TDULC transmit bit order (Annex A.5/A.6):** Absent from the 83-page edition.
+   TDU is entirely null padding after NID; TDULC structure follows from Section 5.5.
+
+2. **IMBE voice frame internal bit ordering:** Defined in TIA-102.BABA (IMBE vocoder
+   spec), not in BAAA-B. See the BABA-A Implementation Spec.
+
+### 15.3 GF(2^6) Table Generation Code
+
+The pre-computed tables in Section 8.4.1 can be verified at runtime:
+
+```c
+/* Generate GF(2^6) exponential and logarithm tables.
+ * Pre-computed results: GF64_EXP and GF64_LOG (Section 8.4.1).
+ * exp_out and log_out must each be caller-allocated uint8_t[64]. */
+static void generate_gf64_tables(uint8_t exp_out[64], uint8_t log_out[64]) {
+    uint8_t val = 1;
+    for (uint8_t i = 0; i < 63; i++) {
+        exp_out[i] = val;
+        log_out[val] = i;
+        val = (uint8_t)(val << 1);
+        if (val & 0x40u) {
+            val ^= 0x43u; /* reduce mod x^6 + x + 1: clear bit 6, XOR with x+1 */
+            val &= 0x3Fu;
+        }
+    }
+    exp_out[63] = 1; /* alpha^63 = alpha^0 = 1 */
+    log_out[0]  = 0xFF; /* log(0) undefined */
+}
+/* Pre-computed tables: see annex_tables/gf64_lookup_tables.csv and Section 8.4.1. */
+```
 
 ```c
 /* Generate GF(2^6) exponential and logarithm tables.
@@ -1732,24 +1764,14 @@ static void generate_gf64_tables(uint8_t exp_out[64], uint8_t log_out[64]) {
 /* Pre-computed tables: see annex_tables/gf64_lookup_tables.csv and Section 8.4.1. */
 ```
 
-**Workaround:** For all items above, the open-source implementations (SDRTrunk and OP25)
-contain verified, tested versions of these tables derived from the standard. These can
-be used as the definitive reference for implementation:
+### 15.4 Open-Source Reference Implementations
 
-- **SDRTrunk (Java):** https://github.com/DSheirer/sdrtrunk
-  - `P25P1DataUnitDetector.java` -- frame sync detection
-  - `P25P1Message*.java` -- bit position arrays for all frame types
-  - `Golay18.java`, `Golay24.java` -- Golay encode/decode
-  - `Hamming10.java` -- Hamming(10,6,3)
-  - `ReedSolomon_63_47_17.java` -- RS decoder
-  - `BchCode_63_16_23.java` -- NID BCH decode
-  - `TrellisCodec.java` -- Trellis encode/decode with Viterbi
+- **SDRTrunk (Java):** `P25P1DataUnitDetector.java` (frame sync), `P25P1Message*.java`
+  (bit position arrays), `Golay18.java`, `Golay24.java`, `Hamming10.java`,
+  `ReedSolomon_63_47_17.java`, `BchCode_63_16_23.java`, `TrellisCodec.java`.
 
-- **OP25 (C++/Python):** https://github.com/boatbod/op25
-  - `p25p1_fdma.cc` -- complete FDMA frame processing
-  - `bch.cc` -- BCH encoder/decoder
-  - `golay2087.cc`, `rs.cc` -- FEC codecs
-  - `imbe_decoder.cc` -- IMBE frame extraction from LDU
+- **OP25 (C++/Python):** `p25p1_fdma.cc` (full FDMA pipeline), `bch.cc`, `golay2087.cc`,
+  `rs.cc`, `imbe_decoder.cc` (IMBE frame extraction from LDU).
 
 ---
 
