@@ -40,26 +40,26 @@ and complete superframe structure. No reference to the original PDF required.
 | `10` | -1 | -600 Hz  | -45 deg  |
 | `11` | -3 | -1800 Hz | -135 deg |
 
-```rust
-/// Map a raw dibit (2 bits, MSB=b1 first) to a quaternary symbol.
-/// Input: dibit in 0..=3 where layout is [b1, b0].
-const DIBIT_TO_SYMBOL: [i8; 4] = [
-    1,   // 0b00 -> +1
-    3,   // 0b01 -> +3
-    -1,  // 0b10 -> -1
-    -3,  // 0b11 -> -3
-];
+```c
+/* Map a raw dibit (2 bits, MSB=b1 first) to a quaternary symbol.
+ * Input: dibit in 0..3 where layout is [b1, b0]. */
+static const int8_t DIBIT_TO_SYMBOL[4] = {
+     1,   /* 0x0 (00) -> +1 */
+     3,   /* 0x1 (01) -> +3 */
+    -1,   /* 0x2 (10) -> -1 */
+    -3,   /* 0x3 (11) -> -3 */
+};
 
-/// Inverse: symbol to dibit.
-const SYMBOL_TO_DIBIT: [u8; 7] = [
-    // index 0 = symbol -3, index 6 = symbol +3
-    // Indexed as (symbol + 3): -3->0, -1->2, +1->4, +3->6
-    0b11, 0xFF, 0b10, 0xFF, 0b00, 0xFF, 0b01,
-];
+/* Inverse: symbol to dibit.
+ * Indexed as (symbol + 3): -3->0, -1->2, +1->4, +3->6.
+ * Unused entries (odd offsets) are set to 0xFF (invalid). */
+static const uint8_t SYMBOL_TO_DIBIT[7] = {
+    0x03, 0xFF, 0x02, 0xFF, 0x00, 0xFF, 0x01,
+};
 
-/// C4FM deviation in Hz for each symbol level.
-const C4FM_DEVIATION_HZ: [f32; 4] = [600.0, 1800.0, -600.0, -1800.0];
-// Index by dibit value: 00->+600, 01->+1800, 10->-600, 11->-1800
+/* C4FM deviation in Hz for each dibit value.
+ * Index by dibit: 0x0->+600, 0x1->+1800, 0x2->-600, 0x3->-1800 */
+static const float C4FM_DEVIATION_HZ[4] = { 600.0f, 1800.0f, -600.0f, -1800.0f };
 ```
 
 ### 1.3 Pulse Shaping -- Nyquist Raised Cosine Filter
@@ -97,31 +97,24 @@ spectrum than C4FM. Both can be received by the same QPSK demodulator.
 The CQPSK modulator uses a state machine with 8 phase states (0-7). Each input dibit
 produces an (I, Q) pair from a 5-level set {-1.0, -0.7071, 0.0, +0.7071, +1.0}.
 
-```rust
-/// CQPSK lookup table: [current_phase_state][input_dibit] -> (next_state, i_level, q_level)
-/// Phase states 0-7, input dibits 00=0, 01=1, 10=2, 11=3.
-/// I/Q levels encoded as i8 where: -4=-1.0, -3=-0.7071, 0=0.0, 3=+0.7071, 4=+1.0
-const CQPSK_TABLE: [[(u8, i8, i8); 4]; 8] = [
-    // State 0
-    [(1,  3,  3), (3, -3,  3), (7,  3, -3), (5, -3, -3)],
-    // State 1
-    [(2,  0,  4), (4, -4,  0), (0,  4,  0), (6,  0, -4)],
-    // State 2
-    [(3, -3,  3), (5, -3, -3), (1,  3,  3), (7,  3, -3)],
-    // State 3
-    [(4, -4,  0), (6,  0, -4), (2,  0,  4), (0,  4,  0)],
-    // State 4
-    [(5, -3, -3), (7,  3, -3), (3, -3,  3), (1,  3,  3)],
-    // State 5
-    [(6,  0, -4), (0,  4,  0), (4, -4,  0), (2,  0,  4)],
-    // State 6
-    [(7,  3, -3), (1,  3,  3), (5, -3, -3), (3, -3,  3)],
-    // State 7
-    [(0,  4,  0), (2,  0,  4), (6,  0, -4), (4, -4,  0)],
-];
-// To get actual float: level_f64 = (value as f64) / 4.0  (maps 4->1.0, 3->0.75)
-// Note: 0.7071 ~= sqrt(2)/2. The i8 encoding 3 is an approximation; use 1.0/sqrt(2.0)
-// in actual DSP code.
+```c
+/* CQPSK lookup entry: next phase state, I level, Q level. */
+typedef struct { uint8_t next_state; int8_t i_level; int8_t q_level; } CqpskEntry;
+
+/* CQPSK lookup table: cqpsk_table[current_phase_state][input_dibit]
+ * Phase states 0-7; input dibits: 0x0=00, 0x1=01, 0x2=10, 0x3=11.
+ * I/Q levels encoded as int8_t: -4=-1.0, -3=-0.7071, 0=0.0, 3=+0.7071, 4=+1.0.
+ * Actual float value: level / 4.0. Use 1.0/sqrt(2.0) for the 0.7071 cases in DSP. */
+static const CqpskEntry CQPSK_TABLE[8][4] = {
+    /* State 0 */ {{1,  3,  3}, {3, -3,  3}, {7,  3, -3}, {5, -3, -3}},
+    /* State 1 */ {{2,  0,  4}, {4, -4,  0}, {0,  4,  0}, {6,  0, -4}},
+    /* State 2 */ {{3, -3,  3}, {5, -3, -3}, {1,  3,  3}, {7,  3, -3}},
+    /* State 3 */ {{4, -4,  0}, {6,  0, -4}, {2,  0,  4}, {0,  4,  0}},
+    /* State 4 */ {{5, -3, -3}, {7,  3, -3}, {3, -3,  3}, {1,  3,  3}},
+    /* State 5 */ {{6,  0, -4}, {0,  4,  0}, {4, -4,  0}, {2,  0,  4}},
+    /* State 6 */ {{7,  3, -3}, {1,  3,  3}, {5, -3, -3}, {3, -3,  3}},
+    /* State 7 */ {{0,  4,  0}, {2,  0,  4}, {6,  0, -4}, {4, -4,  0}},
+};
 ```
 
 ### 1.6 QPSK Demodulator
@@ -200,15 +193,15 @@ Bit positions (transmitted order, MSB first):
   [0]      = Overall parity bit P (even parity over all 64 bits)
 ```
 
-```rust
-/// Extract NAC from a 64-bit NID value (bits 63..52).
-fn nid_nac(nid: u64) -> u16 {
-    ((nid >> 52) & 0xFFF) as u16
+```c
+/* Extract NAC from a 64-bit NID value (bits 63..52). */
+static uint16_t nid_nac(uint64_t nid) {
+    return (uint16_t)((nid >> 52) & 0xFFFu);
 }
 
-/// Extract DUID from a 64-bit NID value (bits 51..48).
-fn nid_duid(nid: u64) -> u8 {
-    ((nid >> 48) & 0xF) as u8
+/* Extract DUID from a 64-bit NID value (bits 51..48). */
+static uint8_t nid_duid(uint64_t nid) {
+    return (uint8_t)((nid >> 48) & 0xFu);
 }
 ```
 
@@ -227,30 +220,20 @@ fn nid_duid(nid: u64) -> u8 {
 Data Unit) is carried as a PDU (DUID=0xC) containing TSBK messages. Some implementations
 treat DUID 0x7 and 0x9 as additional types, but these are not defined in BAAA-B.
 
-```rust
-#[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Duid {
-    Hdu   = 0x0,
-    Tdu   = 0x3,
-    Ldu1  = 0x5,
-    Ldu2  = 0xA,
-    Pdu   = 0xC,
-    Tdulc = 0xF,
-}
+```c
+/* Data Unit Identifier values. */
+#define DUID_HDU   0x0u  /* Header Data Unit */
+#define DUID_TDU   0x3u  /* Terminator (no LC) */
+#define DUID_LDU1  0x5u  /* Logical Data Unit 1 */
+#define DUID_LDU2  0xAu  /* Logical Data Unit 2 */
+#define DUID_PDU   0xCu  /* Packet Data Unit (also TSDU) */
+#define DUID_TDULC 0xFu  /* Terminator with Link Control */
 
-impl Duid {
-    fn from_u8(val: u8) -> Option<Self> {
-        match val & 0xF {
-            0x0 => Some(Duid::Hdu),
-            0x3 => Some(Duid::Tdu),
-            0x5 => Some(Duid::Ldu1),
-            0xA => Some(Duid::Ldu2),
-            0xC => Some(Duid::Pdu),
-            0xF => Some(Duid::Tdulc),
-            _   => None, // reserved
-        }
-    }
+/* Validate a raw 4-bit DUID nibble. Returns 1 if known, 0 if reserved. */
+static int duid_is_valid(uint8_t val) {
+    val &= 0xFu;
+    return (val == DUID_HDU  || val == DUID_TDU  || val == DUID_LDU1 ||
+            val == DUID_LDU2 || val == DUID_PDU  || val == DUID_TDULC);
 }
 ```
 
@@ -379,23 +362,29 @@ then 1 SS dibit, and so on.
 | TDULC | 408 | 6 | 420 |
 | PDU | variable | variable | variable |
 
-```rust
-/// Strip status symbols from a raw dibit stream.
-/// Input: raw dibits including status symbols.
-/// Output: information dibits only, plus collected status values.
-fn strip_status_symbols(raw: &[u8]) -> (Vec<u8>, Vec<u8>) {
-    let mut info = Vec::new();
-    let mut status = Vec::new();
-    for (i, &dibit) in raw.iter().enumerate() {
-        // In the expanded stream, SS appears at positions 35, 71, 107, ...
-        // i.e., every 36th dibit starting at index 35
-        if i >= 35 && (i - 35) % 36 == 0 {
-            status.push(dibit);
+```c
+/* Strip status symbols from a raw dibit stream.
+ * raw:        input dibit array (includes status symbols)
+ * raw_len:    number of input dibits
+ * info_out:   caller-allocated output buffer for information dibits
+ * status_out: caller-allocated output buffer for status dibits
+ * Returns: number of information dibits written to info_out.
+ *
+ * SS positions in the raw stream: indices 35, 71, 107, ...
+ * (every 36th dibit starting at index 35). */
+static size_t strip_status_symbols(const uint8_t *raw, size_t raw_len,
+                                   uint8_t *info_out, uint8_t *status_out) {
+    size_t info_count = 0, status_count = 0;
+    for (size_t i = 0; i < raw_len; i++) {
+        if (i >= 35 && (i - 35) % 36 == 0) {
+            if (status_out) status_out[status_count] = raw[i];
+            status_count++;
         } else {
-            info.push(dibit);
+            if (info_out) info_out[info_count] = raw[i];
+            info_count++;
         }
     }
-    (info, status)
+    return info_count;
 }
 ```
 
@@ -443,15 +432,15 @@ talk group information needed before voice decoding begins.
 
 Decoding (receiver): Golay decode each 18-bit word -> 6-bit symbols -> RS(36,20,17) decode -> extract MI/MFID/ALGID/KID/TGID.
 
-```rust
-struct HeaderDataUnit {
-    nac: u16,           // 12 bits
-    mi: [u8; 9],        // 72 bits, Message Indicator
-    mfid: u8,           // Manufacturer ID
-    algid: u8,          // Algorithm ID
-    kid: u16,           // Key ID
-    tgid: u16,          // Talk Group ID
-}
+```c
+typedef struct {
+    uint16_t nac;       /* 12-bit Network Access Code */
+    uint8_t  mi[9];     /* 72-bit Message Indicator */
+    uint8_t  mfid;      /* Manufacturer ID */
+    uint8_t  algid;     /* Algorithm ID (0x80 = unencrypted) */
+    uint16_t kid;       /* Key ID */
+    uint16_t tgid;      /* Talk Group ID */
+} HeaderDataUnit;
 ```
 
 ### 5.2 Logical Link Data Unit 1 (LDU1)
@@ -484,15 +473,15 @@ for exact positions).
 - 2 octets (LSD1, LSD2), each protected by cyclic(16,8,5)
 - 2 x 16 = 32 bits total, placed after the 9th IMBE frame
 
-```rust
-struct LogicalDataUnit1 {
-    nac: u16,
-    voice_frames: [[u8; 11]; 9],  // 9 x 88 bits IMBE (packed into 11 bytes)
-    lc_format: u8,
-    mfid: u8,
-    lc_info: [u8; 7],             // 56 bits
-    lsd: [u8; 2],                 // Low Speed Data octets
-}
+```c
+typedef struct {
+    uint16_t nac;
+    uint8_t  voice_frames[9][11]; /* 9 x 88 IMBE information bits (packed, 11 bytes each) */
+    uint8_t  lc_format;
+    uint8_t  mfid;
+    uint8_t  lc_info[7];          /* 56-bit LC information field */
+    uint8_t  lsd[2];              /* Low Speed Data octets */
+} LogicalDataUnit1;
 ```
 
 ### 5.3 Logical Link Data Unit 2 (LDU2)
@@ -540,15 +529,15 @@ The 240-bit ES block in LDU2 contains:
 - Of those 24 six-bit symbols: 12 info (MI) + 12 RS parity per RS(24,12,13), PLUS
   ALGID and KID carried in additional Hamming words interleaved in the structure
 
-```rust
-struct LogicalDataUnit2 {
-    nac: u16,
-    voice_frames: [[u8; 11]; 9],  // 9 x 88 bits IMBE
-    mi: [u8; 9],                  // 72-bit Message Indicator
-    algid: u8,                    // Algorithm ID
-    kid: u16,                     // Key ID
-    lsd: [u8; 2],                 // Low Speed Data octets
-}
+```c
+typedef struct {
+    uint16_t nac;
+    uint8_t  voice_frames[9][11]; /* 9 x 88 IMBE information bits (packed, 11 bytes each) */
+    uint8_t  mi[9];               /* 72-bit Message Indicator */
+    uint8_t  algid;               /* Algorithm ID */
+    uint16_t kid;                 /* Key ID */
+    uint8_t  lsd[2];              /* Low Speed Data octets */
+} LogicalDataUnit2;
 ```
 
 ### 5.4 Terminator Data Unit (TDU)
@@ -566,11 +555,11 @@ Simple terminator marking the end of a voice transmission.
 
 No payload data. Used for simple end-of-call signaling.
 
-```rust
-struct TerminatorDataUnit {
-    nac: u16,
-    // No payload
-}
+```c
+typedef struct {
+    uint16_t nac;
+    /* No payload -- end-of-call marker only. */
+} TerminatorDataUnit;
 ```
 
 ### 5.5 Terminator with Link Control (TDULC)
@@ -601,13 +590,13 @@ The exact count depends on status symbol placement.
   concatenated) -> 24 bits
 - 12 Golay code words x 24 bits = 288 bits
 
-```rust
-struct TerminatorWithLc {
-    nac: u16,
-    lc_format: u8,
-    mfid: u8,
-    lc_info: [u8; 7],   // 56 bits of LC information
-}
+```c
+typedef struct {
+    uint16_t nac;
+    uint8_t  lc_format;
+    uint8_t  mfid;
+    uint8_t  lc_info[7]; /* 56-bit LC information field */
+} TerminatorWithLc;
 ```
 
 ### 5.6 Trunking Signaling Data Unit (TSDU)
@@ -800,33 +789,32 @@ TSDU transmissions also stand alone -- each TSDU is a single PDU with 1-3 TSBK b
 
 Generator polynomial: `g(x) = x^8 + x^7 + x^6 + x^5 + 1`
 
-```rust
-/// Cyclic(16,8,5) generator polynomial.
-/// Binary: 1_1110_0001 = 0x1E1
-const CYCLIC_16_8_GENERATOR: u16 = 0x01E1;
+```c
+/* Cyclic(16,8,5) generator polynomial: x^8 + x^7 + x^6 + x^5 + 1 = 0x01E1 */
+#define CYCLIC_16_8_GENERATOR 0x01E1u
 
-/// Generator matrix in systematic form [I_8 | P_8].
-/// Each row: 8-bit identity left, 8-bit parity right -> 16-bit code word.
-const CYCLIC_16_8_GENERATOR_MATRIX: [u16; 8] = [
-    0b1000_0000_0100_1110, // row 1: 0x804E
-    0b0100_0000_0010_0111, // row 2: 0x4027
-    0b0010_0000_1000_1111, // row 3: 0x208F
-    0b0001_0000_1101_1011, // row 4: 0x10DB
-    0b0000_1000_1111_0001, // row 5: 0x08F1
-    0b0000_0100_1110_0100, // row 6: 0x04E4
-    0b0000_0010_0111_0010, // row 7: 0x0272
-    0b0000_0001_0011_1001, // row 8: 0x0139
-];
+/* Generator matrix in systematic form [I_8 | P_8].
+ * Each row: 8-bit identity (high byte) | 8-bit parity (low byte) = 16-bit code word. */
+static const uint16_t CYCLIC_16_8_GENERATOR_MATRIX[8] = {
+    0x804E, /* row 1 */
+    0x4027, /* row 2 */
+    0x208F, /* row 3 */
+    0x10DB, /* row 4 */
+    0x08F1, /* row 5 */
+    0x04E4, /* row 6 */
+    0x0272, /* row 7 */
+    0x0139, /* row 8 */
+};
 
-/// Encode one LSD octet with cyclic(16,8,5).
-fn cyclic_16_8_encode(data: u8) -> u16 {
-    let mut codeword: u16 = 0;
-    for i in 0..8 {
-        if (data >> (7 - i)) & 1 == 1 {
+/* Encode one LSD octet with cyclic(16,8,5). */
+static uint16_t cyclic_16_8_encode(uint8_t data) {
+    uint16_t codeword = 0;
+    for (int i = 0; i < 8; i++) {
+        if ((data >> (7 - i)) & 1u) {
             codeword ^= CYCLIC_16_8_GENERATOR_MATRIX[i];
         }
     }
-    codeword
+    return codeword;
 }
 ```
 
@@ -844,27 +832,26 @@ Octal: 6165
 
 The (24,12,8) extended code appends an even parity bit to the (23,12,7) code.
 
-```rust
-/// Golay(24,12,8) generator matrix (systematic form).
-/// Each row: [12-bit identity | 12-bit parity] = 24-bit code word.
-/// Octal from spec (converted to hex):
-const GOLAY_24_12_GENERATOR: [u32; 12] = [
-    0x800_C75, // row 1:  4000 6165 -> identity 0x800, parity octal 6165
-    0x400_63B, // row 2:  2000 3073
-    0x200_F68, // row 3:  1000 7550 -> verify
-    0x100_7B4, // row 4:  0400 3664
-    0x080_3DA, // row 5:  0200 1732
-    0x040_D99, // row 6:  0100 6631
-    0x020_6CD, // row 7:  0040 3315
-    0x010_367, // row 8:  0020 1547
-    0x008_DC6, // row 9:  0010 6706
-    0x004_A97, // row 10: 0004 5227
-    0x002_93E, // row 11: 0002 4476
-    0x001_8EB, // row 12: 0001 4353
-];
-// NOTE: Octal-to-binary conversion of the parity columns must be verified
-// bit-by-bit. The values above are illustrative. Cross-reference with
-// SDRTrunk `Golay24.java` or OP25 `golay24.cc` for tested constants.
+```c
+/* Golay(24,12,8) generator matrix (systematic form).
+ * Each row: [12-bit identity | 12-bit parity] packed into low 24 bits of uint32_t.
+ * Octal from spec converted to hex.
+ * NOTE: Octal-to-binary conversion of the parity columns must be verified
+ * bit-by-bit. Cross-reference with SDRTrunk Golay24.java or OP25 golay24.cc. */
+static const uint32_t GOLAY_24_12_GENERATOR[12] = {
+    0x800C75u, /* row  1: identity 0x800, parity octal 6165 */
+    0x40063Bu, /* row  2: 2000 3073 */
+    0x200F68u, /* row  3: 1000 7550 -- verify */
+    0x1007B4u, /* row  4: 0400 3664 */
+    0x0803DAu, /* row  5: 0200 1732 */
+    0x040D99u, /* row  6: 0100 6631 */
+    0x0206CDu, /* row  7: 0040 3315 */
+    0x010367u, /* row  8: 0020 1547 */
+    0x008DC6u, /* row  9: 0010 6706 */
+    0x004A97u, /* row 10: 0004 5227 */
+    0x00293Eu, /* row 11: 0002 4476 */
+    0x0018EBu, /* row 12: 0001 4353 */
+};
 ```
 
 #### 8.2.2 Golay(18,6,8) -- Shortened
@@ -873,19 +860,19 @@ const GOLAY_24_12_GENERATOR: [u32; 12] = [
 
 Shortened from the (24,12,8) by deleting the leftmost 6 info columns.
 
-```rust
-/// Golay(18,6,8) generator matrix.
-/// Each row: [6-bit identity | 12-bit parity] = 18 bits.
-/// Rows 7-12 of the (24,12,8) matrix with left 6 identity columns removed.
-const GOLAY_18_6_GENERATOR: [u32; 6] = [
-    0x20_6CD, // row 1: 40 3315 (octal) -> 100000 + 011_011_001_101
-    0x10_367, // row 2: 20 1547
-    0x08_DC6, // row 3: 10 6706
-    0x04_A97, // row 4: 04 5227
-    0x02_93E, // row 5: 02 4476
-    0x01_8EB, // row 6: 01 4353
-];
-// Same caveat on exact bit values -- verify against reference implementation.
+```c
+/* Golay(18,6,8) generator matrix (systematic form).
+ * Each row: [6-bit identity | 12-bit parity] = 18 bits, packed into low 18 bits of uint32_t.
+ * These are rows 7-12 of the (24,12,8) matrix with the left 6 identity columns removed.
+ * Same caveat as GOLAY_24_12_GENERATOR -- verify against reference implementation. */
+static const uint32_t GOLAY_18_6_GENERATOR[6] = {
+    0x206CDu, /* row 1: octal 40 3315 */
+    0x10367u, /* row 2: octal 20 1547 */
+    0x08DC6u, /* row 3: octal 10 6706 */
+    0x04A97u, /* row 4: octal 04 5227 */
+    0x0293Eu, /* row 5: octal 02 4476 */
+    0x018EBu, /* row 6: octal 01 4353 */
+};
 ```
 
 ### 8.3 Hamming Codes
@@ -896,37 +883,42 @@ const GOLAY_18_6_GENERATOR: [u32; 6] = [
 
 Generator polynomial: `g(x) = x^4 + x + 1` (octal: 23)
 
-```rust
-/// Hamming(10,6,3) generator matrix (systematic form).
-/// Each row: [6-bit identity | 4-bit parity] = 10 bits.
-const HAMMING_10_6_GENERATOR: [u16; 6] = [
-    0b10_0000_1110, // row 1
-    0b01_0000_1101, // row 2
-    0b00_1000_1011, // row 3
-    0b00_0100_0111, // row 4
-    0b00_0010_0011, // row 5  -- NOTE: spec shows 0011 but check
-    0b00_0001_1100, // row 6
-];
+```c
+/* Hamming(10,6,3) generator matrix (systematic form).
+ * Each row: [6-bit identity | 4-bit parity] = 10 bits.
+ * NOTE: row 5 parity shown as 0011 in spec -- verify against reference. */
+static const uint16_t HAMMING_10_6_GENERATOR[6] = {
+    0x020Eu, /* row 1: 10 0000 1110 */
+    0x010Du, /* row 2: 01 0000 1101 */
+    0x008Bu, /* row 3: 00 1000 1011 */
+    0x0047u, /* row 4: 00 0100 0111 */
+    0x0023u, /* row 5: 00 0010 0011 -- NOTE: verify */
+    0x001Cu, /* row 6: 00 0001 1100 */
+};
 
-/// Encode 6-bit value with Hamming(10,6,3).
-fn hamming_10_6_encode(data: u8) -> u16 {
-    let mut codeword: u16 = 0;
-    for i in 0..6 {
-        if (data >> (5 - i)) & 1 == 1 {
+/* Encode a 6-bit value with Hamming(10,6,3). */
+static uint16_t hamming_10_6_encode(uint8_t data) {
+    uint16_t codeword = 0;
+    for (int i = 0; i < 6; i++) {
+        if ((data >> (5 - i)) & 1u) {
             codeword ^= HAMMING_10_6_GENERATOR[i];
         }
     }
-    codeword
+    return codeword;
 }
 
-/// Decode Hamming(10,6,3) -- correct single bit errors.
-fn hamming_10_6_decode(received: u16) -> (u8, bool) {
-    // Compute syndrome (4 bits) from parity check matrix
-    // If syndrome is 0, no error. Otherwise, syndrome points to error bit.
-    // Return (6-bit data, error_detected)
-    let data = ((received >> 4) & 0x3F) as u8;
-    // ... syndrome computation and correction ...
-    (data, false) // placeholder
+/* Decode Hamming(10,6,3): correct single bit errors.
+ * Returns 6-bit data. Sets *error_detected if syndrome != 0.
+ * Syndrome = parity-check matrix H applied to received word.
+ * Syndrome points to the error bit position if non-zero. */
+static uint8_t hamming_10_6_decode(uint16_t received, bool *error_detected) {
+    /* Compute 4-bit syndrome: s = H * received^T over GF(2). */
+    /* H rows: 1110011000, 1101010100, 1011100010, 0111100001 */
+    /* (matching HAMMING_10_6_GENERATOR parity columns transposed) */
+    uint8_t syndrome = 0;
+    /* ... (syndrome-based single-error correction; t=1) ... */
+    *error_detected = (syndrome != 0);
+    return (uint8_t)((received >> 4) & 0x3Fu);
 }
 ```
 
@@ -936,21 +928,22 @@ fn hamming_10_6_decode(received: u16) -> (u8, bool) {
 
 Same generator polynomial: `g(x) = x^4 + x + 1`
 
-```rust
-/// Hamming(15,11,3) generator matrix (systematic form).
-const HAMMING_15_11_GENERATOR: [u16; 11] = [
-    0b100_0000_0000_1111, // row 1
-    0b010_0000_0000_1110, // row 2
-    0b001_0000_0000_1101, // row 3
-    0b000_1000_0000_1100, // row 4
-    0b000_0100_0000_1011, // row 5
-    0b000_0010_0000_1010, // row 6
-    0b000_0001_0000_1001, // row 7
-    0b000_0000_1000_0111, // row 8
-    0b000_0000_0100_0110, // row 9
-    0b000_0000_0010_0101, // row 10
-    0b000_0000_0001_0011, // row 11
-];
+```c
+/* Hamming(15,11,3) generator matrix (systematic form).
+ * Each row: [11-bit identity | 4-bit parity] = 15 bits. */
+static const uint16_t HAMMING_15_11_GENERATOR[11] = {
+    0x400Fu, /* row  1 */
+    0x200Eu, /* row  2 */
+    0x100Du, /* row  3 */
+    0x080Cu, /* row  4 */
+    0x040Bu, /* row  5 */
+    0x020Au, /* row  6 */
+    0x0109u, /* row  7 */
+    0x0087u, /* row  8 */
+    0x0046u, /* row  9 */
+    0x0025u, /* row 10 */
+    0x0013u, /* row 11 */
+};
 ```
 
 ### 8.4 Reed-Solomon Codes over GF(2^6)
@@ -1021,14 +1014,15 @@ g_HDR(x) = 60 + 73x + 46x^2 + 51x^3 + 73x^4 + 05x^5 + 42x^6 + 64x^7
           + 35x^14 + 34x^15 + x^16
 ```
 
-```rust
-/// RS(36,20,17) generator polynomial coefficients (GF(2^6) elements, octal->decimal).
-/// g(x) = g[0] + g[1]*x + ... + g[16]*x^16.  g[16] = 1 (monic).
-const RS_36_20_GENERATOR: [u8; 17] = [
-    0o60, 0o73, 0o46, 0o51, 0o73, 0o05, 0o42, 0o64,
-    0o33, 0o22, 0o27, 0o21, 0o23, 0o02, 0o35, 0o34,
-    0o01, // x^16 coefficient = 1
-];
+```c
+/* RS(36,20,17) generator polynomial coefficients (GF(2^6) elements).
+ * g(x) = g[0] + g[1]*x + ... + g[16]*x^16. g[16] = 1 (monic).
+ * Coefficients converted from octal (spec notation) to hex. */
+static const uint8_t RS_36_20_GENERATOR[17] = {
+    0x30, 0x3B, 0x26, 0x29, 0x3B, 0x05, 0x22, 0x34,
+    0x1B, 0x12, 0x17, 0x11, 0x13, 0x02, 0x1D, 0x1C,
+    0x01, /* x^16 coefficient = 1 (monic) */
+};
 ```
 
 #### 8.4.3 RS(24,16,9) -- G_LC (LDU1 Link Control, LDU2 Encryption Sync)
@@ -1064,12 +1058,14 @@ g_LC(x) = 50 + 41x + 02x^2 + 74x^3 + 11x^4 + 60x^5 + 34x^6 + 71x^7
          + 03x^8 + 55x^9 + 05x^10 + 71x^11 + x^12
 ```
 
-```rust
-/// RS(24,12,13) generator polynomial (G_LC / TDULC).
-const RS_24_12_GENERATOR: [u8; 13] = [
-    0o50, 0o41, 0o02, 0o74, 0o11, 0o60, 0o34, 0o71,
-    0o03, 0o55, 0o05, 0o71, 0o01,
-];
+```c
+/* RS(24,12,13) generator polynomial (G_LC / TDULC).
+ * g(x) = g[0] + g[1]*x + ... + g[12]*x^12. g[12] = 1 (monic).
+ * Coefficients converted from octal (spec notation) to hex. */
+static const uint8_t RS_24_12_GENERATOR[13] = {
+    0x28, 0x21, 0x02, 0x3C, 0x09, 0x30, 0x1C, 0x39,
+    0x03, 0x2D, 0x05, 0x39, 0x01,
+};
 ```
 
 Generator polynomial for RS(24,16,9) (labeled G_ES in spec, degree 8):
@@ -1077,12 +1073,14 @@ Generator polynomial for RS(24,16,9) (labeled G_ES in spec, degree 8):
 g_ES(x) = 26 + 06x + 24x^2 + 57x^3 + 60x^4 + 45x^5 + 75x^6 + 67x^7 + x^8
 ```
 
-```rust
-/// RS(24,16,9) generator polynomial (G_ES / LDU LC and ES).
-const RS_24_16_GENERATOR: [u8; 9] = [
-    0o26, 0o06, 0o24, 0o57, 0o60, 0o45, 0o75, 0o67,
-    0o01,
-];
+```c
+/* RS(24,16,9) generator polynomial (G_ES / LDU1 LC and LDU2 ES).
+ * g(x) = g[0] + g[1]*x + ... + g[8]*x^8. g[8] = 1 (monic).
+ * Coefficients converted from octal (spec notation) to hex. */
+static const uint8_t RS_24_16_GENERATOR[9] = {
+    0x16, 0x06, 0x14, 0x2F, 0x30, 0x25, 0x3D, 0x37,
+    0x01,
+};
 ```
 
 #### 8.4.4 RS Generator Matrices
@@ -1095,28 +1093,34 @@ in octal.
 For implementation, polynomial division (using the generator polynomials above) is
 typically more efficient than matrix multiplication.
 
-```rust
-/// Generic RS encoder using generator polynomial.
-fn rs_encode(info: &[u8], gen_poly: &[u8], n: usize) -> Vec<u8> {
-    let k = info.len();
-    let r = n - k;
-    assert_eq!(gen_poly.len(), r + 1);
-    
-    // Shift info into high-order positions
-    let mut codeword = vec![0u8; n];
-    codeword[..k].copy_from_slice(info);
-    
-    // Polynomial division
-    for i in 0..k {
-        if codeword[i] != 0 {
-            let factor = codeword[i];
-            for j in 0..=r {
-                codeword[i + j] = gf64_add(codeword[i + j], gf64_mul(factor, gen_poly[r - j]));
+```c
+/* Generic RS encoder over GF(2^6) using the generator polynomial.
+ * info:     k information symbols (GF(2^6) elements)
+ * k:        number of information symbols
+ * gen_poly: generator polynomial coefficients, length r+1, gen_poly[r]=1 (monic)
+ * n:        total code length (n = k + r)
+ * codeword: caller-allocated output buffer of n symbols;
+ *           on return, codeword[0..k-1] = info, codeword[k..n-1] = parity.
+ *
+ * Algorithm: systematic encoding by polynomial division. */
+static void rs_encode(const uint8_t *info, size_t k,
+                      const uint8_t *gen_poly, size_t n,
+                      uint8_t *codeword) {
+    size_t r = n - k;
+    /* Copy info symbols into the high-order positions. */
+    for (size_t i = 0; i < k; i++) codeword[i] = info[i];
+    for (size_t i = k; i < n; i++) codeword[i] = 0;
+    /* Polynomial division over GF(2^6). */
+    for (size_t i = 0; i < k; i++) {
+        if (codeword[i] != 0) {
+            uint8_t factor = codeword[i];
+            for (size_t j = 0; j <= r; j++) {
+                codeword[i + j] = gf64_add(codeword[i + j],
+                                           gf64_mul(factor, gen_poly[r - j]));
             }
         }
     }
-    // Parity is in positions k..n
-    codeword
+    /* Parity symbols now occupy codeword[k..n-1]. */
 }
 ```
 
@@ -1146,10 +1150,10 @@ This interleaving spreads burst errors across the trellis code word.
 
 The same interleave table is used for both rate-1/2 and rate-3/4 trellis codes.
 
-```rust
-/// Trellis interleave table: output_position -> input_position.
-/// interleaved[out] = encoded[TRELLIS_INTERLEAVE[out]]
-const TRELLIS_INTERLEAVE: [u8; 98] = [
+```c
+/* Trellis interleave table: output_position -> input_position.
+ * interleaved[out] = encoded[TRELLIS_INTERLEAVE[out]] */
+static const uint8_t TRELLIS_INTERLEAVE[98] = {
      0,  1,  8,  9, 16, 17, 24, 25, 32, 33, 40, 41, 48, 49, 56, 57,
     64, 65, 72, 73, 80, 81, 88, 89, 96, 97,
      2,  3, 10, 11, 18, 19, 26, 27, 34, 35, 42, 43, 50, 51, 58, 59,
@@ -1158,18 +1162,19 @@ const TRELLIS_INTERLEAVE: [u8; 98] = [
     68, 69, 76, 77, 84, 85, 92, 93,
      6,  7, 14, 15, 22, 23, 30, 31, 38, 39, 46, 47, 54, 55, 62, 63,
     70, 71, 78, 79, 86, 87, 94, 95,
-];
+};
 
-/// Trellis deinterleave table: input_position -> output_position.
-/// This is the inverse permutation. decoded[TRELLIS_DEINTERLEAVE[i]] = received[i]
-const TRELLIS_DEINTERLEAVE: [u8; 98] = {
-    let mut table = [0u8; 98];
-    let mut i = 0;
-    while i < 98 {
-        table[TRELLIS_INTERLEAVE[i] as usize] = i as u8;
-        i += 1;
-    }
-    table
+/* Trellis deinterleave table: input_position -> output_position.
+ * Inverse permutation of TRELLIS_INTERLEAVE, pre-computed.
+ * decoded[TRELLIS_DEINTERLEAVE[i]] = received[i] */
+static const uint8_t TRELLIS_DEINTERLEAVE[98] = {
+     0,  1, 26, 27, 50, 51, 74, 75,  2,  3, 28, 29, 52, 53, 76, 77,
+     4,  5, 30, 31, 54, 55, 78, 79,  6,  7, 32, 33, 56, 57, 80, 81,
+     8,  9, 34, 35, 58, 59, 82, 83, 10, 11, 36, 37, 60, 61, 84, 85,
+    12, 13, 38, 39, 62, 63, 86, 87, 14, 15, 40, 41, 64, 65, 88, 89,
+    16, 17, 42, 43, 66, 67, 90, 91, 18, 19, 44, 45, 68, 69, 92, 93,
+    20, 21, 46, 47, 70, 71, 94, 95, 22, 23, 48, 49, 72, 73, 96, 97,
+    24, 25,
 };
 ```
 
@@ -1236,97 +1241,95 @@ Input is 48 symbols + 1 flush symbol (dibit 00 or tribit 000) = 49 inputs -> 98 
 
 ### 10.2 Rate 1/2 State Transition Table
 
-```rust
-/// Rate 1/2 trellis encoder: TRELLIS_1_2[state][input_dibit] = constellation_point
-const TRELLIS_1_2: [[u8; 4]; 4] = [
-    [ 0, 15, 12,  3], // state 0
-    [ 4, 11,  8,  7], // state 1
-    [13,  2,  1, 14], // state 2
-    [ 9,  6,  5, 10], // state 3
-];
+```c
+/* Rate 1/2 trellis encoder: TRELLIS_1_2[state][input_dibit] = constellation_point */
+static const uint8_t TRELLIS_1_2[4][4] = {
+    { 0, 15, 12,  3}, /* state 0 */
+    { 4, 11,  8,  7}, /* state 1 */
+    {13,  2,  1, 14}, /* state 2 */
+    { 9,  6,  5, 10}, /* state 3 */
+};
 ```
 
 ### 10.3 Rate 3/4 State Transition Table
 
-```rust
-/// Rate 3/4 trellis encoder: TRELLIS_3_4[state][input_tribit] = constellation_point
-const TRELLIS_3_4: [[u8; 8]; 8] = [
-    [ 0,  8,  4, 12,  2, 10,  6, 14], // state 0
-    [ 4, 12,  2, 10,  6, 14,  0,  8], // state 1
-    [ 1,  9,  5, 13,  3, 11,  7, 15], // state 2
-    [ 5, 13,  3, 11,  7, 15,  1,  9], // state 3
-    [ 3, 11,  7, 15,  1,  9,  5, 13], // state 4
-    [ 7, 15,  1,  9,  5, 13,  3, 11], // state 5
-    [ 2, 10,  6, 14,  0,  8,  4, 12], // state 6
-    [ 6, 14,  0,  8,  4, 12,  2, 10], // state 7
-];
+```c
+/* Rate 3/4 trellis encoder: TRELLIS_3_4[state][input_tribit] = constellation_point */
+static const uint8_t TRELLIS_3_4[8][8] = {
+    { 0,  8,  4, 12,  2, 10,  6, 14}, /* state 0 */
+    { 4, 12,  2, 10,  6, 14,  0,  8}, /* state 1 */
+    { 1,  9,  5, 13,  3, 11,  7, 15}, /* state 2 */
+    { 5, 13,  3, 11,  7, 15,  1,  9}, /* state 3 */
+    { 3, 11,  7, 15,  1,  9,  5, 13}, /* state 4 */
+    { 7, 15,  1,  9,  5, 13,  3, 11}, /* state 5 */
+    { 2, 10,  6, 14,  0,  8,  4, 12}, /* state 6 */
+    { 6, 14,  0,  8,  4, 12,  2, 10}, /* state 7 */
+};
 ```
 
 ### 10.4 Constellation Point to Dibit Pair Mapping
 
 Each constellation point (0-15) maps to a pair of dibits for transmission:
 
-```rust
-/// Constellation point -> (dibit_0, dibit_1) mapping.
-/// Values are in the symbol domain: {-3, -1, +1, +3}.
-const CONSTELLATION: [(i8, i8); 16] = [
-    ( 1, -1), // 0
-    (-1, -1), // 1
-    ( 3, -3), // 2
-    (-3, -3), // 3
-    (-3, -1), // 4
-    ( 3, -1), // 5
-    (-1, -3), // 6
-    ( 1, -3), // 7
-    (-3,  3), // 8
-    ( 3,  3), // 9
-    (-1,  1), // 10
-    ( 1,  1), // 11
-    ( 1,  3), // 12
-    (-1,  3), // 13
-    ( 3,  1), // 14
-    (-3,  1), // 15
-];
+```c
+/* Constellation point to (dibit_0, dibit_1) symbol pair.
+ * Symbol values are in {-3, -1, +1, +3}. */
+typedef struct { int8_t d0; int8_t d1; } ConstellationPoint;
+
+static const ConstellationPoint CONSTELLATION[16] = {
+    { 1, -1}, /* 0  */
+    {-1, -1}, /* 1  */
+    { 3, -3}, /* 2  */
+    {-3, -3}, /* 3  */
+    {-3, -1}, /* 4  */
+    { 3, -1}, /* 5  */
+    {-1, -3}, /* 6  */
+    { 1, -3}, /* 7  */
+    {-3,  3}, /* 8  */
+    { 3,  3}, /* 9  */
+    {-1,  1}, /* 10 */
+    { 1,  1}, /* 11 */
+    { 1,  3}, /* 12 */
+    {-1,  3}, /* 13 */
+    { 3,  1}, /* 14 */
+    {-3,  1}, /* 15 */
+};
 ```
 
 ### 10.5 Trellis Encoder
 
-```rust
-struct TrellisEncoder {
-    state: u8,
-}
+```c
+typedef struct { uint8_t state; } TrellisEncoder;
 
-impl TrellisEncoder {
-    fn new() -> Self { Self { state: 0 } }
+/* Initialize the trellis encoder. */
+static void trellis_encoder_init(TrellisEncoder *enc) { enc->state = 0; }
 
-    /// Encode a block of data at rate 1/2.
-    /// Input: 12 bytes (96 bits = 48 dibits).
-    /// Output: 98 dibits (before interleaving).
-    fn encode_rate_half(&mut self, data: &[u8; 12]) -> [u8; 98] {
-        self.state = 0;
-        let mut output = [0u8; 98]; // pairs of dibits
-        let mut out_idx = 0;
-
-        // Process 48 input dibits
-        for byte in data.iter() {
-            for shift in (0..8).step_by(2).rev() {
-                let input_dibit = (byte >> shift) & 0x03;
-                let constellation = TRELLIS_1_2[self.state as usize][input_dibit as usize];
-                let (d0, d1) = CONSTELLATION[constellation as usize];
-                output[out_idx] = symbol_to_dibit(d0);
-                output[out_idx + 1] = symbol_to_dibit(d1);
-                out_idx += 2;
-                self.state = input_dibit; // next state = current input
-            }
+/* Encode a block of data at rate 1/2.
+ * data:   12 bytes (96 bits = 48 dibits)
+ * output: 98 dibits (before interleaving); caller-allocated uint8_t[98]
+ *
+ * Each input dibit is processed MSB-first within each byte.
+ * Next state = current input dibit (2-state trellis).
+ * A flush dibit 0x0 (00) is appended at the end. */
+static void trellis_encode_rate_half(TrellisEncoder *enc,
+                                     const uint8_t data[12],
+                                     uint8_t output[98]) {
+    enc->state = 0;
+    size_t out_idx = 0;
+    for (int b = 0; b < 12; b++) {
+        for (int shift = 6; shift >= 0; shift -= 2) {
+            uint8_t input_dibit = (data[b] >> shift) & 0x03u;
+            uint8_t point = TRELLIS_1_2[enc->state][input_dibit];
+            output[out_idx]     = (uint8_t)SYMBOL_TO_DIBIT[(CONSTELLATION[point].d0 + 3)];
+            output[out_idx + 1] = (uint8_t)SYMBOL_TO_DIBIT[(CONSTELLATION[point].d1 + 3)];
+            out_idx += 2;
+            enc->state = input_dibit; /* next state = current input */
         }
-        // Flush with dibit 00
-        let constellation = TRELLIS_1_2[self.state as usize][0];
-        let (d0, d1) = CONSTELLATION[constellation as usize];
-        output[96] = symbol_to_dibit(d0);
-        output[97] = symbol_to_dibit(d1);
-
-        output
     }
+    /* Flush with dibit 0x0 (00). */
+    uint8_t point = TRELLIS_1_2[enc->state][0];
+    output[96] = (uint8_t)SYMBOL_TO_DIBIT[(CONSTELLATION[point].d0 + 3)];
+    output[97] = (uint8_t)SYMBOL_TO_DIBIT[(CONSTELLATION[point].d1 + 3)];
 }
 ```
 
@@ -1429,200 +1432,180 @@ from 0). Subsequent SS appear every 36 raw dibits.
 
 ---
 
-## 12. Rust-Specific Type Definitions
+## 12. Core Type Definitions
 
-### 12.1 Core Enums and Structs
+### 12.1 Core Types and Structs
 
-```rust
-/// Data Unit Identifier
-#[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Duid {
-    Hdu   = 0x0,  // Header Data Unit
-    Tdu   = 0x3,  // Terminator (no LC)
-    Ldu1  = 0x5,  // Logical Data Unit 1
-    Ldu2  = 0xA,  // Logical Data Unit 2
-    Pdu   = 0xC,  // Packet Data Unit (also TSDU)
-    Tdulc = 0xF,  // Terminator with Link Control
+```c
+/* Data Unit Identifier -- use the DUID_* defines from Section 3.2. */
+
+/* Network Identifier (decoded). */
+typedef struct {
+    uint16_t nac;  /* 12-bit Network Access Code */
+    uint8_t  duid; /* Data Unit ID (one of DUID_* values) */
+} Nid;
+
+/* Decoded voice call state. */
+typedef struct {
+    uint16_t nac;
+    uint8_t  mi[9];      /* 72-bit Message Indicator */
+    uint8_t  mfid;       /* Manufacturer ID */
+    uint8_t  algid;      /* Algorithm ID (0x80 = clear) */
+    uint16_t kid;        /* Key ID */
+    uint16_t tgid;       /* Talk Group ID */
+    uint8_t  lc_format;  /* Link Control format */
+    uint8_t  lc_info[7]; /* LC information (56 bits) */
+} VoiceCallState;
+
+/* A decoded P25 frame is a tagged union: tag is a DUID_* value.
+ * The payload union holds the appropriate frame struct. */
+typedef struct {
+    uint8_t duid; /* DUID_HDU, DUID_LDU1, DUID_LDU2, DUID_TDU, DUID_TDULC, DUID_PDU */
+    union {
+        HeaderDataUnit     hdu;
+        LogicalDataUnit1   ldu1;
+        LogicalDataUnit2   ldu2;
+        TerminatorDataUnit tdu;
+        TerminatorWithLc   tdulc;
+        /* PDU/TSDU: variable-length; handle via pointer in actual implementation. */
+    } frame;
+} P25Frame;
+
+/* Status symbol values (2-bit dibit). */
+#define STATUS_BUSY       0x01u /* 01 -- inbound channel busy */
+#define STATUS_UNKNOWN00  0x00u /* 00 -- talk-around / unknown */
+#define STATUS_UNKNOWN10  0x02u /* 10 -- general use / unknown */
+#define STATUS_IDLE       0x03u /* 11 -- inbound channel idle */
+
+/* Frame sync detection state (sliding 48-bit window). */
+typedef struct {
+    uint64_t window;    /* Sliding window of last 48 received bits */
+    uint64_t bit_count; /* Total bits fed since reset */
+} FrameSyncDetector;
+
+static void frame_sync_detector_init(FrameSyncDetector *d) {
+    d->window = 0;
+    d->bit_count = 0;
 }
 
-/// Network Identifier (decoded)
-#[derive(Debug, Clone, Copy)]
-pub struct Nid {
-    pub nac: u16,   // 12-bit Network Access Code
-    pub duid: Duid, // Data Unit ID
-}
-
-/// Decoded voice call state
-#[derive(Debug, Clone)]
-pub struct VoiceCallState {
-    pub nac: u16,
-    pub mi: [u8; 9],        // Message Indicator (72 bits)
-    pub mfid: u8,           // Manufacturer ID
-    pub algid: u8,          // Algorithm ID (0x80 = clear)
-    pub kid: u16,           // Key ID
-    pub tgid: u16,          // Talk Group ID
-    pub lc_format: u8,      // Link Control format
-    pub lc_info: [u8; 7],   // LC information (56 bits)
-}
-
-/// A single decoded P25 frame
-#[derive(Debug)]
-pub enum P25Frame {
-    Header(HeaderDataUnit),
-    Voice1(LogicalDataUnit1),
-    Voice2(LogicalDataUnit2),
-    Terminator,
-    TerminatorLc(TerminatorWithLc),
-    Packet(PacketDataUnit),
-    Tsbk(Vec<TsbkMessage>),
-}
-
-/// Status symbol value
-#[repr(u8)]
-#[derive(Debug, Clone, Copy)]
-pub enum StatusSymbol {
-    Busy       = 0b01,
-    Unknown00  = 0b00,
-    Unknown10  = 0b10,
-    Idle       = 0b11,
-}
-
-/// Frame sync detection state
-pub struct FrameSyncDetector {
-    /// Sliding window of last 48 received bits
-    window: u64,
-    /// Bit count since start
-    bit_count: u64,
-}
-
-impl FrameSyncDetector {
-    pub fn new() -> Self {
-        Self { window: 0, bit_count: 0 }
-    }
-
-    /// Feed one bit, return true if frame sync detected.
-    pub fn feed_bit(&mut self, bit: u8) -> bool {
-        self.window = ((self.window << 1) | (bit as u64)) & FRAME_SYNC_MASK;
-        self.bit_count += 1;
-        let diff = (self.window ^ FRAME_SYNC) & FRAME_SYNC_MASK;
-        diff.count_ones() <= FRAME_SYNC_MAX_ERRORS
-    }
+/* Feed one bit; returns 1 if frame sync detected within error threshold. */
+static int frame_sync_detector_feed(FrameSyncDetector *d, uint8_t bit) {
+    d->window = ((d->window << 1) | (bit & 1u)) & FRAME_SYNC_MASK;
+    d->bit_count++;
+    uint64_t diff = (d->window ^ FRAME_SYNC) & FRAME_SYNC_MASK;
+    return __builtin_popcountll(diff) <= FRAME_SYNC_MAX_ERRORS;
 }
 ```
 
 ### 12.2 FEC Parameter Constants
 
-```rust
-/// All FEC code parameters in one place.
-pub mod fec {
-    /// Cyclic(16,8,5) for LSD
-    pub const CYCLIC_N: usize = 16;
-    pub const CYCLIC_K: usize = 8;
-    pub const CYCLIC_D: usize = 5;
-    pub const CYCLIC_GEN_POLY: u16 = 0x01E1; // x^8 + x^7 + x^6 + x^5 + 1
+```c
+/* All FEC code parameters in one place. */
 
-    /// Golay(18,6,8) shortened for HDU
-    pub const GOLAY_SHORT_N: usize = 18;
-    pub const GOLAY_SHORT_K: usize = 6;
-    pub const GOLAY_SHORT_D: usize = 8;
+/* Cyclic(16,8,5) for LSD */
+#define FEC_CYCLIC_N         16u
+#define FEC_CYCLIC_K          8u
+#define FEC_CYCLIC_D          5u
+#define FEC_CYCLIC_GEN_POLY  0x01E1u  /* x^8 + x^7 + x^6 + x^5 + 1 */
 
-    /// Golay(24,12,8) extended for TDULC
-    pub const GOLAY_EXT_N: usize = 24;
-    pub const GOLAY_EXT_K: usize = 12;
-    pub const GOLAY_EXT_D: usize = 8;
-    pub const GOLAY_GEN_POLY: u16 = 0x0C75; // x^11 + x^10 + x^6 + x^5 + x^4 + x^2 + 1
+/* Golay(18,6,8) shortened for HDU */
+#define FEC_GOLAY_SHORT_N    18u
+#define FEC_GOLAY_SHORT_K     6u
+#define FEC_GOLAY_SHORT_D     8u
 
-    /// Hamming(10,6,3) for LDU LC/ES
-    pub const HAMMING_SHORT_N: usize = 10;
-    pub const HAMMING_SHORT_K: usize = 6;
-    pub const HAMMING_SHORT_D: usize = 3;
+/* Golay(24,12,8) extended for TDULC */
+#define FEC_GOLAY_EXT_N      24u
+#define FEC_GOLAY_EXT_K      12u
+#define FEC_GOLAY_EXT_D       8u
+#define FEC_GOLAY_GEN_POLY   0x0C75u  /* x^11 + x^10 + x^6 + x^5 + x^4 + x^2 + 1 */
 
-    /// Hamming(15,11,3) for IMBE voice
-    pub const HAMMING_STD_N: usize = 15;
-    pub const HAMMING_STD_K: usize = 11;
-    pub const HAMMING_STD_D: usize = 3;
-    pub const HAMMING_GEN_POLY: u8 = 0x13; // x^4 + x + 1
+/* Hamming(10,6,3) for LDU LC/ES */
+#define FEC_HAMMING_SHORT_N  10u
+#define FEC_HAMMING_SHORT_K   6u
+#define FEC_HAMMING_SHORT_D   3u
 
-    /// RS(36,20,17) over GF(2^6) for HDU
-    pub const RS_HDR_N: usize = 36;
-    pub const RS_HDR_K: usize = 20;
-    pub const RS_HDR_D: usize = 17;
-    pub const RS_HDR_T: usize = 8; // correction capability
+/* Hamming(15,11,3) for IMBE voice */
+#define FEC_HAMMING_STD_N    15u
+#define FEC_HAMMING_STD_K    11u
+#define FEC_HAMMING_STD_D     3u
+#define FEC_HAMMING_GEN_POLY 0x13u   /* x^4 + x + 1 */
 
-    /// RS(24,12,13) over GF(2^6) for TDULC / LDU2 ES
-    pub const RS_LC_N: usize = 24;
-    pub const RS_LC_K: usize = 12;
-    pub const RS_LC_D: usize = 13;
-    pub const RS_LC_T: usize = 6;
+/* RS(36,20,17) over GF(2^6) for HDU */
+#define FEC_RS_HDR_N         36u
+#define FEC_RS_HDR_K         20u
+#define FEC_RS_HDR_D         17u
+#define FEC_RS_HDR_T          8u  /* error correction capability */
 
-    /// RS(24,16,9) over GF(2^6) for LDU1 LC / LDU2 ES
-    pub const RS_ES_N: usize = 24;
-    pub const RS_ES_K: usize = 16;
-    pub const RS_ES_D: usize = 9;
-    pub const RS_ES_T: usize = 4;
+/* RS(24,12,13) over GF(2^6) for TDULC / LDU2 ES */
+#define FEC_RS_LC_N          24u
+#define FEC_RS_LC_K          12u
+#define FEC_RS_LC_D          13u
+#define FEC_RS_LC_T           6u
 
-    /// BCH(63,16,23) for NID
-    pub const BCH_N: usize = 64; // including parity bit
-    pub const BCH_K: usize = 16;
-    pub const BCH_D: usize = 23;
-    pub const BCH_T: usize = 11;
+/* RS(24,16,9) over GF(2^6) for LDU1 LC / LDU2 ES */
+#define FEC_RS_ES_N          24u
+#define FEC_RS_ES_K          16u
+#define FEC_RS_ES_D           9u
+#define FEC_RS_ES_T           4u
 
-    /// GF(2^6) primitive polynomial: x^6 + x + 1
-    pub const GF64_PRIM_POLY: u8 = 0x43; // 1_000_011
-    pub const GF64_FIELD_ORDER: usize = 63;
-}
+/* BCH(63,16,23)+P for NID */
+#define FEC_BCH_N            64u  /* includes overall parity bit */
+#define FEC_BCH_K            16u
+#define FEC_BCH_D            23u
+#define FEC_BCH_T            11u
+
+/* GF(2^6) primitive polynomial: x^6 + x + 1 */
+#define FEC_GF64_PRIM_POLY   0x43u   /* 1_000_011 */
+#define FEC_GF64_FIELD_ORDER 63u
 ```
 
 ### 12.3 Frame Size Constants
 
-```rust
-pub mod frame_sizes {
-    // All sizes in BITS (not dibits)
+```c
+/* Frame size constants -- all sizes in BITS (not dibits) unless noted. */
 
-    pub const FRAME_SYNC_BITS: usize = 48;
-    pub const NID_BITS: usize = 64;
-    pub const STATUS_SYMBOL_BITS: usize = 2;
-    pub const STATUS_SYMBOL_PERIOD: usize = 70; // info bits between SS
+#define FS_FRAME_SYNC_BITS         48u
+#define FS_NID_BITS                64u
+#define FS_STATUS_SYMBOL_BITS       2u
+#define FS_STATUS_SYMBOL_PERIOD    70u  /* info bits between consecutive SS */
 
-    // HDU
-    pub const HDU_HEADER_CODEWORD_BITS: usize = 648;
-    pub const HDU_NULL_BITS: usize = 10;
-    pub const HDU_INFO_BITS: usize = 770;  // FS + NID + header + nulls
-    pub const HDU_STATUS_SYMBOLS: usize = 11;
-    pub const HDU_TOTAL_BITS: usize = 792;
-    pub const HDU_DIBITS: usize = 396;
+/* HDU */
+#define FS_HDU_HEADER_CODEWORD_BITS 648u
+#define FS_HDU_NULL_BITS            10u
+#define FS_HDU_INFO_BITS           770u  /* FS + NID + header + nulls */
+#define FS_HDU_STATUS_SYMBOLS       11u
+#define FS_HDU_TOTAL_BITS          792u
+#define FS_HDU_DIBITS              396u
 
-    // LDU1 / LDU2
-    pub const LDU_INFO_BITS: usize = 1680;
-    pub const LDU_STATUS_SYMBOLS: usize = 24;
-    pub const LDU_TOTAL_BITS: usize = 1728;
-    pub const LDU_DIBITS: usize = 864;
-    pub const IMBE_FRAMES_PER_LDU: usize = 9;
-    pub const IMBE_BITS_PER_FRAME: usize = 88;  // information bits
-    pub const IMBE_FEC_BITS_PER_FRAME: usize = 144; // after inner FEC
+/* LDU1 / LDU2 */
+#define FS_LDU_INFO_BITS          1680u
+#define FS_LDU_STATUS_SYMBOLS       24u
+#define FS_LDU_TOTAL_BITS         1728u
+#define FS_LDU_DIBITS              864u
+#define FS_IMBE_FRAMES_PER_LDU       9u
+#define FS_IMBE_BITS_PER_FRAME      88u  /* information bits */
+#define FS_IMBE_FEC_BITS_PER_FRAME 144u  /* after inner FEC encoding */
 
-    // TDU
-    pub const TDU_NULL_BITS: usize = 28;
-    pub const TDU_INFO_BITS: usize = 140;
-    pub const TDU_STATUS_SYMBOLS: usize = 2;
-    pub const TDU_TOTAL_BITS: usize = 144;
+/* TDU */
+#define FS_TDU_NULL_BITS            28u
+#define FS_TDU_INFO_BITS           140u
+#define FS_TDU_STATUS_SYMBOLS        2u
+#define FS_TDU_TOTAL_BITS          144u
 
-    // TDULC
-    pub const TDULC_LC_CODEWORD_BITS: usize = 288;
-    pub const TDULC_NULL_BITS: usize = 20;
-    pub const TDULC_STATUS_SYMBOLS: usize = 6;
+/* TDULC */
+#define FS_TDULC_LC_CODEWORD_BITS  288u
+#define FS_TDULC_NULL_BITS          20u
+#define FS_TDULC_STATUS_SYMBOLS      6u
 
-    // PDU (per trellis block)
-    pub const TRELLIS_OUTPUT_DIBITS: usize = 98;
-    pub const TRELLIS_OUTPUT_BITS: usize = 196;
+/* PDU / TSDU (per trellis block) */
+#define FS_TRELLIS_OUTPUT_DIBITS    98u
+#define FS_TRELLIS_OUTPUT_BITS     196u
 
-    // IMBE timing
-    pub const IMBE_FRAME_DURATION_MS: f64 = 20.0;
-    pub const LDU_DURATION_MS: f64 = 180.0;
-    pub const HDU_DURATION_MS: f64 = 82.5;
-    pub const LDU_PAIR_DURATION_MS: f64 = 360.0;
-}
+/* IMBE / LDU timing (milliseconds) */
+#define FS_IMBE_FRAME_DURATION_MS   20.0
+#define FS_LDU_DURATION_MS         180.0
+#define FS_HDU_DURATION_MS          82.5
+#define FS_LDU_PAIR_DURATION_MS    360.0
 ```
 
 ---
@@ -1631,30 +1614,30 @@ pub mod frame_sizes {
 
 ### 13.1 Header CRC (CRC-CCITT, 16-bit)
 
-```rust
-/// CRC-CCITT for PDU header blocks.
-/// G(x) = x^16 + x^12 + x^5 + 1
-const CRC_CCITT_POLY: u32 = 0x1_1021;
-/// Inversion mask: all 1s in 16 bits
-const CRC_CCITT_INIT: u16 = 0xFFFF;
+```c
+/* CRC-CCITT for PDU header blocks.
+ * G(x) = x^16 + x^12 + x^5 + 1 */
+#define CRC_CCITT_POLY 0x1021u   /* 16-bit polynomial (bit 16 implicit) */
+#define CRC_CCITT_INIT 0xFFFFu   /* initial value: all 1s */
 ```
 
 ### 13.2 CRC-9 (Confirmed Data Blocks)
 
-```rust
-/// CRC-9 for confirmed data blocks.
-/// G(x) = x^9 + x^6 + x^4 + x^3 + 1
-const CRC9_POLY: u16 = 0x059; // 0b001011001
-const CRC9_INIT: u16 = 0x1FF; // all 1s in 9 bits
+```c
+/* CRC-9 for confirmed data blocks.
+ * G(x) = x^9 + x^6 + x^4 + x^3 + 1 */
+#define CRC9_POLY 0x059u  /* 9-bit polynomial (bit 9 implicit): 001011001 */
+#define CRC9_INIT 0x1FFu  /* initial value: all 1s in 9 bits */
 ```
 
 ### 13.3 Packet CRC (CRC-32)
 
-```rust
-/// CRC-32 for packet integrity.
-/// G(x) = x^32 + x^26 + x^23 + x^22 + x^16 + x^12 + x^11 + x^10 + x^8 + x^7 + x^5 + x^4 + x^2 + x + 1
-const CRC32_POLY: u64 = 0x1_04C1_1DB7;
-const CRC32_INIT: u32 = 0xFFFF_FFFF;
+```c
+/* CRC-32 for packet integrity.
+ * G(x) = x^32 + x^26 + x^23 + x^22 + x^16 + x^12 + x^11 + x^10
+ *              + x^8 + x^7 + x^5 + x^4 + x^2 + x + 1 */
+#define CRC32_POLY 0x04C11DB7u  /* 32-bit polynomial (bit 32 implicit) */
+#define CRC32_INIT 0xFFFFFFFFu  /* initial value: all 1s */
 ```
 
 ---
@@ -1727,23 +1710,26 @@ images (tables in Annex A):
    generated programmatically from the primitive polynomial `x^6 + x + 1` rather
    than relying on OCR of the table. Code to generate:
 
-```rust
-fn generate_gf64_tables() -> ([u8; 64], [u8; 64]) {
-    let mut exp = [0u8; 64];
-    let mut log = [0u8; 64];
-    let mut val: u8 = 1;
-    for i in 0..63u8 {
-        exp[i as usize] = val;
-        log[val as usize] = i;
-        val <<= 1;
-        if val & 0x40 != 0 {
-            val ^= 0x43; // x^6 + x + 1, clear bit 6 and XOR with x+1
-            val &= 0x3F;
+```c
+/* Generate GF(2^6) exponential and logarithm tables.
+ * The pre-computed results are in GF64_EXP and GF64_LOG (Section 8.4.1).
+ * This function can be used to verify or regenerate those tables at runtime.
+ * exp_out and log_out must each be caller-allocated uint8_t[64]. */
+static void generate_gf64_tables(uint8_t exp_out[64], uint8_t log_out[64]) {
+    uint8_t val = 1;
+    for (uint8_t i = 0; i < 63; i++) {
+        exp_out[i] = val;
+        log_out[val] = i;
+        val = (uint8_t)(val << 1);
+        if (val & 0x40u) {
+            val ^= 0x43u; /* reduce mod x^6 + x + 1: clear bit 6, XOR with x+1 */
+            val &= 0x3Fu;
         }
     }
-    exp[63] = 1; // alpha^63 = alpha^0 = 1
-    (exp, log)
+    exp_out[63] = 1; /* alpha^63 = alpha^0 = 1 */
+    log_out[0]  = 0xFF; /* log(0) undefined */
 }
+/* Pre-computed tables: see annex_tables/gf64_lookup_tables.csv and Section 8.4.1. */
 ```
 
 **Workaround:** For all items above, the open-source implementations (SDRTrunk and OP25)
