@@ -134,39 +134,37 @@ roughly 65 Hz (b̂₀ = 207) to 405 Hz (b̂₀ = 0).
 receiver, so they must equal K̂ and L̂ exactly. This is why the six MSBs of b̂₀
 are placed in û₀ (protected by the strongest [23,12] Golay FEC) — see §1.4.
 
-```rust
-use std::f64::consts::PI;
+```c
+#include <math.h>
+#include <stdint.h>
 
-/// Encode a refined fundamental frequency omega_0 (rad/sample) into the
-/// 8-bit pitch index b_0. Caller must ensure omega_0 is within the
-/// pitch estimator's range (2*pi/123.125 to 2*pi/19.875).
-fn pitch_encode(omega_0: f64) -> u8 {
-    let b0 = ((4.0 * PI / omega_0) - 39.0).floor() as i32;
-    debug_assert!((0..=207).contains(&b0), "omega_0 out of range");
-    b0 as u8
+/* Encode a refined fundamental frequency omega_0 (rad/sample) into the
+ * 8-bit pitch index b_0. Caller must ensure omega_0 is within the pitch
+ * estimator's range (2*pi/123.125 to 2*pi/19.875). */
+uint8_t imbe_pitch_encode(double omega_0) {
+    int32_t b0 = (int32_t)floor((4.0 * M_PI / omega_0) - 39.0);
+    /* assert(b0 >= 0 && b0 <= 207); */
+    return (uint8_t)b0;
 }
 
-/// Decode the 8-bit pitch index b_0 to the reconstructed fundamental
-/// frequency omega_0 (rad/sample). Returns None for reserved values (208-255).
-fn pitch_decode(b0: u8) -> Option<f64> {
-    if b0 > 207 {
-        return None;  // reserved
-    }
-    Some(4.0 * PI / (b0 as f64 + 39.5))
+/* Decode the 8-bit pitch index b_0 to the reconstructed fundamental
+ * frequency omega_0 (rad/sample). Returns 0.0 for reserved values (208-255);
+ * caller should treat reserved b_0 as an uncorrectable frame. */
+double imbe_pitch_decode(uint8_t b0) {
+    if (b0 > 207) return 0.0;                    /* reserved */
+    return 4.0 * M_PI / ((double)b0 + 39.5);
 }
 
-/// Compute the number of harmonics L from omega_0, per Eq. 31/47.
-/// Result is always in 9..=56 for valid omega_0.
-fn harmonics_count(omega_0: f64) -> u8 {
-    let inner = (PI / omega_0 + 0.25).floor();
-    let l = (0.9254 * inner).floor() as u8;
-    debug_assert!((9..=56).contains(&l));
-    l
+/* Compute the number of harmonics L from omega_0, per Eq. 31/47.
+ * Result is always in 9..=56 for valid omega_0. */
+uint8_t imbe_harmonics_count(double omega_0) {
+    double inner = floor(M_PI / omega_0 + 0.25);
+    return (uint8_t)floor(0.9254 * inner);
 }
 
-/// Compute the number of V/UV bands K from L, per Eq. 48.
-fn vuv_band_count(l: u8) -> u8 {
-    if l <= 36 { (l + 2) / 3 } else { 12 }
+/* Compute the number of V/UV bands K from L, per Eq. 48. */
+uint8_t imbe_vuv_band_count(uint8_t L) {
+    return (L <= 36) ? (uint8_t)((L + 2) / 3) : 12;
 }
 ```
 
@@ -219,35 +217,34 @@ Row 10: 1 0 0 1 0 0 1 1 1 1 1
 Row 11: 1 0 0 0 1 1 1 0 1 0 1
 ```
 
-```rust
-/// [23,12] Golay generator matrix (systematic form).
-/// Each row is 23 bits: 12 identity bits followed by 11 parity bits.
-/// Stored as u32 with MSB = bit 22 (identity column 0), LSB = bit 0 (parity x¹⁰).
-const GOLAY_23_12_GEN: [u32; 12] = [
-    0b100000000000_11000111010,  // Row 0
-    0b010000000000_01100011101,  // Row 1
-    0b001000000000_11110110100,  // Row 2
-    0b000100000000_01111011010,  // Row 3
-    0b000010000000_00111101101,  // Row 4
-    0b000001000000_11011001100,  // Row 5
-    0b000000100000_01101100110,  // Row 6
-    0b000000010000_00110110011,  // Row 7
-    0b000000001000_11011100011,  // Row 8
-    0b000000000100_10101001011,  // Row 9
-    0b000000000010_10010011111,  // Row 10
-    0b000000000001_10001110101,  // Row 11
-];
+```c
+/* [23,12] Golay generator matrix (systematic form).
+ * Each row is 23 bits: 12 identity bits (columns 22..11) followed by 11 parity
+ * bits (columns 10..0). Stored as uint32_t with bit 22 = identity column 0,
+ * bit 0 = parity x^10. Binary layout shown in the comments for reference. */
+static const uint32_t GOLAY_23_12_GEN[12] = {
+    0x40063Au,  /* Row 0:  100000000000_11000111010 */
+    0x20031Du,  /* Row 1:  010000000000_01100011101 */
+    0x1007B4u,  /* Row 2:  001000000000_11110110100 */
+    0x0803DAu,  /* Row 3:  000100000000_01111011010 */
+    0x0401EDu,  /* Row 4:  000010000000_00111101101 */
+    0x0206CCu,  /* Row 5:  000001000000_11011001100 */
+    0x010366u,  /* Row 6:  000000100000_01101100110 */
+    0x0081B3u,  /* Row 7:  000000010000_00110110011 */
+    0x0046E3u,  /* Row 8:  000000001000_11011100011 */
+    0x00254Bu,  /* Row 9:  000000000100_10101001011 */
+    0x00149Fu,  /* Row 10: 000000000010_10010011111 */
+    0x000C75u,  /* Row 11: 000000000001_10001110101 */
+};
 
-/// Golay decode: correct up to 3 errors in a 23-bit code word.
-/// Returns (corrected_12_info_bits, error_count).
-fn golay_23_12_decode(codeword: u32) -> (u16, u8) {
-    // Standard syndrome-based Golay decoding.
-    // Compute syndrome = codeword * H^T (11-bit syndrome).
-    // Look up syndrome in 2048-entry table for error pattern.
-    // If weight(error_pattern) <= 3, correct and return.
-    // Otherwise, flag uncorrectable.
-    todo!("Use standard Golay decode algorithm")
-}
+/* Golay decode: correct up to 3 errors in a 23-bit code word.
+ * On success, writes the 12 corrected info bits to *info_bits and returns
+ * the number of bits corrected (0..3). Returns -1 if uncorrectable. */
+int golay_23_12_decode(uint32_t codeword, uint16_t *info_bits);
+/* Reference implementation: compute the 11-bit syndrome S = codeword * H^T,
+ * look up S in a 2048-entry syndrome table to obtain the error pattern E,
+ * XOR E into the codeword, and extract the upper 12 bits. If weight(E) > 3
+ * the codeword is uncorrectable. */
 ```
 
 #### 1.5.2 [15,11] Hamming Code
@@ -271,31 +268,28 @@ Row 9:  0 1 0 1
 Row 10: 0 0 1 1
 ```
 
-```rust
-/// [15,11] Hamming generator matrix parity columns.
-/// For each of 11 info bits, the 4 parity bits to append.
-const HAMMING_15_11_PARITY: [u8; 11] = [
-    0b1111, // row 0
-    0b1110, // row 1
-    0b1101, // row 2
-    0b1100, // row 3
-    0b1011, // row 4
-    0b1010, // row 5
-    0b1001, // row 6
-    0b0111, // row 7
-    0b0110, // row 8
-    0b0101, // row 9
-    0b0011, // row 10
-];
+```c
+/* [15,11] Hamming generator matrix parity columns.
+ * For each of 11 info bits, the 4 parity bits to append. */
+static const uint8_t HAMMING_15_11_PARITY[11] = {
+    0xF,  /* row 0:  1111 */
+    0xE,  /* row 1:  1110 */
+    0xD,  /* row 2:  1101 */
+    0xC,  /* row 3:  1100 */
+    0xB,  /* row 4:  1011 */
+    0xA,  /* row 5:  1010 */
+    0x9,  /* row 6:  1001 */
+    0x7,  /* row 7:  0111 */
+    0x6,  /* row 8:  0110 */
+    0x5,  /* row 9:  0101 */
+    0x3,  /* row 10: 0011 */
+};
 
-/// Hamming decode: correct up to 1 error in a 15-bit code word.
-/// Returns (corrected_11_info_bits, error_count).
-fn hamming_15_11_decode(codeword: u16) -> (u16, u8) {
-    // Compute 4-bit syndrome.
-    // If syndrome != 0, flip the indicated bit.
-    // Extract 11 information bits.
-    todo!("Standard Hamming decode")
-}
+/* Hamming decode: correct up to 1 error in a 15-bit code word.
+ * On success, writes the 11 info bits to *info_bits and returns the number
+ * of bits corrected (0 or 1). Returns -1 if the syndrome indicates an
+ * uncorrectable pattern. */
+int hamming_15_11_decode(uint16_t codeword, uint16_t *info_bits);
 ```
 
 #### 1.5.3 u7 -- Uncoded
@@ -349,49 +343,55 @@ matching the full-rate frame size.
 c̃_i = v̂_i ⊕ m̂_i    for 0 ≤ i ≤ 7    (addition mod 2)
 ```
 
-```rust
-/// Generate the 115-element PN sequence p_r(0..=114) for full-rate IMBE
-/// bit modulation. Seed is the 12-bit Golay info word u0 (range [0, 4095]).
-fn imbe_pn_sequence_fullrate(u0: u16) -> [u16; 115] {
-    debug_assert!(u0 < 4096);
-    let mut pr = [0u16; 115];
-    pr[0] = (16u32 * u0 as u32) as u16;  // p_r(0) = 16·u0, fits in u16 since u0 ≤ 4095
-    for n in 1..115 {
-        pr[n] = ((173u32 * pr[n - 1] as u32 + 13849) & 0xFFFF) as u16;
+```c
+/* Generate the 115-element PN sequence p_r(0..=114) for full-rate IMBE
+ * bit modulation. Seed is the 12-bit Golay info word u0 (range [0, 4095]). */
+void imbe_pn_sequence_fullrate(uint16_t u0, uint16_t pr_out[115]) {
+    /* assert(u0 < 4096); */
+    pr_out[0] = (uint16_t)(16u * u0);                  /* p_r(0) = 16*u0, fits in u16 */
+    for (int n = 1; n < 115; n++) {
+        pr_out[n] = (uint16_t)((173u * pr_out[n-1] + 13849u) & 0xFFFFu);
     }
-    pr
 }
 
-/// Extract one mask bit from p_r(n): bit 15 of the 16-bit value.
-#[inline]
-fn pn_mask_bit(pr_n: u16) -> u8 {
-    (pr_n >> 15) as u8
+/* Extract one mask bit from p_r(n): bit 15 of the 16-bit value. */
+static inline uint8_t imbe_pn_mask_bit(uint16_t pr_n) {
+    return (uint8_t)(pr_n >> 15);
 }
 
-/// Compute the 8 modulation vectors m̂_0..m̂_7 for full-rate IMBE.
-/// Each vector is returned as (bits, length). Bits are packed LSB-first:
-/// vector element k is at bit position k.
-fn imbe_modulation_vectors(u0: u16) -> [(u32, u8); 8] {
-    let pr = imbe_pn_sequence_fullrate(u0);
-    let mask_range = |start: usize, len: usize| -> u32 {
-        let mut bits = 0u32;
-        for k in 0..len {
-            bits |= (pn_mask_bit(pr[start + k]) as u32) << k;
-        }
-        bits
-    };
-    [
-        (0,                            23),  // m_0 (Eq. 86)
-        (mask_range(1, 23),            23),  // m_1 (Eq. 87)
-        (mask_range(24, 23),           23),  // m_2 (Eq. 88)
-        (mask_range(47, 23),           23),  // m_3 (Eq. 89)
-        (mask_range(70, 15),           15),  // m_4 (Eq. 90)
-        (mask_range(85, 15),           15),  // m_5 (Eq. 91)
-        (mask_range(100, 15),          15),  // m_6 (Eq. 92)
-        (0,                             7),  // m_7 (Eq. 93)
-    ]
+/* Modulation vector descriptor: packed bits (LSB-first, element k at bit k)
+ * and the vector's length in bits. */
+typedef struct { uint32_t bits; uint8_t len; } imbe_mod_vec_t;
+
+/* Compute the 8 modulation vectors m_0..m_7 for full-rate IMBE. */
+void imbe_modulation_vectors(uint16_t u0, imbe_mod_vec_t mv[8]) {
+    uint16_t pr[115];
+    imbe_pn_sequence_fullrate(u0, pr);
+
+    /* Inline helper: pack mask bits pr[start..start+len] into a u32. */
+    #define MASK_RANGE(start, length) ({                                \
+        uint32_t _bits = 0;                                             \
+        for (int _k = 0; _k < (length); _k++)                           \
+            _bits |= ((uint32_t)imbe_pn_mask_bit(pr[(start)+_k])) << _k;\
+        _bits;                                                          \
+    })
+
+    mv[0] = (imbe_mod_vec_t){ 0,                     23 };  /* m_0 (Eq. 86) */
+    mv[1] = (imbe_mod_vec_t){ MASK_RANGE(1,   23),   23 };  /* m_1 (Eq. 87) */
+    mv[2] = (imbe_mod_vec_t){ MASK_RANGE(24,  23),   23 };  /* m_2 (Eq. 88) */
+    mv[3] = (imbe_mod_vec_t){ MASK_RANGE(47,  23),   23 };  /* m_3 (Eq. 89) */
+    mv[4] = (imbe_mod_vec_t){ MASK_RANGE(70,  15),   15 };  /* m_4 (Eq. 90) */
+    mv[5] = (imbe_mod_vec_t){ MASK_RANGE(85,  15),   15 };  /* m_5 (Eq. 91) */
+    mv[6] = (imbe_mod_vec_t){ MASK_RANGE(100, 15),   15 };  /* m_6 (Eq. 92) */
+    mv[7] = (imbe_mod_vec_t){ 0,                      7 };  /* m_7 (Eq. 93) */
+
+    #undef MASK_RANGE
 }
 ```
+
+Note: the `MASK_RANGE` macro above uses GCC/Clang statement-expressions
+(`({ ... })`) for brevity. In strictly portable C, replace with an explicit
+helper function taking `(const uint16_t *pr, int start, int len)`.
 
 **Decode order for PN demodulation:**
 1. Golay-decode c̃₀ to recover û₀ (since m̂₀ = 0, so c̃₀ = v̂₀)
@@ -416,21 +416,16 @@ air interface layer. At the receiver:
 2. Deinterleave using the inverse of Annex H to recover c0..c7
 3. Proceed with PN demodulation and FEC decoding
 
-```rust
-/// Deinterleave a 144-bit IMBE frame (72 dibits) into 8 code word vectors.
-/// Returns [c0, c1, c2, c3, c4, c5, c6, c7].
-///
-/// The full interleaving table (Annex H, 72 rows) must be extracted from
-/// TIA-102.BABA-A Annex H (pages ~130-131 of the PDF).
-fn deinterleave_imbe_fullrate(dibits: &[u8; 72]) -> [u32; 8] {
-    // Each dibit contributes bit_1 (MSB) and bit_0 (LSB).
-    // The Annex H table maps (symbol_index, bit_position) -> (vector_index, bit_index).
-    // After deinterleaving:
-    //   c0: 23 bits, c1: 23 bits, c2: 23 bits, c3: 23 bits (Golay-encoded)
-    //   c4: 15 bits, c5: 15 bits, c6: 15 bits (Hamming-encoded)
-    //   c7: 7 bits (uncoded)
-    todo!("Apply Annex H inverse mapping")
-}
+```c
+/* Deinterleave a 144-bit IMBE frame (72 dibits) into 8 code word vectors.
+ * dibits: 72 elements, each in 0..=3 (bit 1 = MSB, bit 0 = LSB).
+ * c_out:  8 elements; c_out[0..=3] hold Golay codewords (23 bits each),
+ *         c_out[4..=6] hold Hamming codewords (15 bits each), c_out[7]
+ *         holds uncoded bits (7 bits). Bits packed LSB-first.
+ *
+ * The Annex H table (see annex_tables/annex_h_interleave.csv) maps
+ *   (symbol_index, bit_position) -> (vector_index, bit_index). */
+void deinterleave_imbe_fullrate(const uint8_t dibits[72], uint32_t c_out[8]);
 ```
 
 ---
@@ -493,22 +488,21 @@ Applied to u0 only. This is the standard [23,12] Golay code with one additional
 overall parity bit appended, giving a [24,12] code with minimum distance 8.
 Corrects up to 3 errors and detects 4.
 
-```rust
-/// [24,12] Extended Golay encode.
-/// Takes 12 information bits, returns 24-bit code word.
-fn golay_24_12_encode(info: u16) -> u32 {
-    let golay23 = golay_23_12_encode(info);  // 23-bit systematic Golay
-    let parity = (golay23.count_ones() % 2) as u32;  // overall parity
-    (golay23 << 1) | parity  // append parity as LSB
+```c
+/* [24,12] Extended Golay encode: 12 info bits in, 24-bit codeword out.
+ * Apply the systematic [23,12] Golay, then append an overall parity bit. */
+uint32_t golay_24_12_encode(uint16_t info) {
+    uint32_t golay23 = golay_23_12_encode(info);
+    uint32_t parity  = (uint32_t)__builtin_parity(golay23);  /* GCC/Clang */
+    return (golay23 << 1) | parity;
 }
 
-/// [24,12] Extended Golay decode.
-/// Returns (corrected_12_info_bits, error_count).
-fn golay_24_12_decode(codeword: u32) -> (u16, u8) {
-    // Strip the overall parity bit, decode as [23,12] Golay,
-    // then verify overall parity for 4-error detection.
-    todo!("Extended Golay decode")
-}
+/* [24,12] Extended Golay decode. On success, writes the 12 info bits to
+ * *info_bits and returns the number of bits corrected (0..3). Returns -1
+ * if uncorrectable or if the overall parity check fails (4 errors detected).
+ * Strategy: strip the overall parity bit, decode as [23,12], then verify
+ * overall parity. */
+int golay_24_12_decode(uint32_t codeword, uint16_t *info_bits);
 ```
 
 #### 2.4.2 [23,12] Golay Code
@@ -542,19 +536,15 @@ The pattern continues for all 36 symbols. Note the interleaving distributes c0 b
 primarily to the MSB lane (strongest protection in QPSK) and interleaves c1, c2, c3
 bits across both lanes.
 
-```rust
-/// Deinterleave a 72-bit half-rate AMBE frame (36 dibits) into 4 code word vectors.
-/// Returns [c0, c1, c2, c3].
-///
-/// The Annex S table is partially reproduced above. Full table in
-/// TIA-102.BABA-A Annex S and TIA-102.BBAC-1 Annex E.
-fn deinterleave_ambe_halfrate(dibits: &[u8; 36]) -> [u32; 4] {
-    // c0: 24 bits ([24,12] extended Golay)
-    // c1: 23 bits ([23,12] Golay)
-    // c2: 23 bits ([23,12] Golay)
-    // c3: variable (uncoded remainder)
-    todo!("Apply Annex S inverse mapping")
-}
+```c
+/* Deinterleave a 72-bit half-rate AMBE frame (36 dibits) into 4 code vectors.
+ * dibits: 36 elements in 0..=3. c_out layout:
+ *   c_out[0]: 24 bits ([24,12] extended Golay)
+ *   c_out[1]: 23 bits ([23,12] Golay)
+ *   c_out[2]: 23 bits ([23,12] Golay)
+ *   c_out[3]: variable (uncoded remainder)
+ * Full table is in TIA-102.BABA-A Annex S and TIA-102.BBAC-1 Annex E. */
+void deinterleave_ambe_halfrate(const uint8_t dibits[36], uint32_t c_out[4]);
 ```
 
 ---
@@ -669,31 +659,19 @@ The voice frame interleaving within each 36-symbol block is identical to 4V.
 
 #### 3.2.3 TDMA Voice Frame Extraction
 
-```rust
-/// Extract voice frame dibits from a 4V burst.
-/// Input: 180 dibit symbols (one TDMA timeslot).
-/// Output: 4 arrays of 36 dibits each.
-fn extract_4v_voice_frames(slot: &[u8; 180]) -> [[u8; 36]; 4] {
-    let mut frames = [[0u8; 36]; 4];
-    // Voice 1: symbols 10..45
-    frames[0].copy_from_slice(&slot[10..46]);
-    // Voice 2: symbols 47..82
-    frames[1].copy_from_slice(&slot[47..83]);
-    // Voice 3: symbols 96..131
-    frames[2].copy_from_slice(&slot[96..132]);
-    // Voice 4: symbols 133..168
-    frames[3].copy_from_slice(&slot[133..169]);
-    frames
+```c
+/* Extract 4 voice frame dibit-arrays from a 4V burst (180 symbols). */
+void extract_4v_voice_frames(const uint8_t slot[180], uint8_t frames[4][36]) {
+    memcpy(frames[0], &slot[10],  36);   /* Voice 1: symbols 10..45 */
+    memcpy(frames[1], &slot[47],  36);   /* Voice 2: symbols 47..82 */
+    memcpy(frames[2], &slot[96],  36);   /* Voice 3: symbols 96..131 */
+    memcpy(frames[3], &slot[133], 36);   /* Voice 4: symbols 133..168 */
 }
 
-/// Extract voice frame dibits from a 2V burst.
-/// Input: 180 dibit symbols.
-/// Output: 2 arrays of 36 dibits each.
-fn extract_2v_voice_frames(slot: &[u8; 180]) -> [[u8; 36]; 2] {
-    let mut frames = [[0u8; 36]; 2];
-    frames[0].copy_from_slice(&slot[10..46]);
-    frames[1].copy_from_slice(&slot[47..83]);
-    frames
+/* Extract 2 voice frame dibit-arrays from a 2V burst (180 symbols). */
+void extract_2v_voice_frames(const uint8_t slot[180], uint8_t frames[2][36]) {
+    memcpy(frames[0], &slot[10], 36);
+    memcpy(frames[1], &slot[47], 36);
 }
 ```
 
@@ -952,32 +930,32 @@ source for any implementation.
 
 These 21 coefficients were fully extracted and are used in pitch estimation:
 
-```rust
-/// FIR low-pass filter for pitch autocorrelation (Annex D).
-/// h_LPF(n), n = -10..10, symmetric.
-const LPF_COEFFS: [f64; 21] = [
-    -0.002898, // n = -10
-    -0.002831, // n = -9
-     0.005666, // n = -8
-     0.016601, // n = -7
-     0.008800, // n = -6
-    -0.026955, // n = -5
-    -0.055990, // n = -4
-    -0.015116, // n = -3
-     0.118754, // n = -2
-     0.278990, // n = -1
-     0.351338, // n = 0
-     0.278990, // n = 1
-     0.118754, // n = 2
-    -0.015116, // n = 3
-    -0.055990, // n = 4
-    -0.026955, // n = 5
-     0.008800, // n = 6
-     0.016601, // n = 7
-     0.005666, // n = 8
-    -0.002831, // n = 9
-    -0.002898, // n = 10
-];
+```c
+/* FIR low-pass filter for pitch autocorrelation (Annex D).
+ * h_LPF(n), n = -10..10, symmetric. Index 0 = n = -10. */
+static const double LPF_COEFFS[21] = {
+    -0.002898, /* n = -10 */
+    -0.002831, /* n = -9  */
+     0.005666, /* n = -8  */
+     0.016601, /* n = -7  */
+     0.008800, /* n = -6  */
+    -0.026955, /* n = -5  */
+    -0.055990, /* n = -4  */
+    -0.015116, /* n = -3  */
+     0.118754, /* n = -2  */
+     0.278990, /* n = -1  */
+     0.351338, /* n =  0  */
+     0.278990, /* n =  1  */
+     0.118754, /* n =  2  */
+    -0.015116, /* n =  3  */
+    -0.055990, /* n =  4  */
+    -0.026955, /* n =  5  */
+     0.008800, /* n =  6  */
+     0.016601, /* n =  7  */
+     0.005666, /* n =  8  */
+    -0.002831, /* n =  9  */
+    -0.002898, /* n = 10  */
+};
 ```
 
 ---
@@ -1056,248 +1034,200 @@ For DVSI AMBE-3000 or AMBE-3003 chips, the interface uses a serial packet format
 
 ---
 
-## 9. Rust Struct Definitions
+## 9. Data Structures
 
-```rust
-/// Full-rate IMBE voice frame (Phase 1 FDMA).
-/// 88 information bits after FEC decoding and PN demodulation.
-#[derive(Clone, Debug)]
-pub struct ImbeFrame {
-    /// The 8 decoded bit vectors (u0..u7).
-    /// u0: 12 bits (MSB-aligned in u16)
-    /// u1: 12 bits
-    /// u2: 12 bits
-    /// u3: 12 bits
-    /// u4: 11 bits
-    /// u5: 11 bits
-    /// u6: 11 bits (note: some references show 10 for c6 -- see note below)
-    /// u7: 7 bits
-    pub vectors: [u16; 8],
+```c
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
 
-    /// Error counts per vector from FEC decoding.
-    pub errors: [u8; 8],
+/* Full-rate IMBE voice frame (Phase 1 FDMA).
+ * 88 information bits after FEC decoding and PN demodulation. */
+typedef struct {
+    /* The 8 decoded bit vectors (u0..u7), LSB-aligned in each uint16_t.
+     *   u0..u3: 12 bits each
+     *   u4..u6: 11 bits each  (c6 is sometimes shown as 10; see note in §1.2)
+     *   u7:      7 bits       */
+    uint16_t vectors[8];
+    uint8_t  errors[8];       /* per-vector FEC error count */
+    uint8_t  error_total;
+    bool     repeat;          /* frame should be repeated (too many errors) */
+    bool     mute;            /* frame should be muted (sustained errors)   */
+} imbe_frame_t;
 
-    /// Total error count across all vectors.
-    pub error_total: u8,
+/* Half-rate AMBE+2 voice frame (Phase 2 TDMA).
+ * 49 information bits after FEC decoding and PN demodulation. */
+typedef struct {
+    uint8_t  b0_pitch;    /* 7 bits  (0..119)  */
+    uint8_t  b1_vuv;      /* 5 bits  (0..31)   */
+    uint8_t  b2_gain;     /* 5 bits  (0..31)   */
+    uint16_t b3_prba24;   /* 9 bits  (0..511)  */
+    uint8_t  b4_prba58;   /* 7 bits  (0..127)  */
+    uint8_t  b5_hoc1;     /* 5 bits  (0..31)   */
+    uint8_t  b6_hoc2;     /* 4 bits  (0..15)   */
+    uint8_t  b7_hoc3;     /* 4 bits  (0..15)   */
+    uint8_t  b8_hoc4;     /* 3 bits  (0..7)    */
 
-    /// True if this frame should be repeated (too many errors).
-    pub repeat: bool,
+    uint8_t  errors[4];   /* e0..e3 */
+    uint8_t  error_total;
+    bool     repeat;
+    bool     mute;
 
-    /// True if this frame should be muted (sustained errors).
-    pub mute: bool,
+    /* Tone frame indicator: tone_valid == false means voice frame; otherwise
+     * tone_id carries the tone ID (see ToneFrame / Annex T). */
+    bool     tone_valid;
+    uint8_t  tone_id;
+} ambe_frame_t;
+
+/* Half-rate tone frame parameters. */
+typedef struct {
+    uint8_t tone_id;       /* I_D (0..255) */
+    float   f0_hz;         /* fundamental frequency */
+    uint8_t l1;            /* spectral shaping index 1 */
+    uint8_t l2;            /* spectral shaping index 2 */
+    bool    is_silence;    /* true if I_D == 255 */
+} tone_frame_t;
+
+/* Raw FEC-encoded voice frame before decoding. */
+typedef struct {
+    /* c0..c3: 23 bits each (Golay-encoded)
+     * c4..c6: 15 bits each (Hamming-encoded)
+     * c7:      7 bits      (uncoded)           */
+    uint32_t codewords[8];
+} raw_imbe_codewords_t;
+
+typedef struct {
+    /* c0: 24 bits (extended Golay)
+     * c1: 23 bits (Golay)
+     * c2: 23 bits (Golay)
+     * c3: variable (uncoded)                    */
+    uint32_t codewords[4];
+} raw_ambe_codewords_t;
+
+/* Smoothed error tracking state for adaptive frame concealment. */
+typedef struct {
+    double  e_r;                /* exponentially smoothed error rate */
+    uint8_t consecutive_bad;    /* count of consecutive invalid/errored frames */
+    /* Previous frame's spectral amplitudes (for frame-repeat attenuation).
+     * prev_frame is NULL when no previous frame is available. */
+    double *prev_frame;
+    size_t  prev_frame_len;
+} error_tracker_t;
+
+static inline void error_tracker_init(error_tracker_t *t) {
+    t->e_r = 0.0;
+    t->consecutive_bad = 0;
+    t->prev_frame = NULL;
+    t->prev_frame_len = 0;
 }
 
-/// Half-rate AMBE+2 voice frame (Phase 2 TDMA).
-/// 49 information bits after FEC decoding and PN demodulation.
-#[derive(Clone, Debug)]
-pub struct AmbeFrame {
-    /// Decoded voice parameters.
-    pub b0_pitch: u8,       // 7 bits (0..119)
-    pub b1_vuv: u8,         // 5 bits (0..31)
-    pub b2_gain: u8,        // 5 bits (0..31)
-    pub b3_prba24: u16,     // 9 bits (0..511)
-    pub b4_prba58: u8,      // 7 bits (0..127)
-    pub b5_hoc1: u8,        // 5 bits (0..31)
-    pub b6_hoc2: u8,        // 4 bits (0..15)
-    pub b7_hoc3: u8,        // 4 bits (0..15)
-    pub b8_hoc4: u8,        // 3 bits (0..7)
+/* Assess full-rate IMBE frame errors.
+ * Sets *repeat/*mute per §6 (BABA-A error concealment rules). */
+void error_tracker_assess_fullrate(error_tracker_t *t, uint8_t e0, uint8_t e_total,
+                                   bool *repeat, bool *mute);
 
-    /// Error counts per vector from FEC decoding.
-    pub errors: [u8; 4],    // e0..e3
-
-    /// Total error count.
-    pub error_total: u8,
-
-    /// Frame status.
-    pub repeat: bool,
-    pub mute: bool,
-
-    /// Tone frame indicator (None = voice, Some(id) = tone).
-    pub tone_id: Option<u8>,
-}
-
-/// Half-rate tone frame parameters.
-#[derive(Clone, Debug)]
-pub struct ToneFrame {
-    pub tone_id: u8,        // I_D (0..255)
-    pub f0_hz: f32,         // Fundamental frequency
-    pub l1: u8,             // Spectral shaping index 1
-    pub l2: u8,             // Spectral shaping index 2
-    pub is_silence: bool,   // true if I_D == 255
-}
-
-/// Raw FEC-encoded voice frame before decoding.
-/// Used as intermediate representation during extraction from air interface.
-#[derive(Clone, Debug)]
-pub struct RawImbeCodewords {
-    /// 8 FEC-encoded code words.
-    /// c0..c3: 23 bits each (Golay-encoded)
-    /// c4..c6: 15 bits each (Hamming-encoded)
-    /// c7: 7 bits (uncoded)
-    pub codewords: [u32; 8],
-}
-
-#[derive(Clone, Debug)]
-pub struct RawAmbeCodewords {
-    /// 4 FEC-encoded code words.
-    /// c0: 24 bits (extended Golay)
-    /// c1: 23 bits (Golay)
-    /// c2: 23 bits (Golay)
-    /// c3: variable (uncoded)
-    pub codewords: [u32; 4],
-}
-
-/// Smoothed error tracking state for adaptive smoothing.
-#[derive(Clone, Debug)]
-pub struct ErrorTracker {
-    /// Exponentially smoothed error rate.
-    pub e_r: f64,
-    /// Count of consecutive invalid/errored frames.
-    pub consecutive_bad: u8,
-    /// Previous frame's spectral amplitudes (for frame repeat attenuation).
-    pub prev_frame: Option<Vec<f64>>,
-}
-
-impl ErrorTracker {
-    pub fn new() -> Self {
-        Self {
-            e_r: 0.0,
-            consecutive_bad: 0,
-            prev_frame: None,
-        }
-    }
-
-    /// Assess full-rate IMBE frame errors.
-    /// Returns (should_repeat, should_mute).
-    pub fn assess_fullrate(&mut self, e0: u8, e_total: u8) -> (bool, bool) {
-        let repeat = e0 >= 2 && (e_total as f64) >= 10.0 + 40.0 * self.e_r;
-        let mute = self.e_r > 0.0875;
-        // Update e_r (exponential smoothing -- exact alpha from BABA-A)
-        (repeat, mute)
-    }
-
-    /// Assess half-rate AMBE frame errors.
-    /// Returns (should_repeat, should_mute).
-    pub fn assess_halfrate(&mut self, e0: u8, e_total: u8) -> (bool, bool) {
-        let repeat = e0 >= 4 || e_total >= 6;
-        let mute = self.e_r > 0.096 || self.consecutive_bad >= 4;
-        (repeat, mute)
-    }
-}
+/* Assess half-rate AMBE frame errors. */
+void error_tracker_assess_halfrate(error_tracker_t *t, uint8_t e0, uint8_t e_total,
+                                   bool *repeat, bool *mute);
 ```
 
 ### 9.1 Bit Extraction Helpers
 
-```rust
-/// Extract a single IMBE frame's 88 bits from an LDU bit stream.
-///
-/// `ldu_bits`: The deinterleaved LDU bit stream (after status symbol removal).
-/// `frame_index`: Which of the 9 frames to extract (0-based, 0..8).
-///
-/// NOTE: The exact bit positions require the Annex A tables from TIA-102.BAAA-B.
-/// These 864-entry tables must be programmatically extracted from the BAAA-B PDF.
-pub fn extract_imbe_from_ldu(
-    ldu_bits: &[u8],
-    frame_index: usize,
-    // Position table: for each of the 9 frames, the 144 bit indices in the LDU
-    position_table: &[[usize; 144]; 9],
-) -> RawImbeCodewords {
-    let positions = &position_table[frame_index];
-    let mut bits = [0u8; 144];
-    for (i, &pos) in positions.iter().enumerate() {
-        bits[i] = ldu_bits[pos];
-    }
-    // Now partition 144 bits into 8 code words using Annex H deinterleave
-    deinterleave_fullrate(&bits)
+```c
+/* Extract a single IMBE frame's 88 bits from an LDU bit stream.
+ *
+ * ldu_bits:         deinterleaved LDU bit stream (after status symbol removal)
+ * frame_index:      which of the 9 frames to extract (0..=8)
+ * position_table:   for each of the 9 frames, the 144 bit indices in the LDU
+ *                   (sourced from TIA-102.BAAA-B Annex A)
+ *
+ * Returns a RawImbeCodewords via *out. */
+void extract_imbe_from_ldu(
+    const uint8_t *ldu_bits,
+    size_t frame_index,
+    const size_t position_table[9][144],
+    raw_imbe_codewords_t *out)
+{
+    uint8_t bits[144];
+    const size_t *positions = position_table[frame_index];
+    for (size_t i = 0; i < 144; i++) bits[i] = ldu_bits[positions[i]];
+    deinterleave_fullrate(bits, out);
 }
 
-/// Extract a single half-rate AMBE frame from a TDMA burst.
-///
-/// `burst_symbols`: 180 dibit symbols of one TDMA timeslot.
-/// `voice_index`: Which voice frame (0-based).
-/// `is_4v`: true for 4V burst (4 frames), false for 2V (2 frames).
-pub fn extract_ambe_from_burst(
-    burst_symbols: &[u8; 180],
-    voice_index: usize,
-    is_4v: bool,
-) -> RawAmbeCodewords {
-    let start = match (is_4v, voice_index) {
-        (_, 0) => 10,
-        (_, 1) => 47,
-        (true, 2) => 96,
-        (true, 3) => 133,
-        _ => panic!("Invalid voice_index for burst type"),
+/* Extract a single half-rate AMBE frame from a TDMA burst.
+ *
+ * burst_symbols: 180 dibit symbols of one TDMA timeslot
+ * voice_index:   which voice frame (0..=3 for 4V, 0..=1 for 2V)
+ * is_4v:         true for 4V burst (4 frames), false for 2V (2 frames) */
+void extract_ambe_from_burst(
+    const uint8_t burst_symbols[180],
+    size_t voice_index,
+    bool is_4v,
+    raw_ambe_codewords_t *out)
+{
+    /* Voice frame start offsets (symbols) in a 4V/2V burst. */
+    static const size_t starts_4v[4] = {10, 47, 96, 133};
+    static const size_t starts_2v[2] = {10, 47};
+    size_t start;
+    if (is_4v) {
+        /* assert(voice_index < 4); */
+        start = starts_4v[voice_index];
+    } else {
+        /* assert(voice_index < 2); */
+        start = starts_2v[voice_index];
+    }
+
+    uint8_t dibits[36];
+    memcpy(dibits, &burst_symbols[start], 36);
+    deinterleave_halfrate(dibits, out);
+}
+
+/* Pack an imbe_frame_t's 88 bits into an 11-byte array.
+ * Bits are packed MSB-first: u0[11..0] | u1[11..0] | ... | u7[6..0]. */
+void imbe_to_jmbe_bytes(const imbe_frame_t *frame, uint8_t out[11]) {
+    static const uint8_t widths[8] = {12, 12, 12, 12, 11, 11, 11, 7};
+    memset(out, 0, 11);
+    size_t bit_pos = 0;
+    for (size_t i = 0; i < 8; i++) {
+        for (int b = (int)widths[i] - 1; b >= 0; b--) {
+            if ((frame->vectors[i] >> b) & 1u)
+                out[bit_pos / 8] |= (uint8_t)(1u << (7 - (bit_pos % 8)));
+            bit_pos++;
+        }
+    }
+}
+
+/* Pack an ambe_frame_t's 49 bits into a 7-byte array.
+ * Bits are packed MSB-first: b0[6..0] | b1[4..0] | ... | b8[2..0]. */
+void ambe_to_jmbe_bytes(const ambe_frame_t *frame, uint8_t out[7]) {
+    struct { uint16_t value; uint8_t width; } params[9] = {
+        { frame->b0_pitch,  7 },
+        { frame->b1_vuv,    5 },
+        { frame->b2_gain,   5 },
+        { frame->b3_prba24, 9 },
+        { frame->b4_prba58, 7 },
+        { frame->b5_hoc1,   5 },
+        { frame->b6_hoc2,   4 },
+        { frame->b7_hoc3,   4 },
+        { frame->b8_hoc4,   3 },
     };
-
-    let mut dibits = [0u8; 36];
-    dibits.copy_from_slice(&burst_symbols[start..start + 36]);
-
-    deinterleave_halfrate(&dibits)
-}
-
-/// Pack an ImbeFrame's 88 bits into an 11-byte array.
-/// Bits are packed MSB-first: u0[11]..u0[0], u1[11]..u1[0], ..., u7[6]..u7[0].
-pub fn imbe_to_jmbe_bytes(frame: &ImbeFrame) -> [u8; 11] {
-    let mut output = [0u8; 11];
-    let mut bit_pos = 0usize;
-    let widths = [12, 12, 12, 12, 11, 11, 11, 7];
-
-    for (i, &width) in widths.iter().enumerate() {
-        for b in (0..width).rev() {
-            let byte_idx = bit_pos / 8;
-            let bit_idx = 7 - (bit_pos % 8);
-            if (frame.vectors[i] >> b) & 1 == 1 {
-                output[byte_idx] |= 1 << bit_idx;
-            }
-            bit_pos += 1;
+    memset(out, 0, 7);
+    size_t bit_pos = 0;
+    for (size_t i = 0; i < 9; i++) {
+        for (int b = (int)params[i].width - 1; b >= 0; b--) {
+            if ((params[i].value >> b) & 1u)
+                out[bit_pos / 8] |= (uint8_t)(1u << (7 - (bit_pos % 8)));
+            bit_pos++;
         }
     }
-    output
 }
 
-/// Pack an AmbeFrame's 49 bits into a 7-byte array.
-/// Bits are packed MSB-first: b0[6..0], b1[4..0], ..., b8[2..0].
-pub fn ambe_to_jmbe_bytes(frame: &AmbeFrame) -> [u8; 7] {
-    let mut output = [0u8; 7];
-    let mut bit_pos = 0usize;
+/* Full-rate deinterleave — applies inverse of BABA-A Annex H
+ * (see annex_tables/annex_h_interleave.csv). */
+void deinterleave_fullrate(const uint8_t bits[144], raw_imbe_codewords_t *out);
 
-    let params: [(u16, usize); 9] = [
-        (frame.b0_pitch as u16, 7),
-        (frame.b1_vuv as u16, 5),
-        (frame.b2_gain as u16, 5),
-        (frame.b3_prba24, 9),
-        (frame.b4_prba58 as u16, 7),
-        (frame.b5_hoc1 as u16, 5),
-        (frame.b6_hoc2 as u16, 4),
-        (frame.b7_hoc3 as u16, 4),
-        (frame.b8_hoc4 as u16, 3),
-    ];
-
-    for &(value, width) in &params {
-        for b in (0..width).rev() {
-            let byte_idx = bit_pos / 8;
-            let bit_idx = 7 - (bit_pos % 8);
-            if (value >> b) & 1 == 1 {
-                output[byte_idx] |= 1 << bit_idx;
-            }
-            bit_pos += 1;
-        }
-    }
-    output
-}
-
-/// Placeholder for full-rate deinterleaving (requires Annex H table).
-fn deinterleave_fullrate(bits: &[u8; 144]) -> RawImbeCodewords {
-    // Apply inverse of BABA-A Annex H interleaving table (72 rows x 2 cols).
-    todo!("Implement with Annex H table from TIA-102.BABA-A")
-}
-
-/// Placeholder for half-rate deinterleaving (requires Annex S table).
-fn deinterleave_halfrate(dibits: &[u8; 36]) -> RawAmbeCodewords {
-    // Apply inverse of BABA-A Annex S interleaving table (36 rows x 2 cols).
-    // Also available in BBAC-1 Annex E.
-    todo!("Implement with Annex S table from TIA-102.BABA-A")
-}
+/* Half-rate deinterleave — applies inverse of BABA-A Annex S / BBAC-1 Annex E. */
+void deinterleave_halfrate(const uint8_t dibits[36], raw_ambe_codewords_t *out);
 ```
 
 ---
@@ -1306,20 +1236,30 @@ fn deinterleave_halfrate(dibits: &[u8; 36]) -> RawAmbeCodewords {
 
 These initial values MUST be set at decoder startup and call start:
 
-```rust
-/// Decoder state initialization per Annex A.
-pub fn init_decoder_state() -> DecoderState {
-    DecoderState {
-        prev_pitch_period: 100,        // P_{-1} = 100
-        prev_pitch_period_2: 100,      // P_{-2} = 100
-        prev_omega_0: 0.02985 * std::f64::consts::PI,  // omega_0(-1) = 0.02985*pi
-        prev_magnitudes: vec![1.0; 56], // M_l(-1) = 1 for all l
-        prev_l: 30,                     // L(-1) = 30
-        prev_k: 10,                     // K(-1) = 10
-        error_rate: 0.0,               // e_R = 0.0
-        enhancement_energy: 75000.0,   // S_E = 75000
-        noise_seed: 3147,              // u(-105) = 3147
-    }
+```c
+/* Decoder state initialization per Annex A. */
+typedef struct {
+    int     prev_pitch_period;       /* P_{-1}            */
+    int     prev_pitch_period_2;     /* P_{-2}            */
+    double  prev_omega_0;            /* omega_0(-1)       */
+    double  prev_magnitudes[56];     /* M_l(-1) for l=1..L, plus headroom */
+    uint8_t prev_l;                  /* L(-1)             */
+    uint8_t prev_k;                  /* K(-1)             */
+    double  error_rate;              /* e_R               */
+    double  enhancement_energy;      /* S_E               */
+    uint16_t noise_seed;             /* u(-105)           */
+} decoder_state_t;
+
+void decoder_state_init(decoder_state_t *s) {
+    s->prev_pitch_period   = 100;                     /* P_{-1} = 100 */
+    s->prev_pitch_period_2 = 100;                     /* P_{-2} = 100 */
+    s->prev_omega_0        = 0.02985 * M_PI;          /* omega_0(-1) = 0.02985*pi */
+    for (size_t i = 0; i < 56; i++) s->prev_magnitudes[i] = 1.0;  /* M_l(-1) = 1 */
+    s->prev_l               = 30;                      /* L(-1) = 30  */
+    s->prev_k               = 10;                      /* K(-1) = 10  */
+    s->error_rate           = 0.0;                     /* e_R = 0     */
+    s->enhancement_energy   = 75000.0;                 /* S_E = 75000 */
+    s->noise_seed           = 3147;                    /* u(-105) = 3147 */
 }
 ```
 
