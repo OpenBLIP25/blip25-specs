@@ -136,6 +136,39 @@ extraction artifact), it's flagged as **SPEC BUG** for emphasis.
   is a decoder-init constant — can be computed once the values are
   extracted, or captured as a fixture value from DVSI in the
   meantime.
+  *Resolved (2026-04-14, commit `4116b0f`):* Annex C extracted to
+  `annex_tables/annex_c_pitch_refinement_window.csv` (221 values,
+  symmetric, peak 1.0). Spec-derived γ_w = **146.643269** now inlined
+  in §1.12.1. See open investigation below re: empirical mismatch
+  against DVSI.
+
+- **OPEN INVESTIGATION — γ_w spec value mismatches DVSI output by
+  ~150×.** Downstream implementer reported that the spec-derived
+  γ_w = 146.643269 produces unvoiced output ~150× louder than DVSI's
+  reference PCM for the same bitstream; empirical optimum on the
+  `alert.bit` test case lies near γ_w ≈ 1.0. Error scales monotonically
+  with γ_w (RMS 3587 at γ_w=0.5/1.0 → 6724 at γ_w=146.6, SNR
+  −0.36 dB → −5.82 dB).
+  *Location:* BABA-A §11.2 Eq. 121, page 52.
+  *Spec action:* γ_w = 146.643269 kept as the authoritative value in
+  §1.12.1; an empirical-calibration note added flagging the
+  investigation and pointing at
+  `analysis/vocoder_decode_disambiguations.md §11`.
+  *Candidate causes documented:* (1) Annex E quantizer log base
+  interpretation, (2) global M̃_l normalization missing in our
+  dequant — Σ wR(n) = 110.02 is suspiciously close to 150, (3)
+  unvoiced norm formula off-by-one, (4) 1993-vs-2014 spec revision
+  divergence in DVSI's calibration, (5) window normalization
+  convention (Σ wR = 1 vs Σ wR = N vs raw values).
+  *How to investigate:* frame-level side-by-side of M̃_l values
+  between our impl and DVSI's AMBE-3000 intermediate output at each
+  pipeline checkpoint. Recommended action: do NOT locally fit γ_w;
+  the mismatch is likely compensating for a bug elsewhere, and
+  trimming γ_w would mask the root cause.
+  *Noted by:* downstream implementer, 2026-04-14. Third finding to
+  come from downstream implementation — further reinforcing that
+  DVSI cross-reference catches bugs self-consistent unit tests
+  cannot.
 
 - **Missing V/UV band-to-harmonic mapping** for both rates.
   *Location:* full-rate in BABA-A §5.2 Eq. 32–33; half-rate in §13.2

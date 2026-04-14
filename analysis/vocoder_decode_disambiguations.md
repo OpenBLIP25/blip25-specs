@@ -401,6 +401,96 @@ against the AMBE-3000 chip output.
 
 ---
 
+## 11. γ_w Empirical Mismatch Against DVSI (Investigation Pending)
+
+**Source of the spec value:** BABA-A §11.2 Eq. 121, page 52.
+
+**Empirical finding:** downstream implementer (2026-04-14) reported that
+direct use of the spec-computed γ_w = 146.643269 produces unvoiced output
+approximately 150× louder than DVSI's reference PCM for the same bitstream.
+The error scales monotonically with γ_w; the empirical optimum sits near
+γ_w ≈ 1.0. Sweep on the `alert.bit` test case:
+
+| γ_w    | RMS error | SNR       |
+|-------:|----------:|----------:|
+| 0.5    | 3587      | −0.36 dB  |
+| 1.0    | 3587      | −0.36 dB  |
+| 5.0    | 3593      | −0.38 dB  |
+| 10.0   | 3613      | −0.43 dB  |
+| 50.0   | 4230      | −1.80 dB  |
+| **146.6** | **6724** | **−5.82 dB** (spec value) |
+
+The spec is committed as authoritative. This entry documents the
+mismatch so the investigation below doesn't get lost.
+
+### Candidate Causes
+
+1. **Annex E quantizer log base.** The spec uses `log₂(M̃_l(0))` in Eq. 77,
+   so `M̃_l = 2^{log₂ M̃_l(0)}`. Annex E values span [−2.842, +8.696];
+   interpreted as log₂ they produce M̃_l in roughly [0.14, 414]. If DVSI
+   instead treats Annex E as natural log or log₁₀, our M̃_l would be off
+   by a constant factor (log₂ vs log₁₀ differs by ~3.32×; log₂ vs ln
+   differs by ~1.44×). Neither gets to the observed 150× factor alone —
+   but combined with §1.10's γ rescale or a different scale in Eq. 75–77
+   it could.
+
+2. **Global M̃_l normalization missing in our dequant.** If DVSI's encoder
+   applies a constant pre-scaling before quantizing (say, dividing by a
+   window-energy term) and the decoder restores it inside the synthesis
+   pipeline, our literal reading of Annex E/Eq. 77 would produce M̃_l
+   scaled up by that factor. γ_w then over-corrects by the same factor.
+   Σ wR(n) = 110.02 is suspiciously close to 150; this is the prime
+   candidate.
+
+3. **Unvoiced norm formula** (Eq. 120's `[Σ|U_w|² / (⌈b̃⌉−⌈ã⌉)]^(1/2)`
+   denominator). If our interpretation of "band range" off-by-ones vs
+   DVSI's, the norm changes by a factor that γ_w then multiplies.
+
+4. **Different spec revision.** BABA-A 2014 differs from the 1993 IMBE
+   spec mbelib follows. If DVSI's AMBE-3000 is actually calibrated to
+   the 1993 value of γ_w (which we haven't located in a 1993 reference),
+   the spec-literal 2014 value may have been edited without a matching
+   calibration update elsewhere.
+
+5. **Window normalization convention.** Σ wR(n) = 110.02, the first
+   factor in γ_w. Some signal-processing conventions normalize windows
+   so Σ w = 1 (unit DC gain) or Σ w = N (unit-amplitude passband). Our
+   wR has Σ = 110.02 because the values tabulate as raw coefficients.
+   If Eq. 121's derivation assumed Σ wR = 1 (normalized), γ_w should
+   be roughly Σ wR × smaller = ~1.33.
+
+### How to Investigate
+
+The minimum useful diagnostic is a **frame-level side-by-side of M̃_l
+values** between our implementation and DVSI for the same input bits:
+
+```
+1. Feed the same raw IMBE bits to both pipelines.
+2. At the MBE-parameter boundary (after §1.8.5 log-mag prediction,
+   before enhancement §1.10), compare M̃_l(0) for each harmonic.
+3. If our M̃_l is ~150× DVSI's: bug is in dequant (candidates 1/2).
+4. If M̃_l matches but post-enhancement M̄_l is ~150×: bug in §1.10.
+5. If M̄_l matches but synthesis output is ~150×: bug in γ_w formula
+   or unvoiced norm (candidates 3/5).
+```
+
+DVSI's AMBE-3000 exposes intermediate MBE parameters via its protocol
+(see `DVSI/AMBE-3000_Protocol_Spec.md` per your DVSI directory). A
+one-frame capture at each pipeline checkpoint would localize the
+factor.
+
+### Recommended Action
+
+- **Do not fit γ_w locally.** The mismatch may be compensating for a
+  bug elsewhere (e.g., wrong Annex E log base), and trimming γ_w
+  hides the root cause. If you need correct PCM today for demo
+  purposes, gate the override behind a debug flag with a visible
+  warning, not a silent constant.
+- **Keep the spec value as default** until the root cause is found.
+- **Update this entry** with findings once the M̃_l comparison runs.
+
+---
+
 ## Provenance
 
 Every disambiguation above is traceable to a specific PDF equation number or

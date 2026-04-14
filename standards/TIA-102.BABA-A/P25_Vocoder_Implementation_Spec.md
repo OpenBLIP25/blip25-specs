@@ -1074,6 +1074,29 @@ Both components use the Annex I synthesis window `wS(n)` (211 values,
    ```
    Precompute once at decoder init; it's a fixed scalar.
 
+   **⚠ Empirical calibration note:** direct use of γ_w = 146.643269
+   produces unvoiced output roughly 150× louder than DVSI's reference
+   PCM for the same bitstream. Empirical optimum on the `alert.bit`
+   test case lies near γ_w ≈ 1.0 (see table below). The spec value
+   is committed as authoritative; the mismatch is under investigation
+   and documented in
+   [`analysis/vocoder_decode_disambiguations.md §11`](../../analysis/vocoder_decode_disambiguations.md)
+   with candidate causes (M̃_l scale from the Annex E quantizer
+   interpretation, unvoiced-norm formula, or a different normalization
+   convention between the spec and DVSI's implementation).
+   ```
+       γ_w   RMS error   SNR
+       0.5    3587      -0.36 dB
+       1.0    3587      -0.36 dB
+       5.0    3593      -0.38 dB
+      10.0    3613      -0.43 dB
+      50.0    4230      -1.80 dB
+     146.6    6724      -5.82 dB        (spec value)
+   ```
+   Use the spec value until the root cause is found — the mismatch
+   may be compensating for a bug elsewhere in the pipeline, and
+   "fitting" γ_w locally could mask it.
+
 4. **Inverse DFT** (Eq. 125):
    ```
    ũ_w(n) = (1/256) · Σ_{m=−128}^{127} Ũ_w(m) · e^{j2π·m·n/256}
