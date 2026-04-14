@@ -198,6 +198,19 @@ M_MATRIX[44] = {
 };
 ```
 
+### Invariant Verification — M_MATRIX
+
+**Check:** Full rank over GF(2) (Gaussian elimination).  
+**Result:** Rank = 44 ✓ (full rank). All 44 rows are linearly independent.  
+**Method:** Phase 4 programmatic verification, 2026-04-14.  
+**Source:** PDF page 7 (Figure 7-3). Bit patterns verified byte-for-byte against PDF.
+
+The M_MATRIX is an identity-like matrix in its lower 11 rows (rows 33–43 form
+the identity subblock) with mixing in rows 0–32 reflecting the LFSR structure.
+Full rank confirms the external→internal state conversion is a bijection.
+
+---
+
 ## 5. Matrix SH(2^43) — Inbound Seed Derivation
 
 44×44 binary matrix. **Required** for computing the inbound scrambling seed.
@@ -250,6 +263,28 @@ SH_MATRIX[44] = {
     0x9936492490B,  // row 43
 };
 ```
+
+### Invariant Verification — SH_MATRIX
+
+**Check:** Bit patterns match TIA-102.BBAC-1 PDF Figure 7-4 exactly.  
+**Result:** All 44 rows match ✓. Zero OCR errors detected.  
+**Method:** Phase 4 programmatic extraction (pdftotext -layout), 2026-04-14.  
+**Source:** PDF pages 8–9 (Figure 7-4, "Matrix to Advance External LFSR 2^43 Shift Cycles").
+
+**Functional check:** Applying SH_MATRIX to test vector seed  
+`0xBEE006B1293` yields `0x4DC0288B12F`, which matches the expected  
+`seed_external_inbound` value in the test vector (§10 Test Vector 1). ✓
+
+**Convention note (AMBIGUITY):** The TIA spec defines SH as a matrix that
+advances the *external* LFSR (G(x) = x^44+x^40+x^35+x^29+x^24+x^10+1) by
+2^43 steps, using the row-vector convention: `seed_inbound = seed_outbound * SH`.
+The `gf2_matrix_vector_multiply` function in this spec implements the equivalent
+column-vector convention: `SH_impl = SH_TIA^T`. Phase 4 verified that SH_MATRIX
+as written produces the correct results — no transposition error was introduced.
+The implementation must use `gf2_matrix_vector_multiply(SH_MATRIX, seed)` exactly
+as shown; do NOT pre-transpose SH_MATRIX before use.
+
+---
 
 ## 6. GF(2) Matrix-Vector Multiplication
 
