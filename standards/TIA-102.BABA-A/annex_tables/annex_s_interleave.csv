@@ -8,6 +8,9 @@
 #   The even-symbol bit1 lane follows c0(23) down to c0(6) across symbols 0,2,...,34.
 #   c0(5) is covered at symbol 0 bit0; c0(6) would otherwise be missing entirely.
 #   This is the same class of PDF typo as the Annex H "c9(5)"→"c0(5)" correction.
+# Cross-validated against TIA-102.BBAC-1 Annex E (burst symbol 44 = frame symbol 34):
+#   BBAC-1 prints "c0(6) | c1(11)" — matches the post-fix value here. The typo is
+#   local to the BABA-A PDF; BBAC-1 (PyMuPDF-extracted) prints this table correctly.
 # Extracted from pdftotext -layout output with verification: count=36 (PASS);
 #   bit coverage after OCR fix: all 72 bit positions appear exactly once (PASS)
 symbol,bit1_vector,bit1_index,bit0_vector,bit0_index

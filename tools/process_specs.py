@@ -16,6 +16,8 @@ Usage:
     python3 tools/process_specs.py --batch 5            # process next 5 in priority order
     python3 tools/process_specs.py --dry-run            # show what would be processed
     python3 tools/process_specs.py --phase4 TIA-102.BABA-A  # uplift existing Phase 3 output
+    python3 tools/process_specs.py --vocoder-path --list    # list only vocoder-path docs
+    python3 tools/process_specs.py --vocoder-path --batch 3 # process next 3 vocoder-path docs
 """
 import argparse
 import glob
@@ -50,12 +52,32 @@ def find_pdf(doc_dir: Path) -> str | None:
     return str(pdfs[0])
 
 
-def get_processable_docs(specs: dict, force: bool = False) -> list[dict]:
-    """Return pending docs that have PDFs available, sorted by priority."""
-    # Priority order from specs.toml comments — manually defined
-    priority_order = [
-        "TIA-102.AABC-E", "TIA-102.AABF-D", "TIA-102.BAAC-D",
-        "TIA-102.AAAD-B", "TIA-102.BAAA-B", "TIA-102.BABA-A",
+#: Documents on the vocoder data path — voice frames flow through these from
+#: the air interface into BABA-A's MBE parameter boundary. Used to drive the
+#: --vocoder-path filter and as the default priority order.
+VOCODER_PATH = [
+    "TIA-102.BABA-A",   # Vocoder itself (IMBE/AMBE frame formats, FEC, Annexes)
+    "TIA-102.BAAA-B",   # FDMA CAI — LDU1/LDU2 carry 9 IMBE frames each
+    "TIA-102.BBAC-A",   # TDMA MAC — 4V/2V bursts carry AMBE frames
+    "TIA-102.BBAB",     # TDMA PHY — H-CPM, sync sequences, burst timing
+    "TIA-102.BBAC-1",   # TDMA scrambling + Annex E (dual of BABA-A Annex S)
+    "TIA-102.AABF-D",   # Link Control Word — call metadata on voice channel
+]
+
+
+def get_processable_docs(specs: dict, force: bool = False,
+                         vocoder_only: bool = False) -> list[dict]:
+    """Return pending docs that have PDFs available, sorted by priority.
+
+    If vocoder_only=True, restrict to documents on the vocoder data path
+    (VOCODER_PATH above). Useful for focused batching when voice decode
+    is the downstream goal.
+    """
+    # Default priority: vocoder path first, then the other historical
+    # high-priority items. Callers passing vocoder_only=True see only
+    # the vocoder path.
+    priority_order = VOCODER_PATH + [
+        "TIA-102.AABC-E", "TIA-102.BAAC-D", "TIA-102.AAAD-B",
     ]
 
     processable_statuses = {"pending"} if not force else {"pending", "not_required", "needed"}
@@ -63,6 +85,8 @@ def get_processable_docs(specs: dict, force: bool = False) -> list[dict]:
     docs = []
     for doc_id, info in specs.get("specs", {}).items():
         if info.get("status") not in processable_statuses:
+            continue
+        if vocoder_only and doc_id not in VOCODER_PATH:
             continue
         doc_dir = STANDARDS_DIR / doc_id
         pdf = find_pdf(doc_dir) if doc_dir.is_dir() else None
@@ -313,12 +337,17 @@ def main():
     parser.add_argument("--phase4", action="store_true",
                         help="Run Phase 4 (verification & uplift) on an existing impl spec "
                              "instead of Phase 1-3. Requires a doc_id.")
+    parser.add_argument("--vocoder-path", action="store_true",
+                        help="Restrict the queue to documents on the vocoder data path "
+                             f"({', '.join(VOCODER_PATH)}).")
     args = parser.parse_args()
 
     specs = load_specs()
     # Phase 4 runs on documents that already have Phase 3 outputs, so we need
     # to accept already-processed statuses too.
-    docs = get_processable_docs(specs, force=args.force or args.phase4)
+    docs = get_processable_docs(specs,
+                                force=args.force or args.phase4,
+                                vocoder_only=args.vocoder_path)
 
     if args.list:
         print(f"Processable documents ({len(docs)} with PDFs available):\n")
