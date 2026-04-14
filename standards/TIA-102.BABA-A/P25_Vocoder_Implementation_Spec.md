@@ -115,34 +115,45 @@ Decode order:
 
 Applied to u0, u1, u2, u3. Corrects up to 3 bit errors per code word.
 
-Generator matrix g_G (12 x 23) -- systematic form [I_12 | P]:
+Source: BABA-A Section 7.3, page 37 (Equation 81, matrix below Figure 24).
+Generator polynomial: g(x) = x¹¹ + x⁹ + x⁷ + x⁶ + x⁵ + x + 1 (octal 6265, 0xAE3).
+
+Generator matrix g_G (12 x 23) -- systematic form [I_12 | P].
+Parity columns ordered leftmost = x⁰, rightmost = x¹⁰.
 
 ```
 Parity portion P (12 x 11):
 Row 0:  1 1 0 0 0 1 1 1 0 1 0
-Row 1:  1 1 0 0 0 1 1 1 0 1 1
+Row 1:  0 1 1 0 0 0 1 1 1 0 1
 Row 2:  1 1 1 1 0 1 1 0 1 0 0
 Row 3:  0 1 1 1 1 0 1 1 0 1 0
 Row 4:  0 0 1 1 1 1 0 1 1 0 1
 Row 5:  1 1 0 1 1 0 0 1 1 0 0
-Row 6:  0 1 1 0 0 0 1 1 0 1 1
-Row 7:  0 1 1 0 0 0 1 1 0 1 1
+Row 6:  0 1 1 0 1 1 0 0 1 1 0
+Row 7:  0 0 1 1 0 1 1 0 0 1 1
 Row 8:  1 1 0 1 1 1 0 0 0 1 1
 Row 9:  1 0 1 0 1 0 0 1 0 1 1
-Row 10: 0 1 0 1 0 0 1 1 1 1 1
-Row 11: 1 1 0 0 0 1 1 1 0 1 0
+Row 10: 1 0 0 1 0 0 1 1 1 1 1
+Row 11: 1 0 0 0 1 1 1 0 1 0 1
 ```
 
 ```rust
 /// [23,12] Golay generator matrix (systematic form).
 /// Each row is 23 bits: 12 identity bits followed by 11 parity bits.
-/// Stored as u32 with MSB = bit 22, LSB = bit 0.
+/// Stored as u32 with MSB = bit 22 (identity column 0), LSB = bit 0 (parity x¹⁰).
 const GOLAY_23_12_GEN: [u32; 12] = [
-    0b10000000000011000_11010_0,  // Row 0
-    0b01000000000011000_11011_0,  // Row 1  (placeholder -- see note)
-    // ... full matrix from BABA-A Section 10.2
-    // IMPLEMENTATION NOTE: Use the exact values from the extraction above.
-    // Full matrix defined in BABA-A Section 10.2.
+    0b100000000000_11000111010,  // Row 0
+    0b010000000000_01100011101,  // Row 1
+    0b001000000000_11110110100,  // Row 2
+    0b000100000000_01111011010,  // Row 3
+    0b000010000000_00111101101,  // Row 4
+    0b000001000000_11011001100,  // Row 5
+    0b000000100000_01101100110,  // Row 6
+    0b000000010000_00110110011,  // Row 7
+    0b000000001000_11011100011,  // Row 8
+    0b000000000100_10101001011,  // Row 9
+    0b000000000010_10010011111,  // Row 10
+    0b000000000001_10001110101,  // Row 11
 ];
 
 /// Golay decode: correct up to 3 errors in a 23-bit code word.
