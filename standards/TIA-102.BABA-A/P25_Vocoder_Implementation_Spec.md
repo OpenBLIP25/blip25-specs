@@ -830,6 +830,354 @@ This means:
   a constant bias, so the first few frames will settle toward steady
   state over ≈ 3–5 frames.
 
+### 1.10 Spectral Amplitude Enhancement (Full-Rate)
+
+Source: BABA-A §8 "Full-Rate Spectral Amplitude Enhancement", pages 41–42,
+Equations 105–111.
+
+Before speech synthesis, the reconstructed spectral amplitudes `M̃_l` are
+passed through a psycho-acoustic weighting step. The **unenhanced** `M̃_l`
+are preserved for use as `M̃_l(−1)` in the next frame's prediction (§1.8.5);
+the **enhanced** `M̄_l` are what the synthesizer actually consumes.
+
+```
+R_M0 = Σ_{l=1}^{L̃} M̃_l²                                          (Eq. 105)
+R_M1 = Σ_{l=1}^{L̃} M̃_l² · cos(ω̃₀ · l)                            (Eq. 106)
+
+W_l = √(M̃_l) · [ 0.96 · (R_M0² + R_M1² − 2·R_M0·R_M1·cos(ω̃₀·l))
+                 / (ω̃₀ · R_M0 · (R_M0 − R_M1)) ]^(1/4)             (Eq. 107)
+```
+
+Apply the weighting with guardrails:
+
+```
+          M̃_l                  if 8·l ≤ L̃           (Eq. 108, first branch)
+M̄_l =    1.2 · M̃_l            else if W_l > 1.2    (clamp high)
+          0.5 · M̃_l            else if W_l < 0.5    (clamp low)
+          W_l · M̃_l            otherwise
+```
+
+The `8·l ≤ L̃` branch disables the weighting on the lowest `⌊L̃/8⌋`
+harmonics (where perceptual weighting is counterproductive).
+
+Energy-preserving rescale (Eq. 109–110):
+
+```
+γ = sqrt( R_M0 / Σ_{l=1}^{L̃} |M̄_l|² )
+M̄_l ← γ · M̄_l     for 1 ≤ l ≤ L̃
+```
+
+Local energy state update (Eq. 111):
+
+```
+S_E(0) = max( 0.95·S_E(−1) + 0.05·R_M0, 10000.0 )
+```
+
+`S_E` is initialized to **75000** (BABA-A §10 Annex A); feeds Eq. 112 in the
+next subsection.
+
+```c
+/* Inputs:  L (current harmonic count), omega_0, M_tilde[1..L] (unenhanced,
+ *          output of §1.8.5), S_E_prev (previous frame's S_E).
+ * Outputs: M_bar[1..L] (enhanced, fed to synthesizer), S_E_out (updated). */
+void imbe_enhance_spectral_amplitudes(
+    uint8_t L, double omega_0,
+    const double M_tilde[/* L+1 */],
+    double S_E_prev,
+    double M_bar[/* L+1 */],
+    double *S_E_out)
+{
+    /* Eq. 105-106 */
+    double R_M0 = 0.0, R_M1 = 0.0;
+    for (uint8_t l = 1; l <= L; l++) {
+        double m2 = M_tilde[l] * M_tilde[l];
+        R_M0 += m2;
+        R_M1 += m2 * cos(omega_0 * (double)l);
+    }
+
+    /* Eq. 107-108 */
+    double sum_sq = 0.0;
+    for (uint8_t l = 1; l <= L; l++) {
+        double bar;
+        if (8 * l <= L) {
+            bar = M_tilde[l];
+        } else {
+            double denom = omega_0 * R_M0 * (R_M0 - R_M1);
+            double num = R_M0 * R_M0 + R_M1 * R_M1
+                         - 2.0 * R_M0 * R_M1 * cos(omega_0 * (double)l);
+            double W_l = sqrt(M_tilde[l]) * pow(0.96 * num / denom, 0.25);
+            if      (W_l > 1.2) bar = 1.2 * M_tilde[l];
+            else if (W_l < 0.5) bar = 0.5 * M_tilde[l];
+            else                bar = W_l * M_tilde[l];
+        }
+        M_bar[l] = bar;
+        sum_sq += bar * bar;
+    }
+
+    /* Eq. 109-110: energy-preserving scale */
+    double gamma = sqrt(R_M0 / sum_sq);
+    for (uint8_t l = 1; l <= L; l++) M_bar[l] *= gamma;
+
+    /* Eq. 111: update local energy */
+    double s_e = 0.95 * S_E_prev + 0.05 * R_M0;
+    *S_E_out = (s_e >= 10000.0) ? s_e : 10000.0;
+}
+```
+
+### 1.11 Adaptive Smoothing and Frame Repeat / Mute (Full-Rate)
+
+Source: BABA-A §7.7 "Frame Repeat" (Eq. 97–104, page 40), §7.8 "Frame Muting"
+(page 40), §9 "Adaptive Smoothing" (Eq. 112–116, pages 43–44).
+
+#### 1.11.1 Frame Repeat Trigger
+
+Count bit errors per code vector during FEC decode (§1.5) as `ε₀..ε₆`.
+Compute:
+
+```
+ε_T = Σ ε_i                                                        (total errors)
+ε_R(0) = 0.95·ε_R(−1) + 0.05·(ε_T / 144)     (smoothed error rate — recommended)
+```
+
+Trigger a frame repeat if **any** of these hold:
+
+```
+b̂₀ ∉ [0, 207]                                    (invalid pitch)  (§6.1)
+ε₀ ≥ 2   AND   ε_T ≥ 10 + 40·ε_R(0)               (Eq. 97/98 joint)
+```
+
+On repeat: **do not synthesize from the current frame's parameters**. Instead,
+substitute the previous frame's parameters via Eq. 99–104:
+
+```
+ω̃₀(0) = ω̃₀(−1)                                                  (Eq. 99)
+L̃(0)  = L̃(−1)                                                   (Eq. 100)
+K̃(0)  = K̃(−1)                                                   (Eq. 101)
+ṽ_k(0) = ṽ_k(−1)   for 1 ≤ k ≤ K̃                                 (Eq. 102)
+M̃_l(0) = M̃_l(−1)  for 1 ≤ l ≤ L̃                                 (Eq. 103)
+M̄_l(0) = M̄_l(−1)  for 1 ≤ l ≤ L̃                                 (Eq. 104)
+```
+
+Then run the rest of the synthesis pipeline (§1.10–§1.12) against these
+repeated parameters. The "current" frame becomes the previous frame for
+the next one.
+
+#### 1.11.2 Frame Mute Trigger
+
+Mute if `ε_R(0) > 0.0875`. Recommended muting procedure (§7.8):
+
+1. Run Eq. 99–104 as if for a repeat (preserves state for future
+   re-acquisition).
+2. **Bypass the synthesizer** entirely. Output `s̃(n) = random small-amplitude
+   noise` for one frame (or true silence if the application prefers).
+
+#### 1.11.3 V/UV Smoothing (Eq. 112–116)
+
+Runs **after** §1.10 enhancement and **before** §1.12 synthesis. Computes an
+adaptive voicing threshold `V_M` from the smoothed error rate `ε_R(0)`
+(in `[0, 1]`) and the current-frame energy `S_E(0)`:
+
+```
+       ┌ ∞                              if ε_R(0) ≤ 0.005   AND ε_T ≤ 4
+V_M = ┤ 45.255·S_E(0)^0.375
+       │   · exp(−277.26·ε_R(0))        else if ε_R(0) ≤ 0.0125 AND ε₄ = 0    (Eq. 112)
+       └ 1.414·S_E(0)^0.375              otherwise
+```
+
+`V_M = ∞` effectively disables per-harmonic override.
+
+Per-harmonic V/UV override:
+
+```
+v̄_l = 1          if M̄_l > V_M         (force voiced regardless of decoded v̂_k)
+v̄_l = ṽ_l       otherwise             (keep the §1.3.2 expansion)      (Eq. 113)
+```
+
+Amplitude smoothing (Eq. 114–116):
+
+```
+A_M = Σ_{l=1}^{L̃} M̄_l                                                (Eq. 114)
+
+        ┌ 20480                         if ε_R(0) ≤ 0.005 AND ε_T(0) ≤ 6
+τ_M(0) = ┤                                                              (Eq. 115)
+        └ 6000 − 300·ε_T + τ_M(−1)       otherwise
+
+γ_M = 1.0              if τ_M(0) > A_M                                 (Eq. 116)
+γ_M = τ_M(0) / A_M     otherwise
+```
+
+Then `M̄_l ← γ_M · M̄_l` for `1 ≤ l ≤ L̃`. The smoothed V/UV decisions
+`v̄_l` and amplitudes `M̄_l` are the synthesizer's input.
+
+Initial state: `τ_M(−1) = 20480` (Annex A §10).
+
+### 1.12 Speech Synthesis (Full-Rate)
+
+Source: BABA-A §11 "Speech Synthesis", pages 51–55, Equations 117–142.
+
+Produces `s̃(n)` for `0 ≤ n < N` where `N = 160` samples (20 ms at 8 kHz).
+Output is voiced + unvoiced:
+
+```
+s̃(n) = s̃_uv(n) + s̃_v(n)    for 0 ≤ n < 160                         (Eq. 142)
+```
+
+Both components use the Annex I synthesis window `wS(n)` (211 values,
+`n = −105..105`, see §12.7) and a cross-frame state block described in
+§1.13.
+
+#### 1.12.1 Unvoiced Component (Eq. 117–126)
+
+1. **White noise** (Eq. 117):
+   ```
+   u(n+1) = (171·u(n) + 11213) mod 53125
+   u(−105) = 3147           (initial state; Annex A §10)
+   ```
+   Shift the noise buffer by N = 160 samples each frame (49 sample overlap
+   with the 209-sample window wS).
+
+2. **Windowed 256-point DFT** (Eq. 118):
+   ```
+   U_w(m) = Σ_{n=−104}^{104} u(n) · wS(n) · e^{−j2π·m·n/256}
+            for −128 ≤ m ≤ 127
+   ```
+
+3. **Spectral shaping per band** — scale `U_w(m)` to match `M̄_l` where
+   band `l` is unvoiced, zero it where band `l` is voiced:
+   ```
+   ã_l = (256 / 2π) · (l − 0.5) · ω̃₀                             (Eq. 122)
+   b̃_l = (256 / 2π) · (l + 0.5) · ω̃₀                             (Eq. 123)
+
+   For each l in 1..L̃, for m with ⌈ã_l⌉ ≤ |m| ≤ ⌈b̃_l⌉:
+       if v̄_l = 1 (voiced):    Ũ_w(m) = 0                        (Eq. 119)
+       else (unvoiced):
+           norm = sqrt( Σ_{η=⌈ã_l⌉}^{⌈b̃_l⌉−1} |U_w(η)|²
+                       / (⌈b̃_l⌉ − ⌈ã_l⌉) )
+           Ũ_w(m) = γ_w · M̄_l(0) · U_w(m) / norm                 (Eq. 120)
+
+   Below band 1 and above band L̃:                                (Eq. 124)
+       Ũ_w(m) = 0  for |m| < ⌈ã_1⌉  or  ⌈b̃_L̃⌉ ≤ |m| ≤ 128
+   ```
+
+   `γ_w` is a **constant** depending only on `wS(n)` (synthesis window) and
+   `wR(n)` (pitch refinement window from BABA-A Annex C):
+   ```
+   γ_w = [ Σ_{n=−110}^{110} wR(n) ] · sqrt( (Σ_{n=−104}^{104} wS²(n))
+                                           / (Σ_{n=−110}^{110} wR²(n)) )     (Eq. 121)
+   ```
+   This can be precomputed at decoder init — it's a fixed scalar. (Annex C
+   is not yet extracted; value of γ_w should be computed from
+   `annex_i_synthesis_window.csv` and BABA-A Annex C once extracted, or
+   captured as a test-vector fixture.)
+
+4. **Inverse DFT** (Eq. 125):
+   ```
+   ũ_w(n) = (1/256) · Σ_{m=−128}^{127} Ũ_w(m) · e^{j2π·m·n/256}
+            for −128 ≤ n ≤ 127
+   ```
+
+5. **Weighted overlap-add** with previous frame's unvoiced buffer (Eq. 126):
+   ```
+   s̃_uv(n) = [ wS(n)·ũ_w(n, −1) + wS(n−N)·ũ_w(n−N, 0) ]
+             / [ wS²(n) + wS²(n−N) ]          for 0 ≤ n < N
+   ```
+   (wS is zero outside `−105..105`; ũ_w is zero outside `−128..127`.)
+
+#### 1.12.2 Voiced Component (Eq. 127–141)
+
+Per-harmonic sum:
+```
+s̃_v(n) = Σ_{l=1}^{max(L̃(−1), L̃(0))} 2 · s̃_{v,l}(n)     for 0 ≤ n < N  (Eq. 127)
+```
+
+Out-of-range spectral amplitudes from either frame are treated as zero
+and unvoiced (Eq. 128–129):
+```
+M̄_l(0)  = 0  for l > L̃(0)
+M̄_l(−1) = 0  for l > L̃(−1)
+```
+
+Per-harmonic rule for `s̃_{v,l}(n)` (four cases based on V/UV transitions):
+
+| Previous | Current | l | pitch change | Formula |
+|---------:|--------:|---|--------------|---------|
+| unvoiced | unvoiced | — | — | `s̃_{v,l}(n) = 0`  (Eq. 130) |
+| voiced | unvoiced | — | — | `wS(n) · M̄_l(−1) · cos(ω̃₀(−1)·n·l + φ_l(−1))`  (Eq. 131) |
+| unvoiced | voiced | — | — | `wS(n−N) · M̄_l(0) · cos(ω̃₀(0)·(n−N)·l + φ_l(0))`  (Eq. 132) |
+| voiced | voiced | l ≥ 8 **or** |Δω̃₀·l/ω̃₀(0)| ≥ 0.1 | — | sum of both previous terms (Eq. 133) |
+| voiced | voiced | l < 8 **and** |Δω̃₀·l/ω̃₀(0)| < 0.1 | small | amplitude-and-phase ramp (Eq. 134) |
+
+where `Δω̃₀ = ω̃₀(0) − ω̃₀(−1)`. The "small pitch change, low harmonic"
+branch is the phase-tracked interpolation:
+
+```
+s̃_{v,l}(n) = a_l(n) · cos(θ_l(n))                               (Eq. 134)
+
+a_l(n) = M̄_l(−1) + (n/N) · [M̄_l(0) − M̄_l(−1)]                  (Eq. 135)
+
+θ_l(n) = φ_l(−1)
+       + [ω̃₀(−1)·l + Δω_l(0)] · n
+       + [ω̃₀(0)·l − ω̃₀(−1)·l] · n²/(2N)                         (Eq. 136)
+
+Δφ_l(n) = φ_l(0) − φ_l(−1) − [ω̃₀(−1) + ω̃₀(0)] · l·N/2           (Eq. 137)
+
+Δω_l(0) = (1/N) · [ Δφ_l(0) − 2π·⌊(Δφ_l(0) + π)/(2π)⌋ ]          (Eq. 138)
+```
+
+Phase-state update (every frame, for `1 ≤ l ≤ 56`, regardless of V/UV):
+
+```
+ψ_l(0) = ψ_l(−1) + [ω̃₀(−1) + ω̃₀(0)] · l·N/2                    (Eq. 139)
+
+         ┌ ψ_l(0)                            for 1 ≤ l ≤ ⌊L̃/4⌋
+φ_l(0) = ┤                                                      (Eq. 140)
+         └ ψ_l(0) + L̃_uv(0)·ρ_l(0)/L̃(0) · l  for ⌊L̃/4⌋ < l ≤ max(L̃(−1), L̃(0))
+
+ρ_l(0) = (2π / 53125) · u(l) − π                                (Eq. 141)
+```
+
+where `L̃_uv(0)` = count of unvoiced harmonics in the current frame, and
+`u(l)` is drawn from the same shifted noise sequence used in the unvoiced
+synthesizer (Eq. 117). `ρ_l(0)` is uniform in `[−π, π)`.
+
+Initial state: `ψ_l(−1) = 0`, `φ_l(−1) = 0` for all l (Annex A §10).
+
+### 1.13 Synthesizer Cross-Frame State Summary
+
+Extending §1.9 with every piece of state needed by the complete
+synthesis pipeline:
+
+| State | Init | Updated by | Consumed by |
+|-------|------|------------|-------------|
+| `M̃_l(−1)` for l = 1..56 | 1.0 | §1.8.5 reconstruction | §1.8.5 next frame (prediction) |
+| `L̃(−1)` | 30 | §1.3.1 per frame | §1.8.5, §1.12.2 |
+| `ω̃₀(−1)` | 0.02985·π | §1.3.1 per frame | §1.12.2 voiced synthesis |
+| `K̃(−1)` | 10 | §1.3.1 Eq. 48 | §1.11.3 (V/UV smoothing context) |
+| `ṽ_k(−1)` | 0 for all k | §1.3.2 | §1.11.3 |
+| `M̄_l(−1)` for l = 1..56 | 0 | §1.10, §1.11.3 | §1.12.2 voiced synthesis |
+| `S_E(−1)` | 75000 | §1.10 Eq. 111 | §1.11.3 V_M, §1.10 next frame |
+| `τ_M(−1)` | 20480 | §1.11.3 Eq. 115 | §1.11.3 next frame |
+| `ε_R(−1)` (smoothed error rate) | 0 | FEC decode per frame | §1.11.1, §1.11.3 |
+| `φ_l(−1)` for l = 1..56 | 0 | §1.12.2 Eq. 140 | §1.12.2 next frame |
+| `ψ_l(−1)` for l = 1..56 | 0 | §1.12.2 Eq. 139 | §1.12.2 next frame |
+| `ũ_w(n, −1)` for n = −128..127 | 0 | §1.12.1 Eq. 125 | §1.12.1 OLA next frame |
+| noise sequence `u(n)` | u(−105) = 3147 | §1.12.1 Eq. 117 | §1.12.1 each frame |
+
+**Frame repeat interaction** (§1.11.1):
+- On repeat, Eq. 99–104 restore `ω̃₀, L̃, K̃, ṽ_k, M̃_l, M̄_l` from previous
+  frame. **Do NOT restore `S_E, τ_M, ε_R, φ_l, ψ_l`** — those are
+  per-frame running state and continue evolving.
+
+**Frame mute interaction** (§1.11.2):
+- Same state-preservation as repeat, but skip §1.12 entirely and emit
+  silence/low-amplitude noise. Preserve everything listed above so
+  re-acquisition after the mute period works.
+
+**Cold start** (decoder reset):
+- Use the init column of the table above exactly. Annex A §10 in the
+  current impl spec has most of these; §1.13 here is the
+  pipeline-eye-view cross-reference.
+
 ---
 
 ## 2. Half-Rate AMBE+2 Vocoder (Phase 2 TDMA)

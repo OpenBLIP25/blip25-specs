@@ -112,6 +112,31 @@ extraction artifact), it's flagged as **SPEC BUG** for emphasis.
   reference comparison catches a class of bugs that no amount of
   self-consistent unit testing can detect.
 
+- **COMPLETENESS GAP — Full synthesis pipeline not inlined.** Impl
+  spec ended at MBE-parameter reconstruction (§1.8/§1.9). The stages
+  from MBE parameters to 160 PCM samples — spectral amplitude
+  enhancement (Eq. 105–111), frame repeat/mute state management
+  (Eq. 97–104 + §7.8), adaptive smoothing (Eq. 112–116), unvoiced
+  synthesis (Eq. 117–126), and voiced synthesis with phase tracking
+  (Eq. 127–141) — were not in the impl spec even though they're
+  fully specified in BABA-A §§7.7/7.8/8/9/11.
+  *Location:* BABA-A §§7.7–7.8 (pp. 40), §8 (pp. 41–42), §9 (pp. 43–44),
+  §11 (pp. 51–55).
+  *Invariant that caught it:* downstream implementer hit the gap at
+  synthesizer-bringup time. No programmatic invariant triggered
+  because the content was missing entirely, not wrong.
+  *Fix:* impl spec §1.10 (enhancement), §1.11 (smoothing + repeat/mute),
+  §1.12 (unvoiced + voiced synthesis), §1.13 (cross-frame state
+  summary). All equations inlined with C reference for §1.10;
+  §1.11–§1.12 use prose + equation boxes + case tables (the voiced
+  synthesis has 5 V/UV transition cases that don't fit a single
+  function cleanly).
+  *Remaining sub-gap:* γ_w (Eq. 121) depends on BABA-A Annex C (pitch
+  refinement window), which has not been extracted to a CSV yet. γ_w
+  is a decoder-init constant — can be computed once the values are
+  extracted, or captured as a fixture value from DVSI in the
+  meantime.
+
 - **Missing V/UV band-to-harmonic mapping** for both rates.
   *Location:* full-rate in BABA-A §5.2 Eq. 32–33; half-rate in §13.2
   Eq. 147–149.
