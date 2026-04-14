@@ -168,6 +168,58 @@ uint8_t imbe_vuv_band_count(uint8_t L) {
 }
 ```
 
+#### 1.3.2 V/UV Band-to-Harmonic Mapping
+
+Source: BABA-A §5.2 (encoder band definition, pages 17–18) and §6.2
+(decoder reconstruction, page 23). The encoder computes one V/UV bit v̂_k
+per frequency band k ∈ [1, K̂], but the MBE synthesizer needs a per-harmonic
+decision ṽ_l for l ∈ [1, L̃]. The expansion rule:
+
+```
+k_l = floor((l + 2) / 3)    if l ≤ 36
+k_l = 12                    otherwise                   (same form as Eq. 34/48)
+ṽ_l = v̂_{k_l}             for 1 ≤ l ≤ L̃
+```
+
+i.e. all harmonics in band k inherit that band's voiced/unvoiced decision.
+In full-rate, bands 1..K̂−1 each cover exactly 3 harmonics (band k covers
+l = 3k−2, 3k−1, 3k per PDF Eq. 32/33 with `â_{3k-2} ≤ m < b̂_{3k}`); the
+highest band K̂ absorbs any remainder (harmonics 3K̂−2 through L̃).
+
+Worked cases:
+
+| L̃ | K̂ | Band 1 | Band 2 | … | Band K̂ (highest) |
+|---:|---:|--------|--------|---|-------------------|
+| 9  | 3  | l=1..3 | l=4..6 |   | l=7..9            |
+| 16 | 6  | l=1..3 | l=4..6 | … | l=16..16  (1 harmonic) — no, let me recompute |
+
+Actually for L̃=16, K̂=floor(18/3)=6, band 6 covers l=16 only (16..16 = 1 harmonic)? Let me re-derive: bands 1..K̂-1 = 1..5 cover l=1..15 (5 bands × 3 harmonics). Band K̂=6 absorbs l=16..L̃=16, i.e. 1 harmonic. ✓
+
+For L̃=37, K̂=12: bands 1..11 cover l=1..33, band 12 covers l=34..37 (4 harmonics).
+For L̃=56, K̂=12: bands 1..11 cover l=1..33, band 12 covers l=34..56 (23 harmonics).
+
+```c
+/* Expand full-rate per-band V/UV decisions into per-harmonic decisions.
+ * v_band: K̂ entries (from b̂₁, MSB-first as extracted in §1.4.2).
+ * v_harm: L̃ entries written. */
+void imbe_vuv_expand(uint8_t L, uint8_t K, const uint8_t v_band[/* K */],
+                    uint8_t v_harm[/* L */])
+{
+    for (uint8_t l = 1; l <= L; l++) {
+        uint8_t k = (l <= 36) ? (uint8_t)((l + 2) / 3) : 12;
+        if (k > K) k = K;                       /* clamp to highest band */
+        v_harm[l - 1] = v_band[k - 1];
+    }
+}
+```
+
+**Known extraction bug:** `TIA-102-BABA-A_Full_Text.md` §4.1 paraphrases
+Eq. 34 as `K̂ = floor(2ω̂₀/π × 56), K̂_max = 12`. That's a Phase 2 extraction
+error — the PDF Eq. 34 is actually `floor((L̂+2)/3) if L̂ ≤ 36 else 12`,
+identical to §1.3.1 Eq. 48 above. The impl spec and the formulas in this
+subsection are authoritative; the Full_Text paraphrase is wrong and will be
+corrected the next time that file is regenerated.
+
 ### 1.4 Bit Prioritization Scan Algorithm
 
 Source: BABA-A Section 7.1 "Bit Prioritization", pages 33–35 (prose only —
@@ -663,6 +715,61 @@ The pre-computed map is available as
 (49 rows, columns `src_param, src_bit, dst_vec, dst_bit`). The CSV was
 verified during generation to cover every (src_param, src_bit) slot in
 b̂₀..b̂₈ exactly once (coverage invariant PASS).
+
+#### 2.3.6 V/UV Codebook Expansion (Per-Harmonic Decisions)
+
+Source: BABA-A §13.2 "Voiced / Unvoiced Decision Encoding and Decoding",
+page 59 (Equations 146–149).
+
+Half-rate encodes V/UV decisions differently from full-rate. The encoder
+stores an *index* b̂₁ ∈ [0, 31] selecting one of the 32 codebook vectors in
+Annex M — each vector has exactly 8 binary entries `v(n) = (v_0, v_1, …, v_7)`,
+regardless of L̃. The decoder then maps each harmonic l ∈ [1, L̃] to one of
+those 8 codebook slots and extracts the bit.
+
+**Per-harmonic reconstruction (Eq. 147 & 149):**
+
+```
+j_l = floor(l · 16 · ω̃₀ / (2π)),     clamped to [0, 7]     (Eq. 147)
+ṽ_l = v_{j_l}(n)    where n = b̃₁                             (Eq. 149)
+```
+
+where v_{j_l}(n) is the j_l-th column of the selected Annex M row n. Note
+that j_l depends on *both* the harmonic index l and the fundamental ω̃₀ —
+higher harmonics and/or higher pitch shift a harmonic further into the
+codebook's 8-bin logical band structure.
+
+**Extraction note:** the pdftotext rendering of Eq. 147 drops the `l`
+multiplicand (`⌊16·ω̂₀ / 2π⌋` with no l), which doesn't make sense
+dimensionally (the result would be the same for every harmonic). The
+correct form `⌊l · 16 · ω̂₀ / (2π)⌋` is the only interpretation that
+produces the expected coverage of the 8-element codebook across a typical
+frequency range (verified: at ω̃₀ = 2π/19.875 rad/sample and l=L̃=9,
+j_9 = ⌊9·16/19.875⌋ = 7; at l=1, j_1 = 0 — i.e., full range of the codebook
+is used).
+
+**Silence frames:** when b̃₁ = 0 the frame is treated as silence and all
+ṽ_l = 1 (per BABA-A §13.2 Eq. 145 via the all-voiced codebook entry
+at n = 0).
+
+```c
+/* Expand half-rate V/UV codebook index into per-harmonic decisions.
+ * n:     the 5-bit codebook index b̃₁ ∈ [0, 31]
+ * ambe_vuv_codebook[n][0..7]: the 8-entry vector from Annex M (see §12.9)
+ * omega_0: the decoded fundamental frequency (rad/sample)
+ * L: the harmonic count derived from b̃₀ (Annex L; see §12.8)
+ * v_harm: L entries written, indexed by l−1. */
+void ambe_vuv_expand(uint8_t n, double omega_0, uint8_t L,
+                    uint8_t v_harm[/* L */])
+{
+    for (uint8_t l = 1; l <= L; l++) {
+        int j = (int)floor((double)l * 16.0 * omega_0 / (2.0 * M_PI));
+        if (j < 0) j = 0;
+        if (j > 7) j = 7;
+        v_harm[l - 1] = ambe_vuv_codebook[n][j];
+    }
+}
+```
 
 ### 2.4 FEC Encoding -- Half-Rate
 
