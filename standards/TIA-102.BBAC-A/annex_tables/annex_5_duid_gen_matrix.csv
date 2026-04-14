@@ -1,0 +1,30 @@
+# TIA-102.BBAC-A annex_5_duid_gen_matrix.csv — DUID (8,4,4) Generator Matrix
+# Source: TIA-102.BBAC-A PDF, Section 5.4.1 Table 12 (page 24)
+# Extracted from pdftotext -layout output with verification:
+#   Top-left 4x4 = identity (systematic form);
+#   Parity sub-matrix GF(2) rank = 4;
+#   Min Hamming distance among 8 defined codewords = 4 (spec: d=4).
+# Format: [I3 I2 I1 I0 | P3 P2 P1 P0] each column as bit (MSB=I3).
+row_info_bit,I3,I2,I1,I0,P3,P2,P1,P0,hex_byte
+3,1,0,0,0,1,1,0,1,0x8D
+2,0,1,0,0,1,0,1,1,0x4B
+1,0,0,1,0,1,1,1,0,0x2E
+0,0,0,0,1,0,1,1,1,0x17
+# DUID codeword table (all 16 info values):
+# info_4bit_binary,defined,channel_type,inbound_burst,outbound_burst,codeword_hex
+# %0000,True,VTCH 4V,Inbound 4V,Outbound 4V,0x00
+# %0001,False,Reserved,Reserved,Reserved,0x17
+# %0010,False,Reserved,Reserved,Reserved,0x2E
+# %0011,True,SACCH+scrambled,IEMI,I-OEMI,0x39
+# %0100,True,LCCH+scrambled,IECI,N/A,0x4B
+# %0101,False,Reserved,Reserved,Reserved,0x5C
+# %0110,True,VTCH 2V,Inbound 2V,Outbound 2V,0x65
+# %0111,False,Reserved,Reserved,Reserved,0x72
+# %1000,False,Reserved,Reserved,Reserved,0x8D
+# %1001,True,FACCH+scrambled,IEMI,S-OEMI,0x9A
+# %1010,False,Reserved,Reserved,Reserved,0xA3
+# %1011,False,Reserved,Reserved,Reserved,0xB4
+# %1100,True,SACCH-unscrambled,IEMI,I-OEMI,0xC6
+# %1101,True,LCCH-unscrambled,IECI,OECI,0xD1
+# %1110,False,Reserved,Reserved,Reserved,0xE8
+# %1111,True,FACCH-unscrambled,IEMI,S-OEMI,0xFF

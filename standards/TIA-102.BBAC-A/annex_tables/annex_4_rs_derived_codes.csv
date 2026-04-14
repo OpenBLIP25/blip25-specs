@@ -1,0 +1,12 @@
+# TIA-102.BBAC-A annex_4_rs_derived_codes.csv — RS Derived Code Parameters
+# Source: TIA-102.BBAC-A PDF, Section 4.5 Table 16 (page 29)
+# Extracted from pdftotext -layout output with verification:
+#   K' = 35-S; R' = 28-U; N' = K'+R'; payload_bits = K'*6; encoded_bits = N'*6.
+#   All arithmetic matches Table 16 exactly.
+application,code_designation,N,K,R,U_punctured,S_shortened,N_prime,K_prime,R_prime,payload_bits,encoded_bits
+IECI,(46,23,24),63,35,28,5,12,46,23,23,138,276
+OECI,(52,30,23),63,35,28,6,5,52,30,22,180,312
+I-OEMI,(52,30,23),63,35,28,6,5,52,30,22,180,312
+IEMI,(46,26,21),63,35,28,8,9,46,26,20,156,276
+S-OEMI,(45,26,20),63,35,28,9,9,45,26,19,156,270
+ESS,(44,16,29),63,35,28,0,19,44,16,28,96,264

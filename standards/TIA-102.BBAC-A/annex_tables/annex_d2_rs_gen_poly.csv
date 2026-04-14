@@ -1,0 +1,36 @@
+# TIA-102.BBAC-A annex_d2_rs_gen_poly.csv — RS(63,35,29) Generator Polynomial
+# Source: TIA-102.BBAC-A PDF, Annex D Equation 5 (page 64)
+# Extracted from pdftotext -layout output with verification:
+#   Leading coefficient (degree 28) = 1; constant term != 0;
+#   g(alpha^e) = 0 for e = 1..28 (verified all 28 roots over GF(64)).
+# Coefficients in octal (GF(64) polynomial representation).
+power,coeff_octal,coeff_decimal
+0,34,28
+1,13,11
+2,24,20
+3,7,7
+4,53,43
+5,11,9
+6,51,41
+7,42,34
+8,61,49
+9,56,46
+10,45,37
+11,50,40
+12,67,55
+13,42,34
+14,55,45
+15,75,61
+16,15,13
+17,27,23
+18,35,29
+19,26,22
+20,12,10
+21,43,35
+22,67,55
+23,51,41
+24,12,10
+25,65,53
+26,55,45
+27,26,22
+28,1,1
