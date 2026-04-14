@@ -188,6 +188,68 @@ commit message must:
 - Note any OCR fixes applied and how they were detected
 - Reference the source PDF page(s)
 
+### Step 8 — Update the Phase 4 Findings Log
+
+For each real spec correctness issue or material ambiguity resolved in
+this run, append an entry to `analysis/phase4_findings_log.md`. This file
+is a persistent, grep-able record of findings that survives any rerun of
+the Phase 1–3 extraction pipeline (which does not touch `analysis/`).
+
+**What goes in the log:**
+
+- **SPEC BUG** — the data in the TIA PDF is wrong (OCR artifact or
+  genuine spec error). Include enough context that an implementer
+  hitting the same bug from scratch could find your fix.
+- **AMBIGUITY** — the PDF is internally consistent but leaves multiple
+  plausible interpretations; document the chosen reading and the
+  invariant or cross-reference that selected it.
+- **COMPLETENESS GAP** — content referenced by the impl spec but never
+  inlined from the PDF (deferred equations, tables, or algorithms).
+
+**What does NOT go in the log:**
+
+- Routine extractions without verification findings.
+- Language neutralization (Rust → C) with no semantic change.
+- Placeholder sweeps that just resolve "see Eq. N" to inlined content
+  with no ambiguity.
+
+**Format (see the file for live examples):**
+
+```
+### YYYY-MM-DD — <reason for entry>
+
+- **[SPEC BUG | AMBIGUITY | COMPLETENESS GAP] — <one-line summary>**
+  *Location:* <PDF section, page>.
+  *Invariant that caught it:* <rank / sum / coverage / cross-ref / etc.>
+  *Fix:* commit `<short hash>`. <In-tree location of fix.>
+```
+
+When the uplifted document is completely new to the log, create a new
+`## TIA-102.<DOC>` section at the end. Do not rewrite history — each
+Phase 4 run should append, not edit prior entries.
+
+If the log doesn't exist yet (first Phase 4 run), create it using the
+structure of the existing `analysis/phase4_findings_log.md` (BABA-A,
+BAAA-B, BBAC-A, BBAB reference entries) as the template.
+
+### Step 9 — Consider an Analysis File for Non-Bug Clarifications
+
+If during the uplift you resolved an implementation ambiguity that doesn't
+rise to the level of a spec bug but that a downstream implementer could
+plausibly get wrong (quantizer convention, DCT orientation, named
+constants embedded as literals, etc.), consider whether it belongs in a
+dedicated disambiguations file under `analysis/`.
+
+Criteria for writing a new `analysis/<topic>_disambiguations.md`:
+
+- The clarification spans multiple impl-spec sections or documents.
+- A reasonable implementer reading *only* the regenerated impl spec
+  might still pick the wrong branch.
+- The content is derivable from the PDF but requires reading together
+  equations / tables / prose that are separated by many pages.
+
+`analysis/vocoder_decode_disambiguations.md` is the reference example.
+
 ## Quality Checklist
 
 Before declaring Phase 4 complete on a document:
@@ -207,6 +269,13 @@ Before declaring Phase 4 complete on a document:
       Python blocks survive
 - [ ] `git log --oneline` for the uplift shows specific, reviewable commits
       with cited invariants, not a single "Fix vocoder spec" mega-commit
+- [ ] Every SPEC BUG / AMBIGUITY / COMPLETENESS GAP resolved in this run
+      has a corresponding entry appended to `analysis/phase4_findings_log.md`
+      (Step 8)
+- [ ] If this run resolved an implementation ambiguity that a downstream
+      implementer could plausibly get wrong even with the uplifted impl
+      spec in hand, a dedicated `analysis/<topic>_disambiguations.md` file
+      exists for it (Step 9; optional — only when warranted)
 
 ## Out of Scope for Phase 4
 
