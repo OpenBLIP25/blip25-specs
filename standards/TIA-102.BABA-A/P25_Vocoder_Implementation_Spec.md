@@ -863,56 +863,34 @@ Full-rate silence is indicated implicitly through the adaptive smoothing mechani
 ### 7.1 Tables Present in Extraction
 
 **Full-Rate (complete):**
+- Annex B: Analysis window wI(n), 301 values (n=−150..150) — see §12.6 below
+- Annex D: FIR LPF coefficients, 21 values — inlined in §7.4 below
 - Annex E: Gain quantizer (64 levels) — see §12.1 below
 - Annex F: Gain bit allocation by L (9..56) — see §12.2 below
 - Annex G: HOC bit allocation by L (9..56), variable width — see §12.3 below
 - Annex H: Full-rate bit frame format / interleaving (72 symbols × 2 dibits) — see §12.4 below
+- Annex I: Synthesis window wS(n), 211 values (n=−105..105) — see §12.7 below
 - Annex J: Spectral block lengths J1..J6 by L — see §12.5 below
 
-**Half-Rate (partial — structural only):**
-- Annex L: Pitch quantization (120 entries) -- selected values extracted:
-  - b0=0: L=9, omega_0=0.049971
-  - b0=40: L=17, omega_0=0.027122
-  - b0=119: L=56, omega_0=0.008125
-- Annex M: V/UV codebook (32 entries) -- selected entries extracted:
-  - b1=0: all voiced [1,1,1,1,1,1,1,1]
-  - b1=16: all unvoiced [0,0,0,0,0,0,0,0]
-- Annex N: Half-rate block lengths J1..J4 -- selected entries extracted
-- Annex O: Gain quantizer (32 levels) -- selected values extracted:
-  - b2=0: -2.000000, b2=31: 6.874496
-- Annex P: PRBA24 VQ (512 entries, 3-dimensional) -- first entry only:
-  - b3=0: G2=0.526055, G3=-0.328567, G4=-0.304727
-- Annex Q: PRBA58 VQ (128 entries, 4-dimensional) -- first entry only:
-  - b4=0: G5=-0.103660, G6=0.094597, G7=-0.013149, G8=0.081501
-- Annex R: HOC VQ tables -- first entry of b5 only:
-  - b5=0: H1,1=0.264108, H1,2=0.045976, H1,3=-0.200999, H1,4=-0.122344
+**Half-Rate (complete):**
+- Annex L: Pitch quantization table (120 entries × 2 values: L, ω₀) — see §12.8 below
+- Annex M: V/UV codebook (32 entries × 8 binary decisions) — see §12.9 below
+- Annex N: Half-rate block lengths J1..J4 by L (48 rows) — see §12.10 below
+- Annex O: Half-rate gain quantizer (32 levels) — see §12.11 below
+- Annex P: PRBA24 VQ codebook (512 entries × 3 floats: G2, G3, G4) — see §12.12 below
+- Annex Q: PRBA58 VQ codebook (128 entries × 4 floats: G5..G8) — see §12.13 below
+- Annex R: HOC VQ codebooks (four sub-tables: 32+16+16+8 entries × 4 floats) — see §12.14 below
+- Annex S: Half-rate interleaving (36 symbols × 4 columns) — see §12.15 below
+- Annex T: Tone parameters (155 non-reserved entries × 3 values: f0, l1, l2) — see §12.16 below
 
-### 7.2 Tables NOT Extracted (Must Be Sourced Elsewhere)
+### 7.2 Tables NOT Extracted
 
-These multi-page numerical tables have not yet been extracted; they're large
-floating-point tables that need the same `pdftotext -layout` + parser approach
-used for Annexes E/F/G/H/J:
+All normative numerical tables from TIA-102.BABA-A have been extracted as CSV files
+in `annex_tables/`. No tables remain deferred.
 
-| Table | Annex | Size | TIA Source |
-|-------|-------|------|------------|
-| Analysis window | B | 211 values | BABA-A Annex B |
-| Synthesis window | I | 211 values | BABA-A Annex I |
-| Half-rate pitch table | L | 120 entries x 2 values | BABA-A Annex L |
-| Half-rate V/UV codebook | M | 32 entries x 8 bits | BABA-A Annex M |
-| Half-rate PRBA24 VQ | P | 512 entries x 3 values | BABA-A Annex P |
-| Half-rate PRBA58 VQ | Q | 128 entries x 4 values | BABA-A Annex Q |
-| Half-rate HOC VQ tables | R | 32+16+16+8 entries x 4 values | BABA-A Annex R |
-| Half-rate interleaving | S | 36 rows x 2 cols | BABA-A Annex S / BBAC-1 Annex E |
-| Tone parameters | T | 256 entries x 3 values | BABA-A Annex T |
-| FIR LPF coefficients | D | 21 values | Extracted (see Section 7.4) |
-| Block lengths (full-rate) | J | 48 rows x 6 cols | BABA-A Annex J |
-| Block lengths (half-rate) | N | 48 rows x 4 cols | BABA-A Annex N |
-
-**Extraction note:** These tables span pages ~96-145 of the TIA-102.BABA-A PDF.
-They are multi-page numerical tables that must be programmatically extracted
-(not manually transcribed — see project guidelines on transcription error rates).
-All tables are normatively specified in the TIA standard and are the authoritative
-source for any implementation.
+**Note on Annex B size:** The implementation spec originally listed Annex B as 211 values.
+The PDF Annex B (Initial Pitch Estimation Window) has 301 values spanning n=−150..150.
+The 211-value window (n=−105..105) is Annex I (Synthesis Window). Both are extracted correctly.
 
 ### 7.3 Key Differences: IMBE vs AMBE Quantization
 
@@ -1387,13 +1365,13 @@ MBE synthesis (baseline IMBE or improved) -> PCM audio (160 samples, 16-bit, 8 k
 ---
 
 
-## 12. Extracted Annex Tables (Full-Rate)
+## 12. Extracted Annex Tables
 
-Source: TIA-102.BABA-A PDF, Annexes E, F, G, H, J (pages 84–105).
-Extracted programmatically from `pdftotext -layout` output with verification:
-Annex J rows sum to L̂; Annex H covers all 144 bit positions exactly once
-(one OCR fix: symbol 51 right-bit "c9(5)" → "c0(5)"); Annex F has 5 entries
-per L̂; Annex G entry count equals L̂ − 6 for every L̂.
+Source: TIA-102.BABA-A PDF, all normative annexes (pages 79–145).
+Extracted programmatically from `pdftotext -layout` output with invariant verification.
+OCR corrections applied: Annex H symbol 51 right-bit "c9(5)" → "c0(5)";
+Annex S symbol 34 bit1 "c0(5)" → "c0(6)" (same class of typo; without fix c0(6)
+would be absent and c0(5) duplicated across the 72-position coverage).
 
 ### 12.0 Format and Conventions
 
@@ -1402,16 +1380,30 @@ per annex, in the `annex_tables/` directory:
 
 ```
 standards/TIA-102.BABA-A/annex_tables/
-├── annex_e_gain_quantizer.csv    (64 rows)
-├── annex_f_gain_allocation.csv   (240 rows)
-├── annex_g_hoc_allocation.csv    (1272 rows, flattened)
-├── annex_h_interleave.csv        (72 rows)
-└── annex_j_block_lengths.csv     (48 rows)
+├── annex_b_analysis_window.csv   (301 rows)   Annex B: wI(n), n=-150..150
+├── annex_e_gain_quantizer.csv    (64 rows)    Annex E: full-rate gain levels
+├── annex_f_gain_allocation.csv   (240 rows)   Annex F: gain bit alloc, 5 entries/L
+├── annex_g_hoc_allocation.csv    (1272 rows)  Annex G: HOC bit alloc, L-6 entries/L
+├── annex_h_interleave.csv        (72 rows)    Annex H: full-rate interleave
+├── annex_i_synthesis_window.csv  (211 rows)   Annex I: wS(n), n=-105..105
+├── annex_j_block_lengths.csv     (48 rows)    Annex J: block lengths J1..J6/L
+├── annex_l_pitch_table.csv       (120 rows)   Annex L: half-rate pitch (L, omega_0)
+├── annex_m_vuv_codebook.csv      (32 rows)    Annex M: V/UV pattern codebook
+├── annex_n_block_lengths.csv     (48 rows)    Annex N: half-rate block lengths J1..J4
+├── annex_o_gain_quantizer.csv    (32 rows)    Annex O: half-rate gain levels
+├── annex_p_prba24_codebook.csv   (512 rows)   Annex P: PRBA24 VQ (G2, G3, G4)
+├── annex_q_prba58_codebook.csv   (128 rows)   Annex Q: PRBA58 VQ (G5..G8)
+├── annex_r_hoc_b5.csv            (32 rows)    Annex R: HOC block 1 (H1,1..H1,4)
+├── annex_r_hoc_b6.csv            (16 rows)    Annex R: HOC block 2 (H2,1..H2,4)
+├── annex_r_hoc_b7.csv            (16 rows)    Annex R: HOC block 3 (H3,1..H3,4)
+├── annex_r_hoc_b8.csv            (8 rows)     Annex R: HOC block 4 (H4,1..H4,4)
+├── annex_s_interleave.csv        (36 rows)    Annex S: half-rate interleave
+└── annex_t_tone_params.csv       (155 rows)   Annex T: tone/DTMF/KNOX/silence params
 ```
 
-Each CSV has a three-line `#`-prefixed header with the annex title, PDF page
-reference, and a one-line verification note, followed by a column-name row and
-the data rows. Row counts above are data rows only.
+Each CSV has a `#`-prefixed header block with the annex title, PDF page reference,
+and a verification note, followed by a column-name row and the data rows.
+Row counts above are data rows only.
 
 CSVs are chosen over language-specific constant arrays so the spec remains
 implementation-language neutral. Any standard CSV parser can load them; the
@@ -1520,5 +1512,220 @@ Each row satisfies J̃_1 + J̃_2 + … + J̃_6 = L̂ exactly.
 ```c
 /* Typical consumer signature */
 extern const uint8_t imbe_block_lengths[48][6];   /* index 0 = L̂=9 */
+```
+
+### 12.6 Annex B — Initial Pitch Estimation Window
+
+**Source:** BABA-A pages 79–80.
+**File:** [`annex_tables/annex_b_analysis_window.csv`](annex_tables/annex_b_analysis_window.csv)
+**Schema:** `n, wI_n`
+
+FIR window `wI(n)` used to multiply the input speech before the initial pitch
+autocorrelation (§3.1, Eq. 5). 301 coefficients indexed n = −150..150.
+Symmetric around n = 0 (verified during extraction).
+
+```c
+/* Typical consumer signature */
+extern const float imbe_analysis_window[301];   /* index 0 = n=−150 */
+```
+
+### 12.7 Annex I — Speech Synthesis Window
+
+**Source:** BABA-A pages 103–104.
+**File:** [`annex_tables/annex_i_synthesis_window.csv`](annex_tables/annex_i_synthesis_window.csv)
+**Schema:** `n, wS_n`
+
+FIR window `wS(n)` applied during voiced-speech synthesis overlap-add (§8).
+211 coefficients indexed n = −105..105.
+
+```c
+/* Typical consumer signature */
+extern const float imbe_synthesis_window[211];   /* index 0 = n=−105 */
+```
+
+### 12.8 Annex L — Half-Rate Fundamental Frequency Quantization Table
+
+**Source:** BABA-A page 127.
+**File:** [`annex_tables/annex_l_pitch_table.csv`](annex_tables/annex_l_pitch_table.csv)
+**Schema:** `b0, L, omega_0`
+
+7-bit half-rate pitch index (120 entries, b0 ∈ [0, 119]). Each row gives the
+harmonic count L̃ and reconstructed fundamental frequency ω̃₀ (rad/sample)
+for that index. ω̃₀ is monotone decreasing in b0 (verified during extraction).
+Replaces the analytical mapping used in full-rate IMBE (§1.3.1).
+
+```c
+/* Typical consumer signature */
+typedef struct { uint8_t L; float omega_0; } ambe_pitch_entry_t;
+extern const ambe_pitch_entry_t ambe_pitch_table[120];
+```
+
+### 12.9 Annex M — Half-Rate V/UV Codebook
+
+**Source:** BABA-A page 128.
+**File:** [`annex_tables/annex_m_vuv_codebook.csv`](annex_tables/annex_m_vuv_codebook.csv)
+**Schema:** `b1, v0, v1, v2, v3, v4, v5, v6, v7`
+
+5-bit half-rate V/UV vector quantizer (32 entries). Each row gives an 8-bit
+V/UV decision pattern (one bit per frequency band). b1 = 0 is all-voiced;
+b1 = 16 is all-unvoiced.
+
+```c
+/* Typical consumer signature */
+extern const uint8_t ambe_vuv_codebook[32][8];   /* 1=voiced, 0=unvoiced */
+```
+
+### 12.10 Annex N — Half-Rate Block Lengths
+
+**Source:** BABA-A page 129.
+**File:** [`annex_tables/annex_n_block_lengths.csv`](annex_tables/annex_n_block_lengths.csv)
+**Schema:** `L, J1, J2, J3, J4`
+
+For each L̃ ∈ [9, 56], four block lengths J̃_1..J̃_4 partitioning the L̃
+spectral-amplitude prediction residuals into 4 DCT blocks for half-rate HOC
+quantization. Each row satisfies J̃_1 + J̃_2 + J̃_3 + J̃_4 = L̃ exactly
+(half-rate uses 4 blocks; full-rate uses 6, see §12.5).
+
+```c
+/* Typical consumer signature */
+extern const uint8_t ambe_block_lengths[48][4];   /* index 0 = L̃=9 */
+```
+
+### 12.11 Annex O — Half-Rate Gain Quantizer Levels
+
+**Source:** BABA-A page 130.
+**File:** [`annex_tables/annex_o_gain_quantizer.csv`](annex_tables/annex_o_gain_quantizer.csv)
+**Schema:** `b2, gain_level`
+
+5-bit half-rate gain quantizer (32 levels, b2 ∈ [0, 31]). Values are monotone
+increasing in b2 (verified during extraction).
+
+```c
+/* Typical consumer signature */
+extern const float ambe_gain_levels[32];
+```
+
+### 12.12 Annex P — PRBA24 Vector Quantizer
+
+**Source:** BABA-A pages 131–136.
+**File:** [`annex_tables/annex_p_prba24_codebook.csv`](annex_tables/annex_p_prba24_codebook.csv)
+**Schema:** `b3, G2, G3, G4`
+
+9-bit vector quantizer (512 entries) for the half-rate Prediction Residual
+Block Average (PRBA) transform coefficients 2, 3, 4. Each row is a 3-tuple
+codeword (G̃₂, G̃₃, G̃₄).
+
+```c
+/* Typical consumer signature */
+typedef struct { float G2, G3, G4; } prba24_codeword_t;
+extern const prba24_codeword_t ambe_prba24_codebook[512];
+```
+
+### 12.13 Annex Q — PRBA58 Vector Quantizer
+
+**Source:** BABA-A pages 137–139.
+**File:** [`annex_tables/annex_q_prba58_codebook.csv`](annex_tables/annex_q_prba58_codebook.csv)
+**Schema:** `b4, G5, G6, G7, G8`
+
+7-bit vector quantizer (128 entries) for PRBA coefficients 5–8. Each row is a
+4-tuple codeword (G̃₅, G̃₆, G̃₇, G̃₈).
+
+```c
+/* Typical consumer signature */
+typedef struct { float G5, G6, G7, G8; } prba58_codeword_t;
+extern const prba58_codeword_t ambe_prba58_codebook[128];
+```
+
+### 12.14 Annex R — Higher-Order Coefficient VQ Codebooks
+
+**Source:** BABA-A pages 140–141.
+**Files:**
+- [`annex_tables/annex_r_hoc_b5.csv`](annex_tables/annex_r_hoc_b5.csv) (32 entries, 5-bit index b5)
+- [`annex_tables/annex_r_hoc_b6.csv`](annex_tables/annex_r_hoc_b6.csv) (16 entries, 4-bit index b6)
+- [`annex_tables/annex_r_hoc_b7.csv`](annex_tables/annex_r_hoc_b7.csv) (16 entries, 4-bit index b7)
+- [`annex_tables/annex_r_hoc_b8.csv`](annex_tables/annex_r_hoc_b8.csv) (8 entries, 3-bit index b8)
+
+**Schema (all four):** `<b_index>, H_1, H_2, H_3, H_4`
+
+Four separate vector quantizer codebooks, one per half-rate HOC block (blocks
+1–4 from Annex N). Each row is a 4-dimensional codeword giving the DCT
+coefficients H̃_{i,1..4} for that block.
+
+```c
+/* Typical consumer signature */
+typedef struct { float H1, H2, H3, H4; } hoc_codeword_t;
+extern const hoc_codeword_t ambe_hoc_codebook_b5[32];
+extern const hoc_codeword_t ambe_hoc_codebook_b6[16];
+extern const hoc_codeword_t ambe_hoc_codebook_b7[16];
+extern const hoc_codeword_t ambe_hoc_codebook_b8[8];
+```
+
+### 12.15 Annex S — Half-Rate Bit Frame Format (Interleaving)
+
+**Source:** BABA-A page 143.
+**File:** [`annex_tables/annex_s_interleave.csv`](annex_tables/annex_s_interleave.csv)
+**Schema:** `symbol, bit1_vector, bit1_index, bit0_vector, bit0_index`
+
+The 72-bit half-rate frame is transmitted as 36 dibit symbols. For each
+symbol 0..35, `bit1_*` identifies the source of the MSB and `bit0_*` the LSB.
+Vector encoding:
+- 0 = c0 (24 bits, extended [24,12] Golay)
+- 1 = c1 (23 bits, [23,12] Golay)
+- 2 = c2 (11 bits in table)
+- 3 = c3 (14 bits in table)
+
+Total bits = 24 + 23 + 11 + 14 = 72. The c2/c3 split reflects the PDF's own
+labeling of the bit-stream segments and does not directly map to the
+u2/u3 codeword boundaries.
+
+**OCR correction applied:** Symbol 34 bit1 was printed as `c0(5)` in the PDF;
+corrected to `c0(6)` after coverage check (the even-symbol bit1 lane walks
+c0(23) down to c0(6) across symbols 0, 2, ..., 34; c0(5) is covered at
+symbol 0 bit0, and c0(6) would otherwise be absent entirely). Same class of
+typo as the Annex H `c9(5)` → `c0(5)` correction at full-rate symbol 51.
+An equivalent table is also published in TIA-102.BBAC-1 Annex E.
+
+```c
+/* Typical consumer signature */
+typedef struct { uint8_t vec; uint8_t idx; } ambe_bit_src_t;
+typedef struct { ambe_bit_src_t bit1, bit0; } ambe_symbol_t;
+extern const ambe_symbol_t ambe_interleave[36];
+```
+
+### 12.16 Annex T — Tone Frame Parameters
+
+**Source:** BABA-A page 144.
+**File:** [`annex_tables/annex_t_tone_params.csv`](annex_tables/annex_t_tone_params.csv)
+**Schema:** `tone_id, f0_hz, l1, l2`
+
+Tone-frame parameter table keyed by 8-bit tone ID (I_D). The table contains
+155 non-reserved entries covering four ranges:
+
+| ID range  | Category       | Generation rule |
+|-----------|----------------|-----------------|
+| 0–4       | reserved       | not in CSV      |
+| 5–12      | single-freq    | f₀ = 31.250 · ID Hz, l₁ = l₂ = 1 |
+| 13–25     | single-freq    | f₀ = 15.625 · ID Hz, l₁ = l₂ = 2 |
+| 26–38     | single-freq    | f₀ = 10.417 · ID Hz, l₁ = l₂ = 3 |
+| 39–51     | single-freq    | f₀ = 7.8125 · ID Hz, l₁ = l₂ = 4 |
+| 52–64     | single-freq    | f₀ = 6.2500 · ID Hz, l₁ = l₂ = 5 |
+| 65–76     | single-freq    | f₀ = 5.2803 · ID Hz, l₁ = l₂ = 6 |
+| 77–89     | single-freq    | f₀ = 4.4643 · ID Hz, l₁ = l₂ = 7 |
+| 90–102    | single-freq    | f₀ = 3.9063 · ID Hz, l₁ = l₂ = 8 |
+| 103–115   | single-freq    | f₀ = 3.4722 · ID Hz, l₁ = l₂ = 9 |
+| 116–122   | single-freq    | f₀ = 3.1250 · ID Hz, l₁ = l₂ = 10 |
+| 123–127   | reserved       | not in CSV      |
+| 128–143   | DTMF           | explicit values in CSV |
+| 144–163   | KNOX           | explicit values in CSV |
+| 164–254   | reserved       | not in CSV      |
+| 255       | silence        | f₀ = 250, l₁ = l₂ = 0 |
+
+```c
+/* Typical consumer signature */
+typedef struct { uint8_t tone_id; float f0_hz; uint8_t l1, l2; } tone_param_t;
+extern const tone_param_t ambe_tone_params[155];  /* only non-reserved IDs */
+
+/* Lookup helper (NULL if reserved): */
+const tone_param_t *ambe_tone_lookup(uint8_t tone_id);
 ```
 
