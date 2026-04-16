@@ -1301,8 +1301,11 @@ int ambe_decode_multi_subframe(uint8_t rate,
                       └─────────────┘
 ```
 
-Test vectors in `/mnt/share/P25-IQ-Samples/DVSI Software/Docs/AMBE-3000_HDK_tv/`
-(see `AMBE-3000_Test_Vector_Reference.md` for the full catalog).
+Test vectors in `/mnt/share/P25-IQ-Samples/DVSI Vectors/tv-std/tv/` (see
+`AMBE-3000_Test_Vector_Reference.md` for the full catalog, the two-tree
+distinction, and the chip rate-index vs P25-full-rate semantics).
+Test recipes: `cmpstd.txt` for chip rate indices r0–r61, `cmpp25.txt`
+for P25 full-rate (IMBE) via direct RCW.
 
 ### 11.2 Expected Match Quality by Stage
 
@@ -1318,16 +1321,19 @@ Test vectors in `/mnt/share/P25-IQ-Samples/DVSI Software/Docs/AMBE-3000_HDK_tv/`
 | §5 phase regen | perceptual only | kernel values known; γ=0.44 may need empirical fit |
 | §6 voiced synth | sample-near-exact | if phase matches, cos lookup equivalent |
 | §7 unvoiced synth | **not bit-exact** | γ_w open issue, random-noise LCG matches but scaling TBD |
-| §8 PCM output | target SNR ≥ 15 dB, MCD < 1.5 dB | on tv-std/r34 |
+| §8 PCM output | target SNR ≥ 15 dB, MCD < 1.5 dB | on tv-std/tv/r33 (p25_halfrate w/FEC) |
 
 ### 11.3 Recommended Test Order
 
-1. **p25_halfrate silence frames** (tv-std/r34 silence inputs) — validates §3 FEC
-   and frame-type dispatch (§9.4) without needing synthesis
-2. **p25_halfrate single-harmonic tones** (tv-std/r34 DTMF) — validates §4
-   parameter recovery, §5 phase on trivial spectra, §6 low-L synthesis
-3. **p25_halfrate voiced speech** (tv-std/r34 'alert' test file) — end-to-end §4–§7
-4. **p25_fullrate full-rate** (tv-std/r33) — validates the IMBE path shares the
+1. **p25_halfrate silence frames** (`tv-std/tv/r33/zero.pcm` reference) —
+   validates §3 FEC and frame-type dispatch (§9.4) without needing synthesis
+2. **p25_halfrate single-harmonic tones** (`tv-std/tv/r33/dtmf*.pcm`
+   reference) — validates §4 parameter recovery, §5 phase on trivial
+   spectra, §6 low-L synthesis
+3. **p25_halfrate voiced speech** (`tv-std/tv/r33/alert.pcm` reference) —
+   end-to-end §4–§7
+4. **p25_fullrate full-rate** (`tv-std/tv/p25/*.pcm` + `tv-std/tv/p25_nofec/*.pcm`
+   references via `cmpp25.txt` RCW) — validates the IMBE path shares the
    §5 regen and §6 synth with half-rate correctly
 5. **p25_halfrate with induced bit errors** — validates §3.2.3, §3.2.4, §9.1–§9.2
 6. **p25_halfrate with long mute periods** — validates §9.2 state preservation
@@ -1478,11 +1484,11 @@ catalog. This spec's validation targets (§11.3) are summarized:
 
 | Test vector | Rate | Exercises | Coverage priority |
 |-------------|------|-----------|-------------------|
-| `tv-std/r34/*silence*` | p25_halfrate | §3, §9.4 | 1 |
-| `tv-std/r34/*tone*` | p25_halfrate | §4, §5, §6 low-L | 2 |
-| `tv-std/r34/alert*` | p25_halfrate | full §4–§7 voice path | 3 |
-| `tv-std/r33/*` | p25_fullrate | §5–§7 shared core | 4 |
-| `tv-std/r34/*` (error-injected) | p25_halfrate | §3.2.3, §9.1 | 5 |
+| `tv-std/tv/r33/zero.pcm` | p25_halfrate | §3, §9.4 | 1 |
+| `tv-std/tv/r33/dtone_*.pcm`, `dtmf*.pcm` | p25_halfrate | §4, §5, §6 low-L | 2 |
+| `tv-std/tv/r33/alert.pcm` | p25_halfrate | full §4–§7 voice path | 3 |
+| `tv-std/tv/p25/*.pcm` + `tv-std/tv/p25_nofec/*.pcm` (via `cmpp25.txt` RCW) | p25_fullrate | §5–§7 shared core | 4 |
+| `tv-std/tv/r33/*` (error-injected) | p25_halfrate | §3.2.3, §9.1 | 5 |
 | `cmpp25.txt` scenario | p25_fullrate + P25 FEC | P25 integration | 7 |
 
 ### Appendix C — Cross-Reference Quick Index

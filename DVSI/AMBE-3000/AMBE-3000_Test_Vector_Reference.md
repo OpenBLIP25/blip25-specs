@@ -6,18 +6,63 @@
 vectors for validating a software AMBE-3000 implementation against the
 hardware reference.
 
-**Location:** `~/p25-decoder/iq-samples/P25-IQ-Samples/DVSI Vectors/`
+**Location:** `/mnt/share/P25-IQ-Samples/DVSI Vectors/`
 
 ---
 
 ## 1. Overview
 
-DVSI distributes two test vector sets with the USB-3000™:
+### 1.1 Two Distinct DVSI Test-Vector Trees
+
+Validation work in this project references **two different** DVSI
+test-vector trees. Impl-spec citations must name the correct tree — they
+are not interchangeable.
+
+| Tree | Filesystem root | Structure | Role |
+|------|-----------------|-----------|------|
+| **HDK evaluation-kit tree** | `/mnt/share/P25-IQ-Samples/DVSI Software/Docs/AMBE-3000_HDK_tv/` | Flat `rN/` (N=0..61) + root-level PCMs. No `tv-std/`/`tv-rc/` subdirs. No `cmp*.txt` driver. | Packaged with HDK documentation; useful for browsing per-rate output files but **not the normative validation harness**. |
+| **DVSI Vectors normative tree** | `/mnt/share/P25-IQ-Samples/DVSI Vectors/` | Contains `tv-std/tv/` and `tv-rc/` with full test recipes (`cmp*.txt`) and per-rate output directories. | **Impl-spec validation targets this tree** — it is the authoritative harness with `cmp*.txt` drivers that define every input ↔ reference-output pair. |
+
+Unless explicitly stated otherwise, every `tv-std/…` and `tv-rc/…` path
+in the impl specs refers to the **DVSI Vectors** tree. The HDK tree is
+referenced only by its full path (`…AMBE-3000_HDK_tv/…`) and only when
+that specific per-rate file layout is meant.
+
+### 1.2 The Two Normative Sets
+
+DVSI distributes two test vector sets in `DVSI Vectors/`:
 
 | Set | Directory | Purpose | Rate Configs | Test Lines |
 |-----|-----------|---------|--------------|------------|
-| tv-std | `tv-std/tv/` | Standard encode/decode | 62 (r0–r61) + P25/P25X | 21,200 |
+| tv-std | `tv-std/tv/` | Standard encode/decode | 62 (r0–r61) + P25/P25A/P25X | 21,200 |
 | tv-rc | `tv-rc/` | Rate conversion | 64 (r0–r63) + D-STAR + P25 | 20,391 |
+
+### 1.3 Chip Rate-Index vs P25 Full-Rate — Critical Semantic
+
+The DVSI chip's rate-index table (used by `-r N` in `cmpstd.txt`) lists
+rates r0..r63. These indices cover AMBE-2000 and AMBE+2 configurations.
+In particular:
+
+| Chip index | Algorithm | On-air use |
+|------------|-----------|------------|
+| `r33` | AMBE+2 half-rate **with** FEC (88 bits/frame + FEC → 144 coded) | Matches the P25 Phase 2 TDMA on-air half-rate voice codec. **This is what the impl specs mean by `p25_halfrate`.** |
+| `r34` | AMBE+2 half-rate **no-FEC** | Test/dev variant; not on-air. Do not cite as `p25_halfrate`. |
+
+**P25 Phase 1 full-rate (IMBE) is NOT in the chip rate-index table.** It
+is invoked via direct RCW programming, not via `-r N`:
+
+| Variant | Rate Control Word (6 × uint16) | Reference output |
+|---------|--------------------------------|------------------|
+| P25 full-rate **FEC** | `0x0558 0x086B 0x1030 0x0000 0x0000 0x0190` | `tv-std/tv/p25/` |
+| P25 full-rate **no-FEC** | `0x0558 0x086B 0x0000 0x0000 0x0000 0x0158` | `tv-std/tv/p25_nofec/` |
+
+Authoritative test driver: `tv-std/tv/cmpp25.txt`. Every impl-spec
+reference to "`p25_fullrate` test vectors" points to `tv-std/tv/p25/` +
+`tv-std/tv/p25_nofec/` and the `cmpp25.txt` recipe — **not** to any
+`rN/` directory.
+
+For each input PCM, `cmpp25.txt` generates the 6-test pattern documented
+in §4.3 below (encdec/enc/dec × FEC/no-FEC).
 
 Each set contains:
 - **Input files** — raw PCM audio and/or encoded bit streams at the top level
@@ -129,23 +174,31 @@ tv-std/tv/
 
 ```
 tv-rc/
-├── r0/ through r63/     ← 64 rate configs (encode-decode output)
+├── r0/ through r63/      ← 64 rate configs (encode-decode output)
+│   ├── *.pcm, *.bit      (identity encode-decode per rate)
+│   ├── r0, r33, r34, r62, r63/   ← rate-converted to target rate
+│   ├── dstar/            (rate-converted to D-STAR)
+│   ├── p25/              (rate-converted to P25 FEC)
+│   └── p25_nofec/        (rate-converted to P25 no-FEC)
 ├── p25/                  ← P25 with FEC
-│   ├── *.pcm, *.bit      (encode-decode and encode-only outputs)
-│   ├── r0/ through r63/  (rate-converted from P25 to each rate)
-│   ├── dstar/            (rate-converted from P25 to D-STAR)
+│   ├── *.pcm, *.bit      (P25 encode-decode and encode-only outputs)
+│   ├── r0, r33, r34, r62, r63/   (rate-converted P25 → target rate)
+│   ├── dstar/            (rate-converted P25 → D-STAR)
 │   └── p25_nofec/        (rate-converted P25 FEC → P25 no-FEC)
-├── p25_nofec/            ← P25 without FEC
-│   ├── *.pcm, *.bit
-│   ├── r0/ through r63/
-│   ├── dstar/
-│   └── p25/
-└── dstar/                ← D-STAR codec
-    ├── *.pcm, *.bit
-    ├── r0/ through r63/  (rate-converted from D-STAR to each rate)
-    ├── p25/              (rate-converted D-STAR → P25 FEC)
-    └── p25_nofec/        (rate-converted D-STAR → P25 no-FEC)
+├── p25_nofec/            ← P25 without FEC (same subtree shape)
+└── dstar/                ← D-STAR codec (same subtree shape)
 ```
+
+**Rate-conversion paths are nested, not arrow-separated.** The output of
+converting a frame originally encoded at rate A to rate B lives at
+`tv-rc/<A>/<B>/<file>.bit` (e.g. `tv-rc/r33/r34/dam.bit`). Some earlier
+drafts used an arrow notation `tv-rc/rA→rB/`; no such directories exist
+on disk.
+
+**Cross-rate coverage is sparse.** Each `rA/` only contains conversion
+outputs for a small set of targets: `{r0, r33, r34, r62, r63, dstar,
+p25, p25_nofec}` — not all 64 rates. The `cmprc.txt` recipe enumerates
+only these target pairs.
 
 ---
 

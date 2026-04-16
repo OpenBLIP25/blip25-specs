@@ -1087,8 +1087,11 @@ int ambe_encode_frame(uint8_t rate,
                       └─────────────┘
 ```
 
-Test vectors: `/mnt/share/P25-IQ-Samples/DVSI Software/Docs/AMBE-3000_HDK_tv/`
-(same dataset as decoder; `.pcm` files are encoder inputs).
+Test vectors: `/mnt/share/P25-IQ-Samples/DVSI Vectors/tv-std/tv/`
+(same dataset as decoder; `.pcm` files at the tree root are encoder
+inputs, per-rate reference outputs in `rN/` and `p25/` / `p25_nofec/`).
+Test recipes: `cmpstd.txt` for chip rate indices r0–r61, `cmpp25.txt`
+for P25 full-rate (IMBE) via direct RCW.
 
 ### 11.2 Expected Match Quality by Stage
 
@@ -1116,19 +1119,19 @@ that requires reverse-engineering DVSI's analysis-pipeline tie-breaking.
 
 ### 11.3 Recommended Test Order
 
-1. **Silence input** (`tv-std/r34` silence inputs) — validates §3.1
-   dispatch and silence-frame template (§3.2)
+1. **Silence input** (`tv-std/tv/zero.pcm`, round-tripped via `tv-std/tv/r33/zero.pcm`) —
+   validates §3.1 dispatch and silence-frame template (§3.2)
 2. **Single-sinusoid input** (synthetic PCM at known pitch) — validates
    §4.1 pitch quantization and §4.3 spectral magnitudes (only one
    harmonic active, so the PRBA/HOC quantization is constrained)
-3. **DTMF input** — validates §3.3 tone-frame detection + §3.4 tone
-   bit-layout
-4. **Voiced speech** (`tv-std/r34` 'alert' input) — end-to-end §3–§7;
-   compare bit-by-bit with reference
+3. **DTMF input** (`tv-std/tv/dtmf*.pcm` → `tv-std/tv/r33/dtmf*.pcm`) —
+   validates §3.3 tone-frame detection + §3.4 tone bit-layout
+4. **Voiced speech** (`tv-std/tv/alert.pcm` → `tv-std/tv/r33/alert.pcm`) —
+   end-to-end §3–§7; compare bit-by-bit with reference
 5. **Mixed-voicing speech** — exercises V/UV codebook search edge cases
-6. **Round-trip via decoder spec**: encode `tv-std/r34/in.pcm` to bits,
-   decode back to PCM, compare to `tv-std/r34/out.pcm`. Round-trip SNR
-   target: ≥ 12 dB (encoder + decoder cumulative)
+6. **Round-trip via decoder spec**: encode `tv-std/tv/alert.pcm` to bits,
+   decode back to PCM, compare to `tv-std/tv/r33/alert.pcm`. Round-trip
+   SNR target: ≥ 12 dB (encoder + decoder cumulative)
 
 ### 11.4 Debug Order on Mismatch
 
@@ -1274,11 +1277,11 @@ int ambe_encode_frame(uint8_t rate,
 
 | Test vector | Rate | Exercises | Coverage priority |
 |-------------|------|-----------|-------------------|
-| `tv-std/r34/*silence*.pcm` | p25_halfrate | §3.1, §3.2 | 1 |
+| `tv-std/tv/zero.pcm` → `tv-std/tv/r33/zero.pcm` | p25_halfrate | §3.1, §3.2 | 1 |
 | Synthetic single-sinusoid PCM | p25_halfrate | §4.1, §4.3 trivial | 2 |
-| `tv-std/r34/*dtmf*.pcm` | p25_halfrate | §3.3, §3.4 tone path | 3 |
-| `tv-std/r34/alert.pcm` | p25_halfrate | full §3–§7 voice | 4 |
-| `tv-std/r33/*.pcm` | p25_fullrate | full-rate path | 5 |
+| `tv-std/tv/dtmf*.pcm` → `tv-std/tv/r33/dtmf*.pcm` | p25_halfrate | §3.3, §3.4 tone path | 3 |
+| `tv-std/tv/alert.pcm` → `tv-std/tv/r33/alert.pcm` | p25_halfrate | full §3–§7 voice | 4 |
+| `tv-std/tv/*.pcm` → `tv-std/tv/p25/*.pcm` (+ `p25_nofec/`) via RCW | p25_fullrate | full-rate IMBE path | 5 |
 | Round-trip (encoder + decoder spec §11) | both | cumulative SNR | 6 |
 | `cmpp25.txt` recipe | p25_fullrate + P25 FEC | P25 integration | 7 |
 

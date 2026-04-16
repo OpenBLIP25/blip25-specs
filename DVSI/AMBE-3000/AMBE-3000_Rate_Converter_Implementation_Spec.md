@@ -26,9 +26,11 @@ AMBE-based standards (DMR, D-STAR) via shared MBE parameter representation.
   multi-subframe rates (relevant to chip rates r17/r18 and similar).
 - DVSI AMBE-3000F Vocoder Chip Users Manual v4.0 — `PKT_RPT_MODE`
   configuration, repeater rate-pair selection, RCW field semantics.
-- AMBE-3000 HDK test vectors — `tv-rc/` directory (97 input files × 67
-  output directories spanning 64 rate-conversion configurations + D-STAR
-  + P25 cross-overs).
+- DVSI test vectors — `/mnt/share/P25-IQ-Samples/DVSI Vectors/tv-rc/`
+  (97 input files + nested per-source-rate output directories spanning
+  64 rate indices + D-STAR + P25 cross-overs; driver `cmprc.txt`).
+  See `AMBE-3000_Test_Vector_Reference.md` §1.1 for the distinction
+  between this normative tree and the HDK evaluation-kit tree.
 
 **Companion documents in this directory:**
 - `AMBE-3000_Decoder_Implementation_Spec.md` — channel bits → MbeParams
@@ -978,22 +980,26 @@ from `rate_conversion_pairs.csv`.
 
 ```
   .bit file (rate A)         ┌─────────────┐
-  from tv-rc/                │  software   │  →  software .bit (rate B)
+  from tv-rc/rA/             │  software   │  →  software .bit (rate B)
                           →  │  rate       │
                              │  converter  │
                              └─────────────┘
                                             ┌─── compare ────→  metrics
   .bit file (rate A)         ┌─────────────┐│
   same                    →  │  AMBE-3000  │ → reference .bit (rate B,
-                             │  PKT_RPT    │   from tv-rc/rA→rB/)
+                             │  PKT_RPT    │   from tv-rc/rA/rB/)
                              └─────────────┘
 ```
 
-Test vectors: `/mnt/share/P25-IQ-Samples/DVSI Software/Docs/AMBE-3000_HDK_tv/tv-rc/`
-(97 input × 67 output configurations, 64 rate-conversion configs +
-D-STAR + P25 cross-overs).
+Test vectors: `/mnt/share/P25-IQ-Samples/DVSI Vectors/tv-rc/`
+(97 input files + nested per-source-rate output directories; rate-
+conversion outputs live at `tv-rc/<sourceRate>/<targetRate>/<file>.bit`).
 
-Test recipe: `cmprc.txt` from same directory.
+Cross-rate coverage is sparse: each source rate `rA/` contains conversion
+outputs only for `{r0, r33, r34, r62, r63, dstar, p25, p25_nofec}` —
+not all 64 targets. See `AMBE-3000_Test_Vector_Reference.md` §3.2.
+
+Test recipe: `cmprc.txt` (same directory).
 
 ### 11.2 Expected Match Quality by Stage
 
@@ -1020,8 +1026,9 @@ Test recipe: `cmprc.txt` from same directory.
    §4.3 zero-padding for L̂_B > L̃_A
 4. **p25_fullrate → p25_fullrate** identity (validation of full-rate path)
 5. **`cmprc.txt` recipe scenarios** — DVSI's official test plan
-6. **Cross-standard pairs** (P25 ↔ DMR ↔ D-STAR via shared MBE) —
-   future, not in first cut
+6. **Cross-standard pairs** (P25 ↔ D-STAR via shared MBE, e.g.
+   `tv-rc/p25/dstar/*`, `tv-rc/dstar/p25/*`) — future, not in first cut.
+   DVSI vectors do not include DMR reference outputs.
 
 ### 11.4 Debug Order on Mismatch
 
@@ -1190,15 +1197,19 @@ int ambe_rate_convert_frame(ambe_rate_converter_state_t *state,
 
 ### Appendix B — Test Vector Coverage Matrix
 
+Rate-conversion outputs are stored nested: `tv-rc/<sourceRate>/<targetRate>/<file>.bit`.
+(r33 = AMBE+2 half-rate w/FEC = on-air p25_halfrate; r34 = AMBE+2
+half-rate no-FEC.) Coverage matrix:
+
 | Test vector | Source → Target | Exercises | Coverage priority |
 |-------------|-----------------|-----------|-------------------|
-| `tv-rc/r34→r34/*` | identity | §8 passthrough | 1 |
-| `tv-rc/r33→r33/*` | identity | §8 passthrough | 2 |
-| `tv-rc/r33→r34/*` | full → half | §4.1, §4.3, §4.4 | 3 |
-| `tv-rc/r34→r33/*` | half → full | §4.1 grid expand, §4.3 zero-pad | 4 |
-| `tv-rc/r34→DMR/*` | cross-standard | future | 5 |
-| `tv-rc/DMR→r34/*` | cross-standard | future | 6 |
-| `cmprc.txt` recipe | DVSI's official | full coverage | 7 |
+| `tv-rc/r33/*.bit` (identity encode-decode) | p25_halfrate | §8 passthrough | 1 |
+| `tv-rc/r34/*.bit` (identity encode-decode) | p25_halfrate no-FEC | §8 passthrough | 2 |
+| `tv-rc/r33/r34/*.bit` (cmp against `tv-rc/r33/dam.bit` source) | r33 → r34 (strip FEC) | §4.1, §4.3, §4.4 | 3 |
+| `tv-rc/r34/r33/*.bit` | r34 → r33 (add FEC) | §4.1 grid, §4.3 | 4 |
+| `tv-rc/p25/r33/*.bit`, `tv-rc/p25_nofec/r33/*.bit` | p25_fullrate → p25_halfrate | §4.1, §4.3 (IMBE → AMBE+2) | 5 |
+| `tv-rc/r33/p25/*.bit`, `tv-rc/r33/p25_nofec/*.bit` | p25_halfrate → p25_fullrate | §4.1 grid expand, §4.3 zero-pad | 6 |
+| `cmprc.txt` recipe | DVSI's official | full coverage (all rA/rB pairs present on disk) | 7 |
 
 ### Appendix C — Cross-Reference Quick Index
 
