@@ -193,6 +193,75 @@ extraction artifact), it's flagged as **SPEC BUG** for emphasis.
   `annex_tables/imbe_bit_prioritization.csv` (4224 rows, 48 L × 88 bits)
   and `annex_tables/ambe_bit_prioritization.csv` (49 rows).
 
+### 2026-04-16 — Downstream implementer follow-up
+
+- **AMBIGUITY — Eq. 69 gain inverse DCT: `J̃_i` vs. `6` denominator**
+  *Location:* impl spec §1.8.3 Eq. 69 + §2.14 cross-reference line /
+  BABA-A §6.4.1 Eq. 69, page 29.
+
+  Impl spec §1.8.3 writes Eq. 69 with the cosine denominator as `J̃_i`
+  (block-dependent) and adds a Note: "this is a per-block inverse DCT —
+  the cosine denominator is J̃_i, not 6. The basis frequency changes
+  with block length, so R̃_i cannot be computed with a single fixed
+  6-point DCT table." §2.14's half-rate entry reinforces it:
+  "unlike §1.8.3's Eq. 69 / §2.13's per-block DCT, where the basis
+  length follows J̃_i."
+
+  This is internally inconsistent with the encoder side and with the
+  reference C in `vocoder_decode_disambiguations.md` §9:
+
+  1. Encoder Eq. 61 (quoted in §9) has denominator **6**:
+     `G_m = (1/6) Σ R_i · cos[π(m−1)(i−0.5)/6]`.
+  2. The §9 reference `imbe_inverse_dct(in, out, N)` parameterizes a
+     single transform length `N` on both forward and inverse, implying
+     `N = 6` for the 6-element gain DCT. §9 claims round-trip identity
+     passes; that claim only holds under `N = 6` on both sides.
+  3. A forward-inverse round-trip test using Eq. 61 (denominator 6) and
+     Eq. 69 under the `J̃_i` reading fails for every L with any `J̃_i ≠ 6`
+     (all L < 36 and all L > 36) — the two cosine bases differ.
+
+  *Two readings:*
+  - **Reading A (impl spec text + §2.14 cross-ref):** per-block
+    denominator `J̃_i`. Breaks round-trip with Eq. 61.
+  - **Reading B (§9 reference C + Eq. 61 consistency):** fixed 6-point
+    denominator. Round-trips cleanly. Matches the half-rate pattern
+    (Eq. 169 uses fixed `N = 8` independent of L̃).
+
+  Downstream implementer (p25-decoder) uses Reading B. The §11.2
+  voiced-synthesis residuals diagnosed in `vocoder_decode_disambiguations.md`
+  (1.7× overshoot + phantom-/l/ artifact) are *not* sensitive to this
+  ambiguity — they stem from the separately-identified Annex E
+  gain-table +1.0 log₂ offset in the downstream JMBE port (a code bug,
+  not a spec bug), fixed 2026-04-16 in the downstream implementation.
+
+  *Invariant that would catch it:* forward-inverse round-trip identity
+  of the gain DCT. Take arbitrary `R_1..R_6`, run Eq. 61 forward to get
+  `G_1..G_6`, run Eq. 69 inverse to get `R̃_1..R̃_6`. Under Reading A
+  this fails for every L with non-uniform `J̃_i`. Under Reading B it
+  passes modulo IEEE-754 rounding.
+
+  *Fix:* **open.** Reconciliation paths, in priority order:
+  1. Verify the BABA-A PDF as-printed. If the PDF's Eq. 69 literally
+     has `J̃_i` in the denominator, file as a SPEC BUG against BABA-A
+     page 29 — the equation is inconsistent with Eq. 61.
+  2. If the PDF says `6` and the impl spec §1.8.3 Note is an author
+     paraphrase, correct the Note and the §2.14 cross-reference to
+     Reading B. The §9 reference C already matches Reading B; no code
+     change in the disambiguations doc is needed.
+  3. If Reading A is intentional — i.e. the encoder and decoder are
+     deliberately asymmetric beyond the known 1/N vs. α-weighting —
+     this belongs in §9 as an explicit second asymmetry alongside the
+     existing one, with a derivation showing what cancels and why.
+     No current analysis entry supports this.
+
+  *Noted by:* downstream implementer (p25-decoder), 2026-04-16, during
+  a systematic audit of the JMBE-ported IMBE tables against the
+  `annex_tables/` CSVs. Complements the same-day Annex E gain-table
+  downstream finding (code bug in p25-decoder, not a spec bug) by
+  documenting a spec-text inconsistency that does not affect that
+  implementation but would trip a different implementer following
+  §1.8.3's Note literally.
+
 ---
 
 ## TIA-102.BAAA-B (FDMA Common Air Interface)

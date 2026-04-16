@@ -42,13 +42,18 @@ All source material is publicly available from DVSI:
 
 ## Deliverables
 
-| Spec | Description |
-|------|-------------|
-| `AMBE-3000_Decoder_Implementation_Spec.md` | Channel bits → PCM synthesis |
-| `AMBE-3000_Encoder_Implementation_Spec.md` | PCM analysis → channel bits |
-| `AMBE-3000_Rate_Converter_Implementation_Spec.md` | Parametric MBE rate conversion |
-| `AMBE-3000_Protocol_Spec.md` | USB-3000 packet protocol (host interface) |
-| `AMBE-3000_Test_Vector_Reference.md` | Test vector structure and validation methodology |
+| Spec | Status | Description |
+|------|--------|-------------|
+| `AMBE-3000_Objectives.md` | done | Scope, methodology, patent landscape, implementation order |
+| `AMBE-3000_Patent_Reference.md` | done | Algorithmic detail from 5 key expired DVSI patents |
+| `AMBE-3000_Protocol_Spec.md` | done | USB-3000 packet protocol (wire format) |
+| `AMBE-3000_Operational_Notes.md` | done | Reset timing, init sequencing, firmware errata, integration gotchas |
+| `AMBE-3000_Test_Vector_Reference.md` | done | Test vector structure and validation methodology |
+| `annex_tables/rate_index_table.csv` | done | 62-rate table (AMBE-1000/2000/+2 total/speech/FEC bps) |
+| `annex_tables/rate_control_words.csv` | done | Table 120 RCWs + hardware config pins for 60+ built-in rates |
+| `AMBE-3000_Decoder_Implementation_Spec.md` | draft | Channel bits → PCM synthesis (phase regen per US5701390, AMBE+2 FEC per US8595002) |
+| `AMBE-3000_Encoder_Implementation_Spec.md` | draft | PCM → channel bits (forward VQ search, closed-loop predictor; analysis layer deferred to `analysis/vocoder_analysis_encoder_addendum.md`) |
+| `AMBE-3000_Rate_Converter_Implementation_Spec.md` | draft | Parametric MBE rate conversion per US7634399 (no PCM round-trip) |
 
 ## Validation
 
