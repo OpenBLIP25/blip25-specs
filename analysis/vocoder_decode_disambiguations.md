@@ -69,26 +69,77 @@ is structurally different.
 
 ---
 
-## 3. ρ = 0.65 (Prediction Gain)
+## 3. ρ Prediction Gain — full-rate is L-dependent, half-rate is literal 0.65
 
-**Source:** BABA-A §6.4 Eq. 77 body text and §13.3 (half-rate equivalent),
-pages 30 and 60–61. Not a named constant anywhere — embedded as a literal
-`0.65` in multiple equations.
+**Source:** BABA-A §6.3 Eq. 55 (full-rate ρ schedule, page 25),
+Eq. 77 (full-rate decoder, page 31), §13.3 Eq. 155 (half-rate encoder,
+page 60), Eq. 200 (half-rate decoder).
 
-The value ρ = 0.65 is the prediction gain in the inverse log-magnitude
-prediction step:
+**Correction (2026-04-15):** this section previously asserted
+"ρ = 0.65 ... embedded as a literal `0.65` in multiple equations" and
+that "both full-rate (Eq. 77) and half-rate (Eq. 200) use the same
+value." Reading the PDF directly reveals the two rates use different
+conventions:
+
+- **Full-rate (Eq. 77 decoder, Eq. 54 encoder):** uses the symbol
+  `ρ`, defined in Eq. 55 as a piecewise-linear function of `L̂(0)`:
+
+  ```
+  ρ = 0.4                           if L̂(0) ≤ 15
+  ρ = 0.03 · L̂(0) − 0.05            if 15 < L̂(0) ≤ 24
+  ρ = 0.7                           otherwise                (Eq. 55)
+  ```
+
+  Table of values:
+
+  | `L̂(0)` | `ρ`  | `L̂(0)` | `ρ`  |
+  |:-----:|:----:|:------:|:----:|
+  | 9     | 0.40 | 22     | 0.61 |
+  | 15    | 0.40 | 24     | 0.67 |
+  | 16    | 0.43 | 25     | 0.70 |
+  | 20    | 0.55 | 56     | 0.70 |
+
+  Eq. 77 uses `ρ` unqualified — the reader must follow the chain back
+  to Eq. 55. The full-rate `ρ` is **not** the literal 0.65 and **not**
+  constant.
+
+- **Half-rate (Eq. 155 encoder, Eq. 200 decoder):** uses the literal
+  constant `0.65` directly, with no `ρ` symbol and no Eq. 55 analog.
+  Half-rate is genuinely "just 0.65 inline".
+
+The corrected full-rate form of the inverse log-magnitude prediction:
 
 ```
 log₂ M̃_l(0) = T̃_l + ρ · (1 − δ̃_l) · log₂ M̃_{⌊k̃_l⌋}(−1)
              + ρ · δ̃_l         · log₂ M̃_{⌊k̃_l⌋+1}(−1)
              − (ρ / L̃(0)) · (DC-removal sum over previous frame)
+             where ρ is given by Eq. 55 above (not 0.65).
 ```
 
-**Why implementations get this wrong:** `ρ` is used without a symbolic name
-in the PDF — it's just `0.65` inline. An extractor that summarizes §6.4 may
-describe the prediction as "scaled by a gain factor" without preserving the
-literal value, leaving the implementer to guess. Both full-rate (Eq. 77) and
-half-rate (Eq. 200) use the same value.
+**Why implementations (including this note until now) get this wrong:**
+`ρ` is introduced in Eq. 55 on full-rate page 25 but re-used on page
+31 in Eq. 77 without restating. A reader who jumps to Eq. 77 (e.g. to
+extract decoder math) sees "ρ" as an opaque symbol. Pattern-matching
+the half-rate literal 0.65 onto full-rate is an easy mistake — and
+harmless for `L̂ ≈ 22–23` where Eq. 55 happens to yield values near
+0.65. The error surfaces only at the tails (`L̂ ≤ 15` → true ρ = 0.40,
+`L̂ > 24` → true ρ = 0.70), where implementations that hardcode 0.65
+will mispredict by 40% or more.
+
+**Follow-up required:**
+
+- Full-rate implementations based on this note need a sweep: replace
+  hardcoded 0.65 with Eq. 55's schedule. Verify against DVSI full-rate
+  test vectors (AMBE-3000 rate 33; see
+  [`dvsi_test_vector_modes.md`](./dvsi_test_vector_modes.md)).
+- Implementation spec §1.8.5 inherits this error and needs the same
+  correction sweep.
+- Half-rate implementations are unaffected.
+
+For the encoder-side treatment of the same prediction residual
+(full-rate Eq. 54), see
+[`vocoder_analysis_encoder_addendum.md`](./vocoder_analysis_encoder_addendum.md)
+§0.6.
 
 ---
 

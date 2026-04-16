@@ -1,6 +1,19 @@
 # TIA-102.BABA-A annex_l_pitch_table.csv — Half-Rate Fundamental Frequency Quantization Table
 # Source: TIA-102.BABA-A PDF, page 127 (Annex L)
 # Extracted from pdftotext -layout output with verification: count=120 (PASS); omega_0 monotone decreasing: PASS
+#
+# UNITS: The omega_0 column is stored as CYCLES/SAMPLE (= f_0/f_s = normalized frequency),
+# NOT radians/sample — despite the PDF's unlabeled "ω₀" column header. Confirmed via
+# BABA-A §13.1 (page 58), which states the voice pitch range is 2π/123.125 ≤ ω̂₀ ≤ 2π/19.875
+# rad/sample ≈ [0.051, 0.316] rad/sample. The entries here span [0.008125, 0.049971],
+# which matches that range only after multiplication by 2π (giving [0.051, 0.314] rad/sample).
+# Equivalently, 1/omega_0 is the pitch period in samples: 1/0.049971 ≈ 20.01 samples/period
+# → ≈400 Hz at fs=8 kHz (max voice); 1/0.008125 ≈ 123.08 → ≈65 Hz (min voice).
+#
+# Consumers that feed this column into formulas expecting rad/sample (Eq. 131–141,
+# Eq. 147, Eq. 206, etc.) MUST multiply by 2π on load. See analysis/
+# vocoder_decode_disambiguations.md §13 for the full rationale and the
+# cross-rate-converter regression that surfaced this.
 b0,L,omega_0
 0,9,0.049971
 1,9,0.049215

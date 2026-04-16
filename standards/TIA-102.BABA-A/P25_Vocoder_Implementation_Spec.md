@@ -739,8 +739,25 @@ log₂ M̃_l(0) = T̃_l
                  + δ̃_λ    ·log₂ M̃_{⌊k̃_λ⌋+1}(−1) ]           (Eq. 77)
 ```
 
-where **ρ = 0.65** (prediction gain — stated in §6.3 and later reused
-in the half-rate §13.3 text).
+where **ρ is defined by Eq. 55** (not a constant 0.65). Per BABA-A
+§6.3 page 25, Eq. 55 gives a piecewise-linear schedule in `L̃(0)`:
+
+```
+ρ = 0.4                           if L̃(0) ≤ 15
+ρ = 0.03 · L̃(0) − 0.05            if 15 < L̃(0) ≤ 24                 (Eq. 55)
+ρ = 0.7                           otherwise
+```
+
+The symbol `ρ` in Eq. 77 refers back to this schedule. An earlier
+version of this section asserted a constant `ρ = 0.65` based on the
+paraphrase in `vocoder_decode_disambiguations.md` §3; that assertion
+was wrong for full-rate — see the corrected disambiguation note and
+`vocoder_analysis_encoder_addendum.md` §0.6.2 for the full table of
+values and discussion.
+
+**Half-rate differs.** The half-rate decoder (§2.13 of this spec,
+BABA-A Eq. 200) does use a literal constant `0.65` with no `L̃`
+dependence — the `ρ = 0.65` claim is correct there and only there.
 
 Edge cases (Eq. 78–79):
 ```
@@ -791,7 +808,12 @@ static const float HOC_SIGMA[11] = { 0.0f, 0.0f, 0.307f, 0.241f, 0.207f, 0.190f,
 /* HOC_SIGMA indexed by k (DCT coefficient position, k=2..10); k=0,1 unused.
  * Values k ≥ 10 clamp to 0.170 per Table 4 (last row). */
 
-#define RHO 0.65f    /* prediction gain */
+/* Full-rate prediction gain ρ is L̃-dependent per Eq. 55, not a constant. */
+static inline float fullrate_rho(uint8_t L) {
+    if (L <= 15)        return 0.40f;
+    else if (L <= 24)   return 0.03f * (float)L - 0.05f;
+    else                return 0.70f;
+}
 
 /* One-shot decoder: call per frame. prev_M has length prev_L+1 (index 0..prev_L).
  * prev_M[0] = 1.0f always; prev_M[prev_L] used as fallback for l > prev_L.    */
@@ -825,10 +847,11 @@ This means:
 - After **frame repeat**, the repeated M̃_l becomes the "previous frame"
   for the frame after.
 - After a **decoder cold start**, use the initialization values from
-  §10 (Annex A): `M̃_l(−1) = 1 for all l, L̃(−1) = 30`. Note ρ = 0.65
-  means the predictor contributions from the uniform initial state are
-  a constant bias, so the first few frames will settle toward steady
-  state over ≈ 3–5 frames.
+  §10 (Annex A): `M̃_l(−1) = 1 for all l, L̃(−1) = 30`. Since the
+  initial log-amplitudes are zero (log₂ 1 = 0), the predictor
+  contributions on the first few frames vanish regardless of `ρ`, and
+  the predictor settles toward steady state over ≈ 3–5 frames as the
+  real reconstructed amplitudes populate `M̃_l(−1)`.
 
 ### 1.10 Spectral Amplitude Enhancement (Full-Rate)
 
@@ -1250,19 +1273,21 @@ are deterministic mappings from the 9 quantizer values b̂₀..b̂₈ into 4 bit
 vectors û₀..û₃. Vector widths:
 
 ```
-û₀ = 12 bits     (protected by [24,12] extended Golay → 24 coded bits)
-û₁ = 12 bits     (protected by [23,12] Golay          → 23 coded bits)
-û₂ = 11 bits     (protected by [23,12] Golay          → 23 coded bits, but only 11 info)
-û₃ = 14 bits     (uncoded                              → 2 raw bits on the wire)
-Grand total = 49 information bits, mapping to 24 + 23 + 23 + 2 = 72 channel bits
+û₀ = 12 bits     (protected by [24,12] extended Golay → ĉ₀ = 24 coded bits)
+û₁ = 12 bits     (protected by [23,12] Golay + PN mod → ĉ₁ = 23 coded bits)
+û₂ = 11 bits     (uncoded pass-through                → ĉ₂ = 11 bits)
+û₃ = 14 bits     (uncoded pass-through                → ĉ₃ = 14 bits)
+Grand total = 49 information bits, mapping to 24 + 23 + 11 + 14 = 72 channel bits
 ```
 
-**Note on û₂ / û₃ widths:** The vector-widths given above match BABA-A §14.1
-exactly (12/12/11/14 info bits). Earlier prose in this spec spoke of û₂=12
-and û₃=13 and attributed the split to "§16.7" — that was incorrect; the
-§14.1 tables below are authoritative. The [23,12] Golay applied to û₂
-protects a 12-bit info word of which only 11 bits are actual payload; the
-12th bit is fixed (a known value) so the code parameters match.
+**Note on û₂ / û₃ widths and FEC:** The vector-widths match BABA-A §14.1
+exactly (12/12/11/14 info bits). Only û₀ and û₁ are FEC-protected — see
+BABA-A §14.2 Eq. 189–192 (page 68) and Figure 27 (page 66), which state
+explicitly: `ĉ₀ = û₀·G_{24,12}`, `ĉ₁ = û₁·G_{23,12} + m̂₁`, `ĉ₂ = û₂`,
+`ĉ₃ = û₃`. Earlier prose in this spec claimed û₂ also got [23,12] Golay —
+that is wrong; only ĉ₀ and ĉ₁ carry FEC, and the 23 parity bits come
+entirely from the two Golay codes. See the half-rate FEC layout note in
+`analysis/halfrate_fec_layout.md` for the PDF-vs-impl-spec reconciliation.
 
 #### 2.3.1 Construction of û₀ (Table 15 of BABA-A)
 
@@ -1383,6 +1408,21 @@ void ambe_vuv_expand(uint8_t n, double omega_0, uint8_t L,
 
 ### 2.4 FEC Encoding -- Half-Rate
 
+Source: BABA-A §14.2 "Error Control Coding" Eq. 189–192 (page 68) and
+Figure 27 "Half-Rate Code Vector Construction" (page 66).
+
+Only û₀ and û₁ receive FEC. The four code vectors are:
+
+```
+ĉ₀ = û₀ · G_{24,12}            (Eq. 189) — 24 bits
+ĉ₁ = û₁ · G_{23,12} ⊕ m̂₁       (Eq. 190) — 23 bits, PN-modulated
+ĉ₂ = û₂                         (Eq. 191) — 11 bits, uncoded
+ĉ₃ = û₃                         (Eq. 192) — 14 bits, uncoded
+```
+
+All operations are mod-2. The PN sequence m̂₁ (§2.5) is applied only to
+ĉ₁, not to the other code vectors.
+
 #### 2.4.1 [24,12] Extended Golay Code
 
 Applied to u0 only. This is the standard [23,12] Golay code with one additional
@@ -1408,7 +1448,14 @@ int golay_24_12_decode(uint32_t codeword, uint16_t *info_bits);
 
 #### 2.4.2 [23,12] Golay Code
 
-Applied to u1 and u2. Same code as full-rate (see Section 1.5.1).
+Applied to **u1 only** (not u2 — u2 is uncoded per Eq. 191). Same code as
+full-rate (see Section 1.5.1).
+
+#### 2.4.3 Uncoded Vectors (ĉ₂, ĉ₃)
+
+Per Eq. 191–192, û₂ (11 bits) and û₃ (14 bits) pass through with no FEC
+and no PN modulation: `ĉ₂ = û₂`, `ĉ₃ = û₃`. This is the single largest
+implementation gotcha for half-rate — see `analysis/halfrate_fec_layout.md`.
 
 ### 2.5 PN Sequence -- Half-Rate
 
@@ -1418,6 +1465,9 @@ Same linear congruential generator as full-rate, but only 24 values (indices 0..
 p_r(0) = 16 * u0
 p_r(n) = (173 * p_r(n-1) + 13849) mod 65536    for 1 <= n <= 23
 ```
+
+The derived modulation vector `m̂₁` is applied **only to ĉ₁** (BABA-A
+Eq. 190). ĉ₀, ĉ₂, and ĉ₃ are not PN-modulated.
 
 ### 2.6 Interleaving -- Half-Rate (Annex S)
 
@@ -1439,11 +1489,12 @@ bits across both lanes.
 
 ```c
 /* Deinterleave a 72-bit half-rate AMBE frame (36 dibits) into 4 code vectors.
- * dibits: 36 elements in 0..=3. c_out layout:
- *   c_out[0]: 24 bits ([24,12] extended Golay)
- *   c_out[1]: 23 bits ([23,12] Golay)
- *   c_out[2]: 23 bits ([23,12] Golay)
- *   c_out[3]: variable (uncoded remainder)
+ * dibits: 36 elements in 0..=3. c_out layout (per BABA-A §14.2 Eq. 189–192):
+ *   c_out[0]: 24 bits ([24,12] extended Golay of û₀)
+ *   c_out[1]: 23 bits ([23,12] Golay of û₁, PN-modulated)
+ *   c_out[2]: 11 bits (uncoded û₂)
+ *   c_out[3]: 14 bits (uncoded û₃)
+ * Total: 24 + 23 + 11 + 14 = 72 bits.
  * Full table is in TIA-102.BABA-A Annex S and TIA-102.BBAC-1 Annex E. */
 void deinterleave_ambe_halfrate(const uint8_t dibits[36], uint32_t c_out[4]);
 ```
@@ -1459,6 +1510,11 @@ rescale, same S_E recurrence with floor 10000.
 
 See §1.10 of this spec for the complete algorithm and C reference. No
 parameter changes apply when using it for half-rate.
+
+**Prerequisite:** enhancement consumes the reconstructed `M̃_l` produced by
+the dequantization pipeline. That pipeline (gain → PRBA → HOC → per-block
+inverse DCT → log-magnitude prediction) is specified in §2.11–§2.13 below.
+Run those first; then §2.7 applies.
 
 ### 2.8 Half-Rate Adaptive Smoothing, Frame Repeat / Mute
 
@@ -1548,22 +1604,392 @@ See §1.12.1 (unvoiced) and §1.12.2 (voiced) for the complete algorithm.
 
 ### 2.10 Tone Frame Synthesis
 
-Source: BABA-A §16 "Tone Frames", pages 73–76, Table 19.
+Source: BABA-A §16 "Tone Frames", pages 73–77, Tables 19–20 and
+Eq. 206–209.
 
 Half-rate supports tone-frame transmission (DTMF, KNOX, single-frequency,
-call progress, silence). When `b̃₀ ∈ [120, 127]` the frame is not a voice
-frame — it's a Tone Frame, parsed per BABA-A Table 20 and synthesized
-from `annex_tables/annex_t_tone_params.csv` (§12.16).
+call progress, silence). When `b̃₀ ∈ [126, 127]` the frame is a Tone Frame,
+parsed per Table 20 and synthesized using the parameters in
+`annex_tables/annex_t_tone_params.csv` (§12.16). The tone-frame bit layout
+is **different from voice-frame layout** (Tables 15–18 of §2.3 do not
+apply); when parsing a half-rate frame, dispatch on `b̃₀` first, then
+apply either the voice pipeline (§2.11–§2.13) or the tone pipeline (§2.10).
 
-The tone synthesizer sums one or two sine generators at the specified
-frequencies, scaled to the received amplitude, windowed with wS(n) and
-overlap-added across frames just like the voiced synthesis (§1.12.2).
-ID 255 = silence (amplitude = 0). IDs in reserved ranges cause an erasure
-frame and frame repeat per §2.8.
+#### 2.10.1 Tone Frame Identification and Bit Field Layout (Table 20)
 
-Full tone-frame bit format (which bits of u₀..u₃ encode the tone ID vs
-amplitude) is in BABA-A §16.2 Table 20, pages 74–75. Not inlined here —
-parse directly from the CSV and the PDF when implementing the tone path.
+Source: BABA-A §16.2, page 74 text and Table 20 (page 75).
+
+**Identification (per §16.2 opening paragraph, page 74):** the first 6 bits
+of û₀ are always set to `63` (decimal) = `[1, 1, 1, 1, 1, 1]` for a tone
+frame. Those 6 bits occupy û₀(11)..û₀(6), which per Table 15 of §2.3
+corresponds to b̂₀(6..3) + b̂₁(4..3). Forcing those to `111111` places
+b̂₀ in the range `120 ≤ b̂₀ ≤ 127` **and** forces the two MSBs of b̂₁ to `11`.
+Combined with §13.1 Table 14, `b̂₀ ∈ {126, 127}` unambiguously identifies
+a tone frame (120–125 are erasure/silence, not tone).
+
+**Bit field layout (Table 20 of BABA-A, page 75):**
+
+| Bit vector / range      | Content                            |
+|-------------------------|------------------------------------|
+| û₀(11, 10, 9, 8, 7, 6)  | `63` (fixed — tone-frame signature)|
+| û₀(5, 4, 3, 2, 1, 0)    | `A_D(6, 5, 4, 3, 2, 1)` (amplitude MSBs) |
+| û₁(11, 10, 9, 8, 7, 6, 5, 4) | `I_D(7, 6, 5, 4, 3, 2, 1, 0)` — tone ID, **copy 1 (full 8 bits)** |
+| û₁(3, 2, 1, 0)          | `I_D(7, 6, 5, 4)` — tone ID, copy 2 (MSB nibble) |
+| û₂(10, 9, 8, 7)         | `I_D(3, 2, 1, 0)` — tone ID, copy 2 (LSB nibble) |
+| û₂(6, 5, 4, 3, 2, 1, 0) | `I_D(7, 6, 5, 4, 3, 2, 1)` — tone ID, copy 3 (top 7 bits) |
+| û₃(13)                  | `I_D(0)` — tone ID, copy 3 (LSB) |
+| û₃(12, 11, 10, 9, 8, 7, 6, 5) | `I_D(7, 6, 5, 4, 3, 2, 1, 0)` — tone ID, **copy 4 (full 8 bits)** |
+| û₃(4)                   | `A_D(0)` — amplitude LSB |
+| û₃(3, 2, 1, 0)          | `0000` (fixed) |
+
+Totals check: `6 + 6 + 8 + 4 + 4 + 7 + 1 + 8 + 1 + 4 = 49 bits = 12 + 12 + 11 + 14` ✓.
+
+**Redundancy:** the 8-bit tone index `I_D` is transmitted **4 times** —
+copies 1 and 4 are contiguous 8-bit blocks; copies 2 and 3 are split
+across bit-vector boundaries. The redundancy lets the decoder majority-vote
+or discard invalid copies under channel errors. Copies 1 and 4 are the
+most robust (each lives entirely within one prioritized-bits vector and
+benefits from that vector's FEC or uncoded-but-Annex-S-interleaved
+placement).
+
+**Amplitude:** `A_D` is a 7-bit log-amplitude, `0 ≤ A_D ≤ 127`, with:
+- `A_D = 127` → +3.17 dBm0 (max sinusoidal input level at the A-to-D)
+- `A_D = 0` → −87.13 dBm0
+- Step size: **0.711 dB** (≡ `0.03555 · 20 dB`; matches Eq. 209)
+
+#### 2.10.2 Tone Frame Parsing (C Reference)
+
+```c
+/* Parse a half-rate Tone Frame. Call only when ba0 in [126, 127] and the
+ * first 6 bits of u_hat[0] equal 0x3F (signature check). Returns 0 on
+ * success, -1 if the signature or the fixed LSBs of û₃ don't match
+ * (treat as erasure per §16.3 final paragraph).
+ *
+ * Inputs:
+ *   u_hat[0..3]: prioritized bit vectors, widths 12/12/11/14, LSB = bit 0.
+ *
+ * Outputs:
+ *   *tone_id:   8-bit I_D (0..255)
+ *   *amplitude: 7-bit A_D (0..127)
+ */
+static inline uint8_t extract_bits(uint16_t v, uint8_t hi, uint8_t lo) {
+    return (uint8_t)((v >> lo) & ((1u << (hi - lo + 1)) - 1u));
+}
+
+int p25_tone_frame_parse(const uint16_t u_hat[4],
+                         uint8_t *tone_id,
+                         uint8_t *amplitude)
+{
+    /* Signature: û₀(11..6) == 0x3F (63 decimal) */
+    if (extract_bits(u_hat[0], 11, 6) != 0x3F)
+        return -1;
+
+    /* Fixed trailer: û₃(3..0) == 0 */
+    if (extract_bits(u_hat[3], 3, 0) != 0)
+        return -1;
+
+    /* I_D copy 4 — û₃(12..5), 8 contiguous bits, uncoded — use as primary */
+    uint8_t id = extract_bits(u_hat[3], 12, 5);
+
+    /* Optional: majority-vote against copy 1 (û₁(11..4)) for robustness.
+     * Copy 1 is inside ĉ₁ which carries [23,12] Golay + PN — it's the
+     * most error-resilient of the four. Reference impls typically pick
+     * copy 1 (or the first copy that passes the Annex-T valid-range
+     * check) as primary; copy 4 is a good secondary. */
+    /* uint8_t id_copy1 = extract_bits(u_hat[1], 11, 4); */
+
+    /* A_D: 6 MSBs in û₀(5..0), LSB in û₃(4).
+     * Per Table 20, û₀(5..0) carries A_D(6..1), so shift left by 1. */
+    uint8_t ad_hi = extract_bits(u_hat[0], 5, 0);            /* A_D bits 6..1 */
+    uint8_t ad_lo = extract_bits(u_hat[3], 4, 4);            /* A_D bit 0    */
+    uint8_t ad    = (uint8_t)((ad_hi << 1) | ad_lo);         /* 7-bit A_D    */
+
+    *tone_id   = id;
+    *amplitude = ad;
+    return 0;
+}
+```
+
+**Validity check:** after extraction, test `*tone_id` against Table 19
+reserved ranges (0–4, 123–127, 164–254). Invalid → erasure frame,
+frame-repeat per §2.8.3 / BABA-A §16.3 final paragraph. `I_D = 255` →
+silence (synthesize zero output regardless of `A_D`).
+
+#### 2.10.3 Tone Synthesis via MBE Bridge (Eq. 206–209)
+
+Source: BABA-A §17 Eq. 206–209, page 77. (Originally scoped under
+parametric rate conversion; the same equations are the canonical way
+to synthesize a tone frame as MBE parameters for the §1.12 synthesizer,
+because §16.3 states the decoder replaces the Chapter 11 voice signal
+with a tone signal for the current frame but does not inline a standalone
+synthesizer — Eq. 206–209 is the only bit-exact specification of the
+conversion from `(I_D, A_D)` to MBE parameters in the standard.)
+
+**Step 1 — Annex T lookup (§12.16):**
+
+```
+(f_0, l_1, l_2) = ANNEX_T[I_D]
+```
+
+For single-frequency tones (IDs 5–122), `f_0` is the fundamental and
+`l_1 = l_2` is the same harmonic index (one non-zero harmonic). For
+DTMF (128–143), KNOX (144–159), and Call Progress (160–163),
+`f_0 = gcd(f_1, f_2)` and `(l_1, l_2)` are the two harmonic indices
+(two non-zero harmonics). For ID 255, the CSV lists `(f_0, l_1, l_2) =
+(250, 0, 0)`; combined with `A_D → 0` override below, synthesizes
+silence.
+
+**Step 2 — MBE fundamental and harmonic count (Eq. 206–207):**
+
+```
+ω̃₀ = (2π / 8000) · f_0                                              (Eq. 206)
+L̃  = ⌊ 3812.5 / f_0 ⌋                                               (Eq. 207)
+```
+
+Note the `8000` sample-rate assumption (the vocoder operates at 8 kHz
+throughout) and the `3812.5 Hz` upper frequency cutoff.
+
+**Step 3 — Voicing and spectral amplitudes (Eq. 208–209):**
+
+```
+ṽ_l = { 1   if l = l_1 or l = l_2
+     { 0   otherwise                                                  (Eq. 208)
+
+M̃_l = { 16384 · 10^{ 0.03555 · (A_D − 127) }   if l = l_1 or l = l_2
+     { 0                                        otherwise              (Eq. 209)
+```
+
+All non-tone harmonics are silenced. The `16384 · 10^{0.03555(A_D − 127)}`
+formula encodes the 0.711 dB/step amplitude scale (with `A_D = 127`
+corresponding to the maximum spectral amplitude used by the MBE
+synthesizer). For `I_D = 255` (silence), override `M̃_l = 0` for all `l`
+regardless of `A_D`.
+
+**Step 4 — MBE synthesis:** feed `(ω̃₀, L̃, ṽ_l, M̃_l)` into the standard
+MBE synthesizer per §1.12 — voiced synthesis (§1.12.2) handles the
+`ṽ_l = 1` harmonics, unvoiced synthesis (§1.12.1) processes the empty
+unvoiced set. Cross-frame state (`ω̃₀(−1)`, `ψ_l(−1)`, etc.) is updated
+normally per §1.13. Tone frames therefore plug into the same synthesis
+pipeline as voice frames — no separate OLA sine generator is required
+by the spec.
+
+**Alternative direct synthesis.** Some implementations bypass the MBE
+bridge and directly generate `s̃(n) = G · w_S(n) · [sin(2π·f_1·n/8000) +
+sin(2π·f_2·n/8000)]` with `f_2` omitted for single-frequency tones and
+`G` derived from `A_D`. This is permitted (§16.3 only constrains the
+output, not the synthesis method), but it sits outside the normative
+equations and will not bit-match a reference implementation that uses
+Eq. 206–209. Prefer the MBE bridge unless there's a reason not to.
+
+**Tone-frame FEC:** per §16.2 final paragraph (page 75), tone frames use
+**the same FEC, PN modulation, and interleaving as voice frames** (§14.2
+Eq. 189–192, §14.3 PN, §14.4 Annex S). The tone-specific layout applies
+only *after* deinterleave and FEC decode have recovered `û₀..û₃`.
+
+### 2.11 PRBA Decomposition (Gain + First Two DCT Coefficients per Block)
+
+Source: BABA-A §13.4.1 Eq. 168 (gain) and §13.4.2 Eq. 169–178 (PRBA),
+pages 63–64. Table 12 (page 57) gives the bit allocation consumed here:
+b̃₂ (gain, 5 bits), b̃₃ (PRBA24, 9 bits), b̃₄ (PRBA58, 7 bits).
+
+**Stage 1 — differential gain recovery (Eq. 168):**
+
+```
+Δ̃_γ = AMBE_GAIN_QUANTIZER[b̃₂]                 (Annex O, 32 entries, §12.11)
+γ̃(0) = Δ̃_γ + 0.5 · γ̃(−1)                                           (Eq. 168)
+```
+
+γ̃(−1) is the reconstructed gain from the last **voice** frame (tone,
+silence, and erasure frames do not update it); initial value 0.
+
+**Stage 2 — transformed PRBA codebook lookup:**
+
+```
+G̃_1            = 0                           (discarded at encoder per §13.3.1)
+G̃_2, G̃_3, G̃_4  = AMBE_PRBA24_CODEBOOK[b̃₃]    (Annex P, 512×3 entries, §12.12)
+G̃_5..G̃_8       = AMBE_PRBA58_CODEBOOK[b̃₄]    (Annex Q, 128×4 entries, §12.13)
+```
+
+**Stage 3 — inverse 8-point DCT on the transformed PRBA vector (Eq. 169–170):**
+
+```
+R̃_i = Σ_{m=1}^{8} α(m) · G̃_m · cos[ π·(m−1)·(i − 0.5) / 8 ]
+                                                    for 1 ≤ i ≤ 8    (Eq. 169)
+α(1) = 1,  α(m) = 2  for m > 1                                       (Eq. 170)
+```
+
+This is a fixed 8-point DCT — the basis length is always 8, independent
+of L̃ (unlike §1.8.3's Eq. 69 / §2.13's per-block DCT, where the basis
+length follows J̃_i). The same asymmetric-forward/inverse caveat noted
+in §1.8.3 applies: this is not an orthonormal DCT-II / DCT-III pair.
+
+**Stage 4 — pair-wise split into per-block (mean, first non-mean DCT coef)
+(Eq. 171–178):**
+
+The 8-element PRBA vector R̃ encodes both the block mean **and** the first
+non-mean DCT coefficient of each of the four blocks, packed as a sum/diff
+with √2 weighting on the non-mean element:
+
+```
+C̃_{1,1} = (R̃_1 + R̃_2) / 2                                         (Eq. 171)
+C̃_{1,2} = (√2 / 4) · (R̃_1 − R̃_2)                                  (Eq. 172)
+C̃_{2,1} = (R̃_3 + R̃_4) / 2                                         (Eq. 173)
+C̃_{2,2} = (√2 / 4) · (R̃_3 − R̃_4)                                  (Eq. 174)
+C̃_{3,1} = (R̃_5 + R̃_6) / 2                                         (Eq. 175)
+C̃_{3,2} = (√2 / 4) · (R̃_5 − R̃_6)                                  (Eq. 176)
+C̃_{4,1} = (R̃_7 + R̃_8) / 2                                         (Eq. 177)
+C̃_{4,2} = (√2 / 4) · (R̃_7 − R̃_8)                                  (Eq. 178)
+```
+
+**Invertibility check:** Eq. 172 weight `√2/4 = 1/(2√2)` is consistent
+with the encoder Eq. 159–160 weight of `√2`: plug
+`R̂_{2i−1} = Ĉ_{i,1} + √2·Ĉ_{i,2}` and `R̂_{2i} = Ĉ_{i,1} − √2·Ĉ_{i,2}`
+into Eq. 171–172 and confirm the identity maps round-trip.
+
+At the end of §2.11 the decoder has populated `C̃_{i,k}` for **k = 1, 2**
+only. DCT coefficients at k ≥ 3 come from the HOC codebook (§2.12).
+
+### 2.12 HOC Placement
+
+Source: BABA-A §13.4.3 "Decoding the Higher Order DCT Coefficients",
+Eq. 179, page 64. Encoder side is §13.3.2, page 62.
+
+**HOC codebook lookups (Annex R):**
+
+```
+H̃_{1, 1..4}  = AMBE_HOC_B5[b̃₅]   (5 bits, 32 entries × 4-vec)    (§12.14)
+H̃_{2, 1..4}  = AMBE_HOC_B6[b̃₆]   (4 bits, 16 entries × 4-vec)
+H̃_{3, 1..4}  = AMBE_HOC_B7[b̃₇]   (4 bits, 16 entries × 4-vec)
+H̃_{4, 1..4}  = AMBE_HOC_B8[b̃₈]   (3 bits,  8 entries × 4-vec)
+```
+
+**Placement rule:**
+
+```
+C̃_{i, k} = H̃_{i, k−2}     for 3 ≤ k ≤ min(J̃_i, 6)
+C̃_{i, k} = 0                for k ≥ 7, or k > J̃_i
+```
+
+This is the encoder-consistent reading (§13.3.2 defines
+`H̄_{i,j} = Ĉ_{i, j+2}` for `1 ≤ j ≤ J_i − 2`, 4-entry codebook → HOC
+fills `Ĉ_{i, 3..6}`). Confirmed against DVSI reference vectors at
+current calibration level — see
+[`analysis/vocoder_decode_disambiguations.md`](../../analysis/vocoder_decode_disambiguations.md)
+§12 for the resolution log.
+
+That is: HOC values fill DCT coefficients **k = 3..6** of each block
+(coefficient k=2 comes from PRBA §2.11; k=1 is the block mean, also
+from PRBA). Coefficients beyond k=6 — and any coefficients beyond
+the block's actual length J̃_i — are zero-fill.
+
+**Lossy by design (not a spec gap):** for L̃ near 56, Annex N gives
+block lengths up to J̃_i = 17, so a block can carry up to 16 non-mean
+DCT coefficients but the HOC codebook reconstructs at most 4 (plus 1
+from PRBA, giving 5). The remaining 11+ are truncated to zero. This is
+the lossy-compression point of the half-rate vocoder and is intentional;
+do not treat it as a bug.
+
+**Printed Eq. 179 bounds typo (for the record):**
+
+The PDF prints Eq. 179 as `for 2 ≤ k ≤ J̃_i AND k ≤ 4` with
+`C̃_{i,k} = H̃_{i, k−2}`. Taken literally, this would overwrite the
+PRBA-derived `C̃_{i, 2}` and access out-of-range `H̃_{i, 0}` against
+the 1-indexed 4-entry Annex R codebooks. The bounds are almost
+certainly a draft-edit artifact: `2..4` should read `3..6`. Resolved
+in favor of the encoder-consistent reading above; half-rate decode-PCM
+under that reading correlates with DVSI `p25a.bit → p25a.pcm` reference
+output at the current calibration level without contradiction. Full
+rationale and test outcome are logged in
+[`analysis/vocoder_decode_disambiguations.md`](../../analysis/vocoder_decode_disambiguations.md)
+§12.
+
+### 2.13 Per-Block Inverse DCT and Log-Magnitude Reconstruction
+
+Source: BABA-A §13.4.3 Eq. 180–181 (per-block inverse DCT) and §13.4.4
+Eq. 182–188 (log-magnitude reconstruction), pages 64–65.
+
+**Per-block inverse DCT (Eq. 180–181):**
+
+Once §2.11 + §2.12 have populated `C̃_{i, k}` for 1 ≤ k ≤ J̃_i (with
+zero-fill for k > min(J̃_i, 6) and zero for any block with J̃_i < 1):
+
+```
+c̃_{i, j} = Σ_{k=1}^{J̃_i} α(k) · C̃_{i, k} · cos[ π·(k−1)·(j − 0.5) / J̃_i ]
+                                                    for 1 ≤ j ≤ J̃_i   (Eq. 180)
+α(1) = 1,  α(k) = 2  for k > 1                                        (Eq. 181)
+```
+
+This is **exactly §1.8.4 Eq. 73–74 with 4 blocks (i = 1..4) instead
+of 6**. No coefficient changes. The same asymmetric-forward/inverse
+caveat from §1.8.3 applies — see
+[`analysis/vocoder_decode_disambiguations.md`](../../analysis/vocoder_decode_disambiguations.md)
+§9 for the round-trip pairing.
+
+Concatenate the four blocks into `T̃_l` for 1 ≤ l ≤ L̃, where block i
+covers `l = Σ_{n=1}^{i−1} J̃_n + 1 .. Σ_{n=1}^{i} J̃_n` (J̃_i taken from
+Annex N keyed on L̃ — see §12.10 / `annex_n_block_lengths.csv`).
+
+**Log-magnitude prediction reconstruction (Eq. 182–187):**
+
+```
+k̃_l = (L̃(−1) / L̃(0)) · l                                           (Eq. 182)
+δ̃_l = k̃_l − ⌊k̃_l⌋                                                  (Eq. 183)
+
+Γ̃   = γ̃(0) − 0.5·log₂(L̃) − (1/L̃) · Σ_{λ=1}^{L̃} T̃_λ                (Eq. 184)
+
+Λ̃_l(0) = T̃_l
+       + 0.65·(1 − δ̃_l) · Λ̃_{⌊k̃_l⌋}(−1)
+       + 0.65·δ̃_l       · Λ̃_{⌊k̃_l⌋+1}(−1)
+       − (0.65 / L̃(0)) · Σ_{λ=1}^{L̃(0)} [
+             (1 − δ̃_λ) · Λ̃_{⌊k̃_λ⌋}(−1)
+           + δ̃_λ       · Λ̃_{⌊k̃_λ⌋+1}(−1) ]
+       + Γ̃                                                           (Eq. 185)
+```
+
+Edge cases (Eq. 186–187):
+
+```
+Λ̃_0(−1)    = Λ̃_1(−1)
+Λ̃_l(−1)    = Λ̃_{L̃(−1)}(−1)       for l > L̃(−1)
+```
+
+**Initialization (first frame):** `Λ̃_l(−1) = 1 for all l`,
+`L̃(−1) = 15`. Note the different initial L̃ compared to full-rate
+(30, §1.8.5) — half-rate uses 15.
+
+**Structural note:** Eq. 185 is **§1.8.5 Eq. 77 with the addition of
+the `+ Γ̃` intercept term from Eq. 184**. Full-rate carries the gain
+γ̃ inside the dequantized C̃_{i,1} via §1.8.3's Eq. 68 substitution;
+half-rate separates γ̃ out and applies it as a scalar offset in
+Eq. 184, which is then added back to every Λ̃_l.
+
+**Prediction-gain coefficient differs between rates.** Half-rate
+Eq. 185 uses the literal constant `0.65` shown here, matching BABA-A
+Eq. 200 on page 61. Full-rate Eq. 77 uses a symbolic `ρ` defined by
+BABA-A Eq. 55 (page 25) as a piecewise-linear function of `L̃(0)`
+ranging over `[0.4, 0.7]` — **not** the constant 0.65. See
+[`analysis/vocoder_decode_disambiguations.md`](../../analysis/vocoder_decode_disambiguations.md)
+§3 for the correction history; §1.8.5 of this spec carries the
+corrected full-rate schedule.
+
+**Final spectral amplitudes (Eq. 188):**
+
+```
+M̃_l = {  exp(0.693 · Λ̃_l)                  if ṽ_l = 1 (voiced)
+      {  (0.2046 / √ω̃₀) · exp(0.693 · Λ̃_l)  otherwise (Eq. 188)
+```
+
+where `ṽ_l` is the per-harmonic V/UV decision from §2.3.6 Eq. 149 and
+0.693 ≈ ln 2 (converting from log₂ domain to natural scale). **The
+unvoiced branch's `(0.2046 / √ω̃₀)` scale factor is half-rate-specific**
+and does not appear in full-rate's Eq. 79 — full-rate applies no
+voicing-dependent rescale at this stage. Implementations that share
+code between full-rate and half-rate must branch here.
+
+Save `M̃_l` for §2.7 enhancement, §2.8 smoothing, and §2.9 synthesis.
+Also save `Λ̃_l(0)` and `L̃(0)` as `Λ̃_l(−1)` and `L̃(−1)` for the next
+voice frame (tone/silence/erasure frames do not update this state —
+see §13.3 opening paragraph, page 60).
 
 ---
 
@@ -2571,14 +2997,40 @@ extern const float imbe_synthesis_window[211];   /* index 0 = n=−105 */
 **Schema:** `b0, L, omega_0`
 
 7-bit half-rate pitch index (120 entries, b0 ∈ [0, 119]). Each row gives the
-harmonic count L̃ and reconstructed fundamental frequency ω̃₀ (rad/sample)
-for that index. ω̃₀ is monotone decreasing in b0 (verified during extraction).
+harmonic count L̃ and the reconstructed fundamental frequency for that
+index. ω̃₀ is monotone decreasing in b0 (verified during extraction).
 Replaces the analytical mapping used in full-rate IMBE (§1.3.1).
 
+**Units — important:** the PDF's Annex L header reads `ω₀` with no explicit
+unit annotation, but the stored values are **normalized frequency
+(cycles/sample = f₀/fₛ)**, not radians per sample. That is, Annex L stores
+`ω̃₀/(2π)`. Consumers using these values in equations that expect rad/sample
+(Eq. 131–141, Eq. 147, Eq. 206, etc.) **must multiply by 2π** on lookup.
+
+Confirmation: BABA-A §13.1 (page 58) explicitly states the voice pitch range
+is `2π/123.125 ≤ ω̂₀ ≤ 2π/19.875` rad/sample — i.e. `[0.051, 0.316]`
+rad/sample. The Annex L entries span `[0.008125, 0.049971]`, which matches
+the stated range only after multiplication by 2π (giving `[0.051, 0.314]`).
+Reading the entries verbatim as rad/sample yields `[10.3, 63.6] Hz` at
+fs = 8 kHz, which is sub-voice and cannot be correct.
+
+See `analysis/vocoder_decode_disambiguations.md` §13 for the full
+reconciliation, including the matching `1/T_samples` pitch-period
+interpretation and the cross-rate-converter regression that surfaced it.
+
 ```c
-/* Typical consumer signature */
+/* Typical consumer signature. Note the convention below returns ω̃₀ in
+ * rad/sample — callers should apply the 2π multiplication at load time
+ * (preferred) or consistently within every consumer formula. Mixing
+ * conventions across the codebase is the failure mode this annotation
+ * is meant to prevent. */
 typedef struct { uint8_t L; float omega_0; } ambe_pitch_entry_t;
-extern const ambe_pitch_entry_t ambe_pitch_table[120];
+extern const ambe_pitch_entry_t ambe_pitch_table[120];  /* omega_0 in rad/sample */
+
+/* Loader responsibility: multiply the CSV's omega_0 column by 2π before
+ * populating ambe_pitch_table[], OR document that the table stores
+ * cycles/sample and require every consumer site to multiply. The former
+ * is recommended because it localizes the unit conversion to one place. */
 ```
 
 ### 12.9 Annex M — Half-Rate V/UV Codebook

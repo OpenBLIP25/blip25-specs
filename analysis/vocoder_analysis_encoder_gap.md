@@ -174,10 +174,12 @@ landing it first.
 - **Harmonic cut-off.** How many harmonics does the residual sum over —
   the L derived from the candidate `ω₀`, or a fixed upper bin like m=122
   (from the §2.4 autocorrelation upper limit)?
-- **Tie-breaking.** Eight candidates in the `±1.125 / 0.25` grid; if two
-  tie on `E_R`, which is chosen? The decoder's quantizer step is
-  half-sample pitch resolution (8-bit `b̂₀` from Eq. 45), so tie-breaking
-  matters for bit-exactness against DVSI.
+- **Tie-breaking.** **Ten** candidates in the `±1.125 / 0.25` grid
+  (`P̂_I ± {1/8, 3/8, 5/8, 7/8, 9/8}`; `P̂_I` itself is excluded per
+  §5.1.5 prose — corrected 2026-04-15 after reading the PDF directly);
+  if two tie on `E_R`, which is chosen? The decoder's quantizer step
+  is half-sample pitch resolution (8-bit `b̂₀` from Eq. 45), so
+  tie-breaking matters for bit-exactness against DVSI.
 - **Range clamp.** §1.3.1 of the implementation spec says the encoder
   restricts `ω̂₀` to `[2π/123.125, 2π/19.875]` (i.e. `b̂₀ ∈ [0, 207]`). If
   the refined `ω̂₀` falls outside this range after minimization, what is
@@ -249,44 +251,74 @@ energy to unvoiced noise floor; auxiliary metrics `ξ_LF`, `ξ_HF`, `ξ_G`,
   analysis encoder can deliver per-band bits and let the wire pack them,
   which is the natural split, but the addendum should state it.
 
-### 6. Spectral amplitude estimation (BABA-A §5 / Eq. 32–33, pages ~17–19)
+### 6. Spectral amplitude estimation (BABA-A §5 / Eq. 43–44, pages ~19–20)
 
-**What the full text says:**
+**Correction (2026-04-15):** the original draft of this section, above
+the separator below, paraphrased the PDF incorrectly. After reading the
+PDF directly (pages 17–20), the actual picture is:
+
+- BABA-A Eq. 32–33 are **bin endpoints** (the same as Eq. 26–27 of §0.2
+  but evaluated at the refined `ω̂₀`):
+
+  ```
+  â_l = (256 / 2π) · (l − 0.5) · ω̂₀                             (Eq. 32)
+  b̂_l = (256 / 2π) · (l + 0.5) · ω̂₀                             (Eq. 33)
+  ```
+
+  These are **not** complex spectral-amplitude projections. There is no
+  `â_l + j·b̂_l` object in the PDF.
+
+- The actual spectral amplitude estimator is **Eq. 43 (voiced) or
+  Eq. 44 (unvoiced)**, both magnitude-only, on PDF page 20:
+
+  ```
+  M̂_l  =  [ Σ |S_w(m)|²  /  Σ |W_R(⌊64m − (16384/2π)·l·ω̂₀ + 0.5⌋)|² ]^(1/2)   (voiced, Eq. 43)
+  M̂_l  =  (1 / Σ w_R(n)) · [ Σ |S_w(m)|²  /  (⌈b̂_l⌉ − ⌈â_l⌉) ]^(1/2)            (unvoiced, Eq. 44)
+  ```
+
+  There is no `Re[]`/`Im[]` decomposition; phase is discarded inside
+  Eq. 43/44 via the `|·|²`.
+
+The correct derivation (Eq. 43/44 transcription, integration limits,
+edge cases) is now in
+[`vocoder_analysis_encoder_addendum.md`](./vocoder_analysis_encoder_addendum.md)
+§0.5. The notes below preserve the original entry for historical
+interest and to flag the investigation items that survived the
+correction.
+
+---
+
+**Original (superseded) paraphrase and open items follow:**
+
+**What the full text claimed:**
 
 ```
-â_l = (2/256) · Re[ Σ_{m} S_w(m) · S_w*(m,l) ]
-b̂_l = (2/256) · Im[ Σ_{m} S_w(m) · S_w*(m,l) ]
-M̂_l = sqrt(â_l² + b̂_l²),  1 ≤ l ≤ L̂
+â_l = (2/256) · Re[ Σ_{m} S_w(m) · S_w*(m,l) ]    (WRONG — see above)
+b̂_l = (2/256) · Im[ Σ_{m} S_w(m) · S_w*(m,l) ]    (WRONG — see above)
+M̂_l = sqrt(â_l² + b̂_l²),  1 ≤ l ≤ L̂              (WRONG — see above)
 ```
 
-**What the implementation spec needs:**
+**What survives the correction:**
 
-- **`S_w(m, l)` basis.** Same requirement as §3 above — without this the
-  amplitude extractor is a pseudocode sketch, not a formula.
-- **Integration limits on `Σ_m`.** A harmonic's dominant spectral energy
-  is in a narrow band around `m ≈ 256·l·ω̂₀/(2π)`; the sum is presumably
-  over a per-harmonic `[a_l, b_l]` window from Eq. 32 of the PDF, but
-  those bin boundaries are not transcribed in the paraphrase.
-- **Complex conjugate convention.** `S_w*(m, l)` as the conjugate of the
-  basis versus of the signal changes the sign of `b̂_l`. The decoder's
-  phase tracking (`vocoder_decode_disambiguations.md §11`) is already
-  known-broken; getting the encoder's conjugate convention right the
-  first time will save another round of PCM-only debugging.
+- **Integration limits on `Σ_m`.** Eq. 43/44 use `⌈â_l⌉ ≤ m < ⌈b̂_l⌉`
+  with `â_l`, `b̂_l` from Eq. 32–33 above (the true meaning). Covered
+  in addendum §0.5.1–§0.5.3.
 - **Partial-harmonic edge case.** When `L̂` places the highest harmonic
-  near `π`, the basis `S_w(m, L̂)` may overlap the Nyquist bin. The PDF
-  either addresses this (reduces the summation) or silently drops it;
-  either way the addendum should state the behavior.
+  near `π`, addendum §0.5.4 handles it per §5.3 prose (same formula,
+  just wider band). No edge case in the PDF — it "just works."
 - **Cross-reference to the `γ_w` mismatch investigation.** `blip25-specs`
   commit `741eeef` flagged that decoder-side `γ_w` (unvoiced synthesis
   scale, derived from `w_S · w_R`) is ~150× off DVSI measured output.
   That mismatch currently isolates to synthesis, but `w_R` also appears
-  on the encoder side of `S_w(m, l)` and (via the window-energy term
-  implicit in Eq. 32–33's `2/256`) in the amplitude estimator
-  normalization. If any of the V/UV metrics `D_k`, `ξ_LF`, `ξ_HF`, `ξ_G`
-  carry a similar window-energy factor, they inherit the same DVSI
-  ambiguity. Worth an explicit callout when the addendum's §0.5 / §0.7
-  are drafted, so encoder-side calibration doesn't re-discover the
-  same uncertainty from scratch.
+  on the encoder side in the Eq. 28 / 43 denominators (window-energy
+  normalization) and in the unvoiced Eq. 44's `Σ w_R(n)` factor. If
+  the V/UV metrics `D_k`, `ξ_LF`, `ξ_HF`, `ξ_G` carry a similar
+  window-energy factor, they inherit the same DVSI ambiguity. Addendum
+  §0.5.6 and §0.2.8 both flag this.
+- **Conjugate convention.** The original concern about `S_w*(m, l)` vs
+  `S_w(m, l)*` is moot under the corrected Eq. 43/44 — no conjugate
+  appears. The concern does survive in §0.2's Eq. 28 `A_l(ω₀)` (which
+  drives pitch refinement), and addendum §0.2.8 covers it there.
 
 ### 7. Frame-type dispatch (silence, tone, voice)
 
