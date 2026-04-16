@@ -16,7 +16,7 @@
 
 [meta]
 project = "TIA-P25"
-last_updated = "2026-04-13"
+last_updated = "2026-04-16"
 prompt_version = "2.1"
 total_documents = 129
 processed_phase3 = 21
@@ -678,6 +678,16 @@ Phase 1 (FDMA) uses full-rate; Phase 2 (TDMA) uses half-rate. Quantization
 tables in Annexes A-T. Note: IMBE frame format is a transport container for
 MBE model parameters — synthesis engine is independent of frame format.
 See analysis/vocoder_wire_vs_codec.md.
+
+Known BABA-A PDF errata (tracked in analysis/phase4_findings_log.md and
+analysis/vocoder_decode_disambiguations.md):
+- Eq. 69 gain inverse DCT prints J̃_i in the cosine denominator; should
+  be 6 (matches Eq. 61 encoder forward DCT). Resolved 2026-04-16 —
+  implementers use 6.
+- Earlier drafts of the disambiguation notes mis-cited the half-rate
+  decoder predictor as Eq. 200; correct citation is Eq. 185 (page 65).
+  Eq. 200–205 is a separate block (frame-repeat copy-forward).
+  Resolved 2026-04-16.
 """
 
 [specs."TIA-102.BABA-A".extracted_files]
