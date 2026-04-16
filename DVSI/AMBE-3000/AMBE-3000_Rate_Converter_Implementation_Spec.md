@@ -836,6 +836,140 @@ The exact rate indices for DMR and D-STAR variants live in the DVSI
 manual rate table (`annex_tables/rate_index_table.csv`). Cross-standard
 validation is out of scope for this spec's first cut.
 
+### 10.4 Multi-Subframe Rate Pairs (US6199037)
+
+§1.6 above defined the time-alignment matrix between single-subframe
+and two-subframe rates. This section gives the implementation.
+
+**Which rates are two-subframe is an open question** — see §12 and
+`analysis/ambe3000_multi_subframe_rate_mapping.md`. Dispatch on
+`annex_tables/multi_subframe_rates.csv`, which is `pending` for 60
+of 64 rate indices.
+
+The four cases from §1.6 map to these §4 paths:
+
+| Src → Tgt | §4 path |
+|-----------|---------|
+| 1 → 1     | §4 as specified — current P25 scope (r33 ↔ r34).            |
+| 1 → 2     | Accumulate two source frames → joint-encode per decoder §10.5 via target-encoder §10.2. |
+| 2 → 1     | Split source frame into two MbeParams (decoder §10.5) → emit two target frames via encoder (single-subframe §4). |
+| 2 → 2     | Two paths: (a) split-and-rejoin per-subframe §4; (b) direct joint-to-joint bit repack if codebooks match. |
+
+#### 10.4.1 State
+
+The rate converter's per-pair state grows for cross-subframe-count
+pairs:
+
+```c
+typedef struct {
+    /* ... existing single-subframe state ... */
+
+    /* For 1 → 2 conversions: buffer one source frame awaiting its
+     * pair to joint-quantize. */
+    mbe_params_t src_subframe_buffer;
+    bool         src_subframe_buffer_valid;
+
+    /* For 2 → 1 conversions: buffer the second subframe's params
+     * awaiting emit on the next tick. */
+    mbe_params_t tgt_subframe_buffer;
+    bool         tgt_subframe_buffer_valid;
+
+    /* Predictor state advances per-subframe (decoder spec §10.5.5,
+     * encoder spec §10.2.5) — not per-frame — for multi-subframe ends. */
+    double prev_subframe_log_mag[MAX_L];
+} rate_converter_state_t;
+```
+
+#### 10.4.2 1 → 2 Conversion
+
+Delay: +1 source frame.
+
+```c
+int convert_1_to_2(const uint8_t *src_frame_bits,
+                   uint8_t *tgt_frame_bits_or_null,
+                   rate_converter_state_t *state) {
+    /* Decode source frame → MbeParams. */
+    mbe_params_t src_mbe;
+    decode_source_single_subframe(src_frame_bits, &src_mbe);
+
+    if (!state->src_subframe_buffer_valid) {
+        /* Hold this frame; pair with next. */
+        state->src_subframe_buffer = src_mbe;
+        state->src_subframe_buffer_valid = true;
+        return 0;   /* no target frame emitted this tick */
+    }
+
+    /* We now have two consecutive single-subframe sources.
+     * Joint-quantize via encoder spec §10.2.2–§10.2.4. */
+    mbe_params_t mbe_pair[2] = { state->src_subframe_buffer, src_mbe };
+    encode_multi_subframe(mbe_pair, tgt_frame_bits_or_null, state);
+
+    state->src_subframe_buffer_valid = false;
+    return 1;   /* target frame emitted */
+}
+```
+
+#### 10.4.3 2 → 1 Conversion
+
+No extra delay; emits two target frames per source tick.
+
+```c
+int convert_2_to_1(const uint8_t *src_frame_bits,
+                   uint8_t *tgt_frame_bits_sf0,
+                   uint8_t *tgt_frame_bits_sf1,
+                   rate_converter_state_t *state) {
+    /* Decode source frame → two MbeParams via decoder spec §10.5. */
+    mbe_params_t src_mbe[2];
+    decode_source_multi_subframe(src_frame_bits, src_mbe);
+
+    /* Emit each subframe's params as a single-subframe target frame. */
+    encode_single_subframe(&src_mbe[0], tgt_frame_bits_sf0, state);
+    encode_single_subframe(&src_mbe[1], tgt_frame_bits_sf1, state);
+
+    return 2;
+}
+```
+
+#### 10.4.4 2 → 2 Conversion
+
+Two strategies. Per-pair selection depends on whether source and
+target multi-subframe codebooks match.
+
+**Strategy A (split-and-rejoin):** always works, higher compute.
+
+```c
+int convert_2_to_2_via_split(const uint8_t *src_frame_bits,
+                             uint8_t *tgt_frame_bits,
+                             rate_converter_state_t *state) {
+    mbe_params_t src_mbe[2], tgt_mbe[2];
+    decode_source_multi_subframe(src_frame_bits, src_mbe);
+
+    /* Apply §4 transforms per subframe. */
+    for (int sf = 0; sf < 2; sf++)
+        apply_section_4_transforms(&src_mbe[sf], &tgt_mbe[sf], state);
+
+    encode_multi_subframe(tgt_mbe, tgt_frame_bits, state);
+    return 1;
+}
+```
+
+**Strategy B (direct joint-to-joint bit repack):** only when source and
+target share identical joint-quantization layout (same Method, same
+codebooks). Then `b̂_k[2]_A → b̂_k[2]_B` is a FEC-domain repack at the
+channel-bits level; no MbeParams reconstruction needed. Applicable
+when the `multi_subframe_rates.csv` + `halfrate_bit_allocations.csv`
+combination indicates identical per-subframe bit allocations and
+joint-quantization methods.
+
+#### 10.4.5 Codebook Assumption
+
+All four conversion paths depend on the decoder §10.5 and encoder
+§10.2 joint-quantization codebooks being populated for the source
+and target rates. Until `multi_subframe_rates.csv` is resolved (and
+per-rate codebook contents characterized in `~/blip25-mbe`), §10.4
+conversions involving unresolved rates inherit the `pending` status
+from `rate_conversion_pairs.csv`.
+
 ---
 
 ## 11. Validation Plan
@@ -951,9 +1085,19 @@ SNR(tandem vs original) + 3 dB on representative speech samples.
    covers the common case; some pairs may need special-cased parameters
    (different ρ, additional offset, etc.). Populate
    `annex_tables/rate_conversion_pairs.csv` as testing surfaces these.
-2. **Multi-subframe pair handling** (§1.6, §10.3). Out of P25 scope but
-   needed for full chip equivalence on r17/r18 etc. Requires
-   cross-subframe-boundary alignment logic per US6199037.
+2. **Multi-subframe pair handling** (§1.6, §10.4). Algorithm now
+   drafted in §10.4; the remaining gap is rate-index mapping. See
+   `analysis/ambe3000_multi_subframe_rate_mapping.md` and
+   `annex_tables/multi_subframe_rates.csv` (60 of 64 rows `pending`).
+   Sub-items:
+   (a) subframe count per rate index,
+   (b) per-rate joint-quant codebook contents (shared between decoder
+       §10.5, encoder §10.2, and this §10.4),
+   (c) whether source/target codebooks match for §10.4.4 Strategy B
+       (direct joint-to-joint repack) on 2→2 pairs.
+   Prior wording cited r17/r18 specifically; those chip indices are
+   labeled AMBE-2000 in the manual rate table and their multi-subframe
+   status is unverified.
 3. **Cross-vocoder-family conversion** (e.g., AMBE → AMBE+2). When source
    and target use different vocoder families, the magnitude scale, voicing
    model, and gain quantizer differ in ways §4 doesn't fully address.

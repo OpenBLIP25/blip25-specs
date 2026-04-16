@@ -858,19 +858,200 @@ Encoder additions per rate:
 
 ### 10.2 Multi-Subframe Rates (US6199037)
 
-Rates r17, r18, and a few others encode **2 subframes per frame** — the
-encoder analyzes 40 ms of input (two 20 ms subframes) and produces a
-single channel-bits frame containing jointly-quantized parameters.
+For rates where `ambe_rate_descriptor_t.subframes == 2`, the encoder
+analyzes **40 ms** of input (two consecutive 20 ms subframes) and
+emits a single channel-bits frame containing jointly-quantized pitch
+and voicing parameters per US6199037. This is the encoder-direction
+complement to the decoder spec §10.5.
 
-US6199037 specifies:
-- **Joint pitch quantization**: 4-bit scalar quantizer on average
-  log-pitch + 6-bit vector quantizer on the difference between subframes
-- **Joint voicing quantization**: 6-bit codebook on a 16-element vector
-  (8 bands × 2 subframes), or split as two 8-element 6-bit codebooks
+**Which rates are multi-subframe is an open question** — see
+§12 item 5 and `analysis/ambe3000_multi_subframe_rate_mapping.md`.
+The AMBE-3000F manual does not document subframe counts per rate
+index. Existing impl-spec references to "r17/r18" are unverified.
+Dispatch on `annex_tables/multi_subframe_rates.csv` rather than
+hardcoding rate indices.
 
-These rates are out of scope for the P25-focused validation in §11 but
-the data structures must support them — the encoder's `b̂_k` array
-becomes `b̂_k[2]` for two-subframe rates, and §4 expands accordingly.
+#### 10.2.1 Analysis Pipeline (2× per Channel Frame)
+
+```
+PCM[320] (40 ms)
+    │
+    ├─ subframe 0: PCM[0..160]   → addendum §0.1–§0.10 → MbeParams[0]
+    │
+    └─ subframe 1: PCM[160..320] → addendum §0.1–§0.10 → MbeParams[1]
+```
+
+Each subframe runs the full PCM → MbeParams analysis (pitch estimation
+with refinement, V/UV discriminant per band, spectral magnitude
+estimator, tone/silence dispatch) independently. The joint quantization
+then consumes both sets of MbeParams.
+
+#### 10.2.2 Joint Pitch Quantization
+
+Two methods per US6199037; method selection is per-rate.
+
+**Method 1 — Scalar + Vector:**
+
+```c
+/* Inputs: f0[2] (Hz, per subframe) */
+/* Outputs: b_pitch_scalar (4 bits), b_pitch_vector (6 bits) */
+
+double log_f0[2] = { log2(f0[0]), log2(f0[1]) };
+double avg = 0.5 * (log_f0[0] + log_f0[1]);
+
+/* 4-bit scalar quantizer on average log-pitch */
+int b_pitch_scalar = nearest_index_scalar(avg, pitch_scalar_codebook, 16);
+double quantized_avg = pitch_scalar_codebook[b_pitch_scalar];
+
+/* Residuals: (log_f0[0] - quantized_avg, log_f0[1] - quantized_avg) */
+double residual[2] = {
+    log_f0[0] - quantized_avg,
+    log_f0[1] - quantized_avg,
+};
+
+/* 6-bit VQ over 64-entry 2D codebook (densely clustered near origin) */
+int b_pitch_vector = nearest_index_2d(residual, pitch_vector_codebook, 64);
+```
+
+**Method 2 — Scalar + Interpolation:**
+
+```c
+/* Inputs: f0[2], state->prev_frame_last_f0 */
+/* Outputs: b_pitch_scalar (N bits), b_interp_rule (2 bits) */
+
+int b_pitch_scalar = nearest_index_scalar(f0[0], pitch_scalar_Nbit, 1 << N);
+
+/* Find the interpolation rule (of 4) whose prediction for f0[1]
+ * best matches the actual f0[1]. */
+int best_rule = 0;
+double best_err = INFINITY;
+for (int rule = 0; rule < 4; rule++) {
+    double predicted_f0_1 = apply_interpolation_rule(
+        rule, state->prev_frame_last_f0, f0[0]);
+    double err = fabs(log2(predicted_f0_1) - log2(f0[1]));
+    if (err < best_err) { best_err = err; best_rule = rule; }
+}
+int b_interp_rule = best_rule;
+```
+
+Codebook contents (16-level scalar, 64-entry 2D vector, 4-rule
+interpolation tables) are DVSI-proprietary and not in the patent.
+**Pending empirical resolution.**
+
+#### 10.2.3 Joint Voicing Quantization
+
+Per US6199037, the voicing path runs a smoother across subframes
+before VQ:
+
+```c
+/* Per-band voicing metrics (from analysis pipeline) */
+double v_err_k[2][8];    /* voicing error per band per subframe */
+double v_ener_k[2][8];   /* voicing energy per band per subframe */
+
+/* Step 1: Smoother — exploit inter-subframe correlation.
+ * Patent summary describes "smoothed values based on ratios
+ * of voicing error to voicing energy". Exact filter coefficients
+ * not in the patent. */
+double v_smooth_k[2][8];
+apply_voicing_smoother(v_err_k, v_ener_k, v_smooth_k);
+
+/* Step 2: Non-linear transform to [0.0, 1.0]. */
+double v_logical[2][8];
+for (int sf = 0; sf < 2; sf++)
+    for (int k = 0; k < 8; k++)
+        v_logical[sf][k] = voicing_log_transform(v_smooth_k[sf][k]);
+```
+
+Then VQ. Two structures, selected per-rate:
+
+**Full 16-element VQ (6-bit index):**
+
+```c
+/* Flatten to 16-element vector (8 bands × 2 subframes). */
+double vec16[16];
+for (int sf = 0; sf < 2; sf++)
+    for (int k = 0; k < 8; k++)
+        vec16[sf * 8 + k] = v_logical[sf][k];
+
+int b_voicing = nearest_index_vector(vec16, joint_voicing_codebook_16, 64);
+```
+
+**Split 2×8-element VQ (two 6-bit indices, one per subframe):**
+
+```c
+int b_voicing_sf0 = nearest_index_vector(v_logical[0], voicing_8band_codebook, 64);
+int b_voicing_sf1 = nearest_index_vector(v_logical[1], voicing_8band_codebook, 64);
+```
+
+Codebooks are DVSI-proprietary. **Pending empirical resolution.**
+
+#### 10.2.4 Spectral Amplitude Quantization
+
+Two candidate structures, selected per-rate (mirrors decoder §10.5.4):
+
+**Independent:** each subframe's spectral amplitudes quantize via the
+§4.3 AMBE+2 half-rate pipeline (PRBA24 / PRBA58 / HOC VQ searches),
+using the per-subframe bit allocation from
+`ambe_multi_subframe_allocation_t.per_subframe[sf]`.
+
+**Joint (US6199037 §col. 22):** single 8-bit mean vector (256-entry
+codebook) captures inter-subframe log-magnitude mean; per-subframe
+residuals are block-DCT'd and VQ'd against rate-specific residual
+codebooks.
+
+Selection and codebook contents are per-rate and not documented.
+**Pending empirical resolution.**
+
+#### 10.2.5 Encoder State Across Subframes
+
+The matched-decoder predictor (see
+`analysis/ambe_encoder_closed_loop_predictor.md`) runs **per-subframe**
+for multi-subframe rates:
+
+```c
+typedef struct {
+    /* ... existing single-subframe state ... */
+    mbe_params_t prev_subframe_quantized_params;  /* last decoded subframe */
+    double       prev_frame_last_f0;              /* for Method 2 pitch interp */
+} ambe_encoder_state_t;
+```
+
+After encoding subframe 0 the state advances; then subframe 1
+encoding sees subframe 0 as its prior state. After the channel frame
+completes, the state's "last subframe" is subframe 1 of the current
+frame — which becomes the reference for the next frame's subframe 0.
+
+#### 10.2.6 Frame Emit
+
+```c
+int ambe_encode_multi_subframe(uint8_t rate,
+                               const int16_t *pcm_in,  /* 320 samples */
+                               uint8_t *frame_out,
+                               ambe_encoder_state_t *state) {
+    /* §4 (×2): analyze both subframes. */
+    mbe_params_t mbe[2];
+    analyze_subframe(pcm_in + 0,   &mbe[0]);
+    analyze_subframe(pcm_in + 160, &mbe[1]);
+
+    /* §10.2.2 joint pitch. */
+    quantize_joint_pitch(mbe, state, &b_pitch_scalar, &b_pitch_vector_or_interp);
+
+    /* §10.2.3 joint voicing. */
+    quantize_joint_voicing(mbe, &b_voicing /* full */ or b_voicing_sf0/sf1 /* split */);
+
+    /* §10.2.4 spectral amplitudes (per-subframe or joint). */
+    quantize_spectral_amplitudes(mbe, state, b_spectral /* layout per rate */);
+
+    /* §5 bit prioritization, §6 FEC, §7 interleave — pack b̂_k[2] → frame_out. */
+    pack_multi_subframe_bits(b_pitch_scalar, b_pitch_vector_or_interp,
+                             b_voicing_variant, b_spectral, frame_out);
+
+    /* Advance matched-decoder state per §10.2.5. */
+    predictor_state_advance(state, &mbe[0]);
+    predictor_state_advance(state, &mbe[1]);
+    return 0;
+}
+```
 
 ### 10.3 Dispatch C Skeleton
 
@@ -996,9 +1177,23 @@ Inherited from decoder spec §12 + encoder-specific items.
    most-recent index. Characterize empirically to bit-match. File:
    `analysis/ambe3000_vq_tiebreak.md`.
 5. **Multi-subframe joint quantization details** (§10.2). US6199037
-   describes joint pitch and voicing quantization; the exact codebooks
-   for chip rates r17/r18 are not in BABA-A. Black-box characterization
-   needed for non-P25 rate-conversion targets.
+   describes the joint pitch and voicing algorithm but not per-rate
+   configuration. See `analysis/ambe3000_multi_subframe_rate_mapping.md`
+   and `annex_tables/multi_subframe_rates.csv`. Sub-items:
+   (a) which chip rate indices are multi-subframe (60 of 64 rows
+       currently `pending`),
+   (b) Method 1 (scalar + vector) vs Method 2 (scalar + interp) for
+       joint pitch per rate,
+   (c) full-16 vs split-8+8 for joint voicing per rate,
+   (d) independent-per-subframe vs joint (256-entry mean) spectral
+       amplitude recovery per rate,
+   (e) exact codebook contents (16-level pitch scalar, 64-entry
+       pitch vector, 64-entry voicing VQ, smoother filter coefficients,
+       256-entry spectral mean).
+   Prior wording cited r17/r18 specifically as two-subframe AMBE+2
+   rates; that identification is unverified (r17/r18 are labeled
+   AMBE-2000 in the manual, not AMBE+2) and superseded by the
+   CSV-driven dispatch model.
 6. **Closed-loop predictor convergence** (§4.3.5, §8.2). The matched
    decoder must be bit-identical to the wire decoder. Validate by
    round-tripping a known sinusoid through encode → decode and verifying
