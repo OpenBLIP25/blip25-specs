@@ -34,7 +34,9 @@ the new §0, after review against DVSI test vectors (§0.11).
 **Second correction to prior analysis — full-rate vs half-rate `ρ`.**
 [`vocoder_decode_disambiguations.md`](./vocoder_decode_disambiguations.md)
 §3 asserts `ρ = 0.65` is constant across both rates, citing Eq. 77
-(full-rate decoder) and Eq. 200 (half-rate decoder). This conflates
+(full-rate decoder) and Eq. 185 (half-rate decoder; that note
+originally cited Eq. 200, which is a separate frame-repeat equation
+— corrected in the disambiguation note 2026-04-16). This conflates
 two different rates:
 
 - **Full-rate (Eq. 54 encoder, Eq. 77 decoder) uses the symbol `ρ`,
@@ -42,8 +44,9 @@ two different rates:
   `0.03·L̂ − 0.05` for `15 < L̂ ≤ 24`, 0.7 for `L̂ > 24`. The symbol
   `ρ` appears unqualified in Eq. 77 — it is **not** a literal 0.65,
   it references Eq. 55.
-- **Half-rate (Eq. 155 encoder, Eq. 200 decoder) uses the literal
-  constant 0.65** embedded directly in the equation, not a named `ρ`.
+- **Half-rate (Eq. 155 encoder page 60, Eq. 185 decoder page 65) uses
+  the literal constant 0.65** embedded directly in the equation, not
+  a named `ρ`.
 
 The disambiguation note's "0.65 everywhere" reading is correct for
 half-rate but wrong for full-rate. Full-rate implementations that hard-
@@ -1320,17 +1323,19 @@ Table of values across the full admissible `L̂(0)` range:
 > **⚠ Correction to `vocoder_decode_disambiguations.md` §3 — full-rate
 > vs half-rate `ρ`.** That note asserts "ρ = 0.65 ... embedded as a
 > literal 0.65 in multiple equations" and cites full-rate Eq. 77 plus
-> half-rate Eq. 200 as using the same value. This conflates the two
-> rates:
+> half-rate Eq. 185 (originally mis-cited as Eq. 200; that is the
+> first frame-repeat copy-forward equation, not the predictor — fixed
+> in the disambiguation note 2026-04-16) as using the same value.
+> This conflates the two rates:
 >
 > - **Full-rate Eq. 77** uses the symbol `ρ` (not a literal). `ρ` is
 >   defined by Eq. 55 on page 25 as a piecewise-linear function of
 >   `L̂(0)`. The "inline 0.65" reading of Eq. 77 is incorrect — the
 >   0.65 does not appear there.
-> - **Half-rate Eq. 155** (encoder) and Eq. 200 (decoder) do use the
->   literal constant 0.65 directly, with no `ρ` symbol and no Eq. 55
->   equivalent. Half-rate is what the disambiguation note actually
->   got right.
+> - **Half-rate Eq. 155** (encoder page 60) and **Eq. 185** (decoder
+>   page 65) do use the literal constant 0.65 directly, with no `ρ`
+>   symbol and no Eq. 55 equivalent. Half-rate is what the
+>   disambiguation note actually got right.
 >
 > So: for full-rate implementations, `ρ` varies with `L̂(0)` per
 > Eq. 55 above (0.40–0.70 range). For half-rate, the fixed 0.65 is

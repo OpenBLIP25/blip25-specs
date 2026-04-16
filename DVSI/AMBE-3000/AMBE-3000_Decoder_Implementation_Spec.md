@@ -528,14 +528,17 @@ For each block i = 1..4:
    ```
 4. Reconstruct log-magnitudes using prior-frame prediction:
    ```
-   log₂(M̃_l(0)) = T̃_l + ρ · log₂(M̃_l(−1))       (Eq. 185-style)
+   log₂(M̃_l(0)) = T̃_l + ρ · log₂(M̃_l(−1))       (BABA-A Eq. 185, half-rate)
    ```
-   where ρ is the predictor coefficient. For half-rate AMBE+2, BABA-A
-   sets ρ explicitly (Eq. 185, page 66) — verify against the extraction;
-   expect 0.7 rather than the 0.65 used by the rate-converter per
-   US7634399. These are different ρ values for different pipelines
-   (intra-rate decoder vs cross-rate transcoder). Flag in §12 if the
-   BABA-A value cannot be confirmed against the PDF.
+   Half-rate AMBE+2 uses the **literal constant ρ = 0.65** per BABA-A
+   Eq. 185 (page 65 in the half-rate decoder section). Full-rate uses
+   an L̂(0)-dependent schedule (Eq. 55, range 0.4–0.7) — not relevant
+   here since the full-rate decode path defers to BABA-A impl spec
+   §1.8.5. The US7634399 rate-converter predictor (rate converter
+   spec §4.5) is **also literally 0.65** — same numeric value as
+   half-rate intra-rate, but a distinct predictor-state instance.
+   See [`analysis/vocoder_decode_disambiguations.md`](../../analysis/vocoder_decode_disambiguations.md)
+   §3 for the full full-rate-vs-half-rate ρ analysis.
 5. Convert to linear: `M̃_l(0) = 2^{log₂(M̃_l(0))}`.
 
 When `L̃(0) ≠ L̃(−1)`, prior-frame magnitudes beyond `min(L̃(0), L̃(−1))`
@@ -1116,7 +1119,7 @@ Test vectors in `/mnt/share/P25-IQ-Samples/DVSI Software/Docs/AMBE-3000_HDK_tv/`
 | §4.2 V/UV codebook expand | bit-exact | deterministic lookup |
 | §4.3.2 gain recovery | bit-exact on valid frames | Annex O lookup |
 | §4.3.3–4 PRBA/HOC VQ | bit-exact | Annex P/Q/R lookups |
-| §4.3.5 IDCT + predictor | bit-exact up to ρ resolution | verify BABA-A Eq. 185 ρ value |
+| §4.3.5 IDCT + predictor | bit-exact | ρ = 0.65 literal per BABA-A Eq. 185 (half-rate) |
 | §4.3.6 enhancement | bit-exact | BABA-A §1.10 |
 | §5 phase regen | perceptual only | kernel values known; γ=0.44 may need empirical fit |
 | §6 voiced synth | sample-near-exact | if phase matches, cos lookup equivalent |
@@ -1174,22 +1177,26 @@ bit-exact replication.
 2. **Unvoiced γ_w calibration.** Inherited from BABA-A open issue. File:
    `standards/TIA-102.BABA-A/analysis/vocoder_decode_disambiguations.md`
    §11 — extend with AMBE+2-specific findings.
-3. **BABA-A Eq. 185 predictor ρ for half-rate.** Verify the exact
-   coefficient in the BABA-A PDF and cross-check against US8595002.
-   Full-rate ρ for the encoder predictor is separate (BABA-A §8
-   predictor). Transcoder ρ = 0.65 per US7634399 is a third case.
-   File: `analysis/ambe_predictor_coefficients.md`.
-4. **Low-L̃ branch of phase regen.** Patent says "lowest quarter"
+3. **Low-L̃ branch of phase regen.** Patent says "lowest quarter"
    (l ≤ ⌊L̃/4⌋) uses `ψ_l` unmodified, but the boundary is imprecise.
    Test whether `l ≤ L̃/4` vs `l < L̃/4` vs `l ≤ floor(L̃/4)+1` matches
    DVSI reference. File: `analysis/ambe_phase_quarter_boundary.md`.
-5. **PN seed for non-P25 half-rate variants.** P25 uses `p_r(0) = 16·u0`.
+4. **PN seed for non-P25 half-rate variants.** P25 uses `p_r(0) = 16·u0`.
    Other rates (r30, r31, ...) may use a different seed. Not relevant
    for the P25-focused validation in §11, but flagged for the
    rate-converter spec. File: `analysis/ambe_pn_seed_per_rate.md`.
-6. **Log-magnitude floor in phase regen (§5.4).** `log2(M̄_l = 0)`
+5. **Log-magnitude floor in phase regen (§5.4).** `log2(M̄_l = 0)`
    behavior: floor at e.g. `log2(1e-10)` vs treat-as-zero vs skip.
    Resolve against test vectors.
+
+Previously listed here and now resolved:
+- ~~BABA-A half-rate predictor ρ value~~ — resolved via
+  `analysis/vocoder_decode_disambiguations.md` §3:
+  literal 0.65 per BABA-A Eq. 185 on page 65 (earlier draft cited
+  Eq. 200, which is actually the first of the frame-repeat copy-forward
+  equations 200–205, not the predictor). Matches the US7634399
+  rate-converter numeric value; distinct predictor-state instance.
+  See §4.3.5 above.
 
 ---
 

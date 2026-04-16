@@ -129,13 +129,17 @@ is the cheapest unit test for the gain DCT pair.
 
 **Source:** BABA-A §6.3 Eq. 55 (full-rate ρ schedule, page 25),
 Eq. 77 (full-rate decoder, page 31), §13.3 Eq. 155 (half-rate encoder,
-page 60), Eq. 200 (half-rate decoder).
+page 60), §13.4 Eq. 185 (half-rate decoder, page 65).
 
-**Correction (2026-04-15):** this section previously asserted
-"ρ = 0.65 ... embedded as a literal `0.65` in multiple equations" and
-that "both full-rate (Eq. 77) and half-rate (Eq. 200) use the same
-value." Reading the PDF directly reveals the two rates use different
-conventions:
+**Correction (2026-04-15, updated 2026-04-16):** this section
+previously asserted "ρ = 0.65 ... embedded as a literal `0.65` in
+multiple equations" and that "both full-rate (Eq. 77) and half-rate
+(Eq. 200) use the same value." Both parts are wrong:
+1. The two rates use different conventions (full-rate L̂-dependent,
+   half-rate literal 0.65) — rest of this section corrects that.
+2. The half-rate decoder predictor is **Eq. 185, not Eq. 200**.
+   Eq. 200 is actually the first of the Eq. 200–205 frame-repeat
+   copy-forward block (BABA-A §14.6). PDF verified 2026-04-16.
 
 - **Full-rate (Eq. 77 decoder, Eq. 54 encoder):** uses the symbol
   `ρ`, defined in Eq. 55 as a piecewise-linear function of `L̂(0)`:
@@ -159,9 +163,9 @@ conventions:
   to Eq. 55. The full-rate `ρ` is **not** the literal 0.65 and **not**
   constant.
 
-- **Half-rate (Eq. 155 encoder, Eq. 200 decoder):** uses the literal
-  constant `0.65` directly, with no `ρ` symbol and no Eq. 55 analog.
-  Half-rate is genuinely "just 0.65 inline".
+- **Half-rate (Eq. 155 encoder page 60, Eq. 185 decoder page 65):**
+  uses the literal constant `0.65` directly, with no `ρ` symbol and no
+  Eq. 55 analog. Half-rate is genuinely "just 0.65 inline".
 
 The corrected full-rate form of the inverse log-magnitude prediction:
 

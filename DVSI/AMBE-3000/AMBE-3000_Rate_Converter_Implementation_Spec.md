@@ -598,19 +598,32 @@ else:
     final M̂_l_B = 0.65 · M̃_l_B_resampled(−1)  +  0.35 · M̂_l_B(0)
 ```
 
-The `ρ = 0.65` cross-rate predictor coefficient is **distinct from**:
-- The decoder's intra-rate predictor (different value, BABA-A Eq. 185)
-- The encoder's intra-rate predictor (closed-loop matched to decoder)
+The `ρ = 0.65` rate-converter predictor coefficient is the same literal
+value that BABA-A Eq. 185 (half-rate decoder, page 65) uses for the
+half-rate intra-rate predictor —
+the important separation is **predictor-state**, not coefficient value:
+
+- The rate-converter's `M̃_l_B(−1)` is a **distinct array** from the
+  target encoder's `M̃_l_B(−1)` (even though both apply the same 0.65
+  coefficient when the target is half-rate).
+- The full-rate decoder's intra-rate predictor uses the Eq. 55
+  L̂(0)-dependent schedule (range 0.4–0.7) — here the coefficient
+  **does** differ from the rate-converter's literal 0.65.
+- The rate-converter's predictor additionally **resamples prior-frame
+  magnitudes** onto the current target grid before applying the
+  coefficient (§4.3 linear interp). The intra-rate predictors apply the
+  coefficient directly to same-L̂-gridded prior magnitudes with no
+  resampling step. Different update rules even when the coefficient
+  matches.
 
 The rate converter therefore tracks **three** prior-frame magnitude
-states in its full state structure (§7).
+states in its full state structure (§7): source decoder's, rate-
+converter's own, and target encoder's.
 
-The patent's motivation for ρ = 0.65 (vs the intra-rate predictor's
-value): cross-rate transformations introduce more frame-to-frame
-variability than within-rate decoding because the harmonic grid keeps
-shifting under quantization noise. A heavier prior-frame weight smooths
-this out at the cost of slightly slower transient response. 0.65 is
-described as empirically tuned.
+Coincidence-of-value explanation: both predictors are tuned for the
+same task (smoothing frame-to-frame variability in log-magnitudes) on
+the same 20 ms / 160-sample grid, so a similar coefficient falling out
+is expected. 0.65 is described as empirically tuned in both contexts.
 
 ---
 
@@ -633,20 +646,30 @@ unchanged. Three predictor pipelines run in parallel:
 ```
        Source rate A bits ──→ [decoder front] ──→ MbeParams
                                     │
-                                    ▼ (decoder's M̃_l_A predictor state)
+                                    ▼ (decoder's M̃_l_A predictor state,
+                                       coefficient per source rate)
        MbeParams ──→ [§4 transform] ──→ MbeParams (target rate B)
                           │
-                          ▼ (rate converter's M̃_l_B predictor state, ρ=0.65)
+                          ▼ (rate converter's M̃_l_B predictor state,
+                             ρ = 0.65 + grid-resample update rule)
        MbeParams ──→ [encoder back] ──→ Target rate B bits
                           │
-                          ▼ (encoder's M̃_l_B predictor state, intra-rate ρ)
+                          ▼ (encoder's M̃_l_B predictor state,
+                             coefficient per target rate,
+                             same-grid update rule)
 ```
 
-The encoder's intra-rate predictor and the rate converter's cross-rate
-predictor both operate on target-rate magnitudes, but with different
-coefficients and different update rules. They must be kept separate;
-sharing them produces predictor-loop instability per US7634399 col. 7
-warning text.
+The encoder's intra-rate predictor and the rate converter's predictor
+both operate on target-rate magnitudes. For half-rate targets they even
+share the same literal coefficient (0.65). They remain separate because:
+- The rate converter resamples prior-frame magnitudes onto the current
+  target grid before applying the coefficient (§4.3); the intra-rate
+  predictor doesn't
+- State is independent: the rate converter's `M̃_l_B(−1)` evolves across
+  the parameter transformation, while the encoder's tracks its own
+  closed-loop matched-decoder reconstruction
+Sharing state across the three predictors produces AR-loop instability
+per US7634399 col. 7 warning text.
 
 ---
 
@@ -944,9 +967,11 @@ SNR(tandem vs original) + 3 dB on representative speech samples.
    Out of scope for first cut; could be added once parametric path is
    validated.
 6. **Inherited from decoder spec**: γ_w calibration (not relevant here —
-   no synthesis), BABA-A Eq. 185 ρ (relevant for the encoder back half's
-   intra-rate predictor), phase regen kernel (not relevant — no
-   synthesis).
+   no synthesis), phase regen kernel (not relevant — no synthesis).
+   (The half-rate intra-rate ρ question from earlier drafts is resolved
+   per `analysis/vocoder_decode_disambiguations.md` §3 — literal 0.65,
+   same numeric value as the rate-converter predictor but a distinct
+   state instance; see §4.5.)
 
 ---
 

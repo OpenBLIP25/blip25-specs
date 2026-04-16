@@ -785,8 +785,11 @@ was wrong for full-rate — see the corrected disambiguation note and
 values and discussion.
 
 **Half-rate differs.** The half-rate decoder (§2.13 of this spec,
-BABA-A Eq. 200) does use a literal constant `0.65` with no `L̃`
-dependence — the `ρ = 0.65` claim is correct there and only there.
+BABA-A Eq. 185 on page 65) does use a literal constant `0.65` with no
+`L̃` dependence — the `ρ = 0.65` claim is correct there and only there.
+(Eq. 200 is a different equation — the first of the Eq. 200–205
+frame-repeat copy-forward block; earlier drafts of this spec and the
+disambiguation notes mis-cited the half-rate predictor as Eq. 200.)
 
 Edge cases (Eq. 78–79):
 ```
@@ -1997,10 +2000,12 @@ half-rate separates γ̃ out and applies it as a scalar offset in
 Eq. 184, which is then added back to every Λ̃_l.
 
 **Prediction-gain coefficient differs between rates.** Half-rate
-Eq. 185 uses the literal constant `0.65` shown here, matching BABA-A
-Eq. 200 on page 61. Full-rate Eq. 77 uses a symbolic `ρ` defined by
-BABA-A Eq. 55 (page 25) as a piecewise-linear function of `L̃(0)`
-ranging over `[0.4, 0.7]` — **not** the constant 0.65. See
+Eq. 185 (BABA-A page 65) uses the literal constant `0.65` shown here.
+Full-rate Eq. 77 uses a symbolic `ρ` defined by BABA-A Eq. 55 (page 25)
+as a piecewise-linear function of `L̃(0)` ranging over `[0.4, 0.7]` —
+**not** the constant 0.65. (Earlier drafts cross-referenced "Eq. 200
+on page 61" — that was a mis-citation; Eq. 200–205 is the half-rate
+frame-repeat copy-forward block, not the predictor.) See
 [`analysis/vocoder_decode_disambiguations.md`](../../analysis/vocoder_decode_disambiguations.md)
 §3 for the correction history; §1.8.5 of this spec carries the
 corrected full-rate schedule.

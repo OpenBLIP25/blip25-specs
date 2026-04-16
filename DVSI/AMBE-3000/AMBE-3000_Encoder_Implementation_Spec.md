@@ -597,7 +597,7 @@ input. This is the "matched-decoder feedback" of addendum §0.6.6:
 double M_tilde_curr[L_hat];
 ambe_mag_reconstruct(/* T̃_l from b̂₂..b̂₈ */, L_hat,
                      state->M_tilde_prev, state->L_prev,
-                     /* rho per BABA-A Eq. 185 */, M_tilde_curr);
+                     /* rho = 0.65 literal per BABA-A Eq. 185 (half-rate) */, M_tilde_curr);
 memcpy(state->M_tilde_prev, M_tilde_curr, L_hat * sizeof(double));
 state->L_prev = L_hat;
 ```
@@ -1004,8 +1004,10 @@ Inherited from decoder spec §12 + encoder-specific items.
    round-tripping a known sinusoid through encode → decode and verifying
    the encoder's `M̃_l(−1)` predictor state matches what a fresh decoder
    would have computed at the same frame.
-7. **Inherited from decoder**: γ_w unvoiced calibration, BABA-A Eq. 185
-   ρ predictor coefficient, log_2(0) floor. Same investigations.
+7. **Inherited from decoder**: γ_w unvoiced calibration, log₂(0) floor
+   in phase regen. Same investigations. (The BABA-A half-rate ρ
+   question from earlier drafts is resolved — literal 0.65 per
+   Eq. 185 on page 65 per `analysis/vocoder_decode_disambiguations.md` §3.)
 
 ---
 
