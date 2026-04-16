@@ -4,8 +4,8 @@
 **Date:** 2026-04-16  
 **Author:** Chance Lindsey  
 **Scope:** Software decoder functionally equivalent to the DVSI AMBE-3000 chip
-in decoder direction, for P25 full-rate (7200 bps, r33) and P25 half-rate
-(3600 bps, r34) as the normative targets, parameterized over the chip's full
+in decoder direction, for P25 full-rate (7200 bps, p25_fullrate) and P25 half-rate
+(3600 bps, p25_halfrate) as the normative targets, parameterized over the chip's full
 rate table (r0–r63) where the same algorithmic skeleton applies.
 
 **Sources:**
@@ -51,8 +51,8 @@ chip produces from the same input, and bit-exact at the parameter-recovery
 layer.
 
 **Input:** one channel frame per 20 ms. Size depends on rate:
-- Full-rate P25 IMBE (r33): 144 bits
-- Half-rate P25 AMBE+2 (r34): 72 bits
+- Full-rate P25 IMBE (p25_fullrate): 144 bits
+- Half-rate P25 AMBE+2 (p25_halfrate): 72 bits
 - Other chip rates: 49–88 info bits per frame with a rate-specific FEC
   overhead; see §10
 
@@ -136,8 +136,8 @@ For P25 the two canonical rates are:
 
 | Rate | Bit rate | Frame size | Sub-frames | FEC | Use |
 |------|----------|------------|-----------:|-----|-----|
-| r33  | 7200 bps | 144 bits   | 1          | §1.5 BABA-A | P25 Phase 1 FDMA (LDU) |
-| r34  | 3600 bps | 72 bits    | 1          | §2.4 BABA-A | P25 Phase 2 TDMA (4V/2V) |
+| p25_fullrate  | 7200 bps | 144 bits   | 1          | §1.5 BABA-A | P25 Phase 1 FDMA (LDU) |
+| p25_halfrate  | 3600 bps | 72 bits    | 1          | §2.4 BABA-A | P25 Phase 2 TDMA (4V/2V) |
 
 Other rates share the synthesis core (§5–§7) and differ only in how §3–§4
 extract and de-quantize parameters. See §10 for the dispatch table.
@@ -162,7 +162,7 @@ for the current frame. On cold start the `(−1)` state is taken from
 
 ## 2. Input Frame Formats
 
-### 2.1 Full-Rate IMBE (r33, P25 Phase 1 FDMA)
+### 2.1 Full-Rate IMBE (p25_fullrate, P25 Phase 1 FDMA)
 
 **Channel frame:** 144 bits, organised as 8 prioritized bit vectors
 `ĉ₀..ĉ₇` with per-vector FEC:
@@ -191,7 +191,7 @@ scan → parameter recovery) to the P25 FDMA implementation spec:
 The output `(ω̃₀, L̃, ṽ_k for k=1..K̃, M̃_l for l=1..L̃)` feeds §4.3.6
 enhancement, §5 phase regeneration, and §6–§7 synthesis in this spec.
 
-### 2.2 Half-Rate AMBE+2 (r34, P25 Phase 2 TDMA)
+### 2.2 Half-Rate AMBE+2 (p25_halfrate, P25 Phase 2 TDMA)
 
 **Channel frame:** 72 bits, organised as 4 prioritized bit vectors
 `ĉ₀..ĉ₃`:
@@ -234,14 +234,14 @@ the voice pipeline (§4).
 
 ## 3. FEC Layer
 
-### 3.1 Full-Rate (r33) FEC — Reference Only
+### 3.1 Full-Rate (p25_fullrate) FEC — Reference Only
 
 Defer to `standards/TIA-102.BABA-A/P25_Vocoder_Implementation_Spec.md` §1.5
 (Golay/Hamming), §1.6 (PN modulation), and §1.7 (Annex H interleaver).
 Decoder output is the 88 information bits plus error metrics ε₀..ε₃ (one
 per Golay codeword, for the §4.3.8 error-rate estimator).
 
-### 3.2 Half-Rate (r34) FEC — Specified Here
+### 3.2 Half-Rate (p25_halfrate) FEC — Specified Here
 
 Source: BABA-A §14.2 Eq. 189–192, §14.3 PN, §14.4 Annex S, page 66–69,
 corresponding to US8595002 col. 23 lines 1–60 at the patent level.
@@ -367,13 +367,13 @@ voicing decisions ṽ_l (per-harmonic), spectral magnitudes M̃_l, and
 
 ### 4.1 Fundamental Frequency
 
-#### 4.1.1 Full-Rate (r33)
+#### 4.1.1 Full-Rate (p25_fullrate)
 
 Analytical inverse of the BABA-A Eq. 45–48 quantizer. Defer to
 BABA-A impl spec §1.3.1 for complete code. Initial-state value:
 `ω̃₀(−1) = 0.02985·π ≈ 0.0937 rad/sample` (L̃ = 30).
 
-#### 4.1.2 Half-Rate (r34)
+#### 4.1.2 Half-Rate (p25_halfrate)
 
 7-bit logarithmic quantizer. Source: BABA-A §13.1 Eq. 143–144 (page 58),
 US8595002 col. 17 lines 35–50. Inverse:
@@ -401,11 +401,11 @@ of this formula (plus the f_0 → L̃ = ⌊3812.5 / (8000·f_0)⌋ relation).
 
 ### 4.2 Voicing Decisions
 
-#### 4.2.1 Full-Rate (r33)
+#### 4.2.1 Full-Rate (p25_fullrate)
 
 Per-band, uncoded. Defer to BABA-A impl spec §1.3.2.
 
-#### 4.2.2 Half-Rate (r34)
+#### 4.2.2 Half-Rate (p25_halfrate)
 
 5-bit codebook index → 8-entry vector, then per-harmonic expansion.
 Source: BABA-A §13.2 Eq. 145–149 (page 59), US8595002 col. 18 lines 20–55,
@@ -1033,8 +1033,8 @@ Control Words. Each rate selects:
 
 | Rate | Name | Info bits | Total bits | §4 pipeline |
 |------|------|----------:|-----------:|------------|
-| r33  | P25 full-rate (IMBE) | 88 | 144 | BABA-A §1, defer to BABA-A impl spec §1 |
-| r34  | P25 half-rate (AMBE+2) | 49 | 72 | This spec §4, BABA-A §2 |
+| p25_fullrate  | P25 full-rate (IMBE) | 88 | 144 | BABA-A §1, defer to BABA-A impl spec §1 |
+| p25_halfrate  | P25 half-rate (AMBE+2) | 49 | 72 | This spec §4, BABA-A §2 |
 
 ### 10.2 AMBE+2 Half-Rate Variants
 
@@ -1099,7 +1099,7 @@ int ambe_decode_frame(uint8_t rate,
 
 The decoder dispatches on `ambe_rate_table[rate]`, runs the appropriate
 §3 FEC, §4 recovery, then the shared §5–§7 synthesis. P25 rates
-(r33, r34) are fully specified here + in BABA-A impl spec; non-P25
+(p25_fullrate, p25_halfrate) are fully specified here + in BABA-A impl spec; non-P25
 rates use the generic synthesizer with rate-specific recovery hooks.
 
 ### 10.5 Multi-Subframe Rates (US6199037)
@@ -1322,15 +1322,15 @@ Test vectors in `/mnt/share/P25-IQ-Samples/DVSI Software/Docs/AMBE-3000_HDK_tv/`
 
 ### 11.3 Recommended Test Order
 
-1. **r34 silence frames** (tv-std/r34 silence inputs) — validates §3 FEC
+1. **p25_halfrate silence frames** (tv-std/r34 silence inputs) — validates §3 FEC
    and frame-type dispatch (§9.4) without needing synthesis
-2. **r34 single-harmonic tones** (tv-std/r34 DTMF) — validates §4
+2. **p25_halfrate single-harmonic tones** (tv-std/r34 DTMF) — validates §4
    parameter recovery, §5 phase on trivial spectra, §6 low-L synthesis
-3. **r34 voiced speech** (tv-std/r34 'alert' test file) — end-to-end §4–§7
-4. **r33 full-rate** (tv-std/r33) — validates the IMBE path shares the
+3. **p25_halfrate voiced speech** (tv-std/r34 'alert' test file) — end-to-end §4–§7
+4. **p25_fullrate full-rate** (tv-std/r33) — validates the IMBE path shares the
    §5 regen and §6 synth with half-rate correctly
-5. **r34 with induced bit errors** — validates §3.2.3, §3.2.4, §9.1–§9.2
-6. **r34 with long mute periods** — validates §9.2 state preservation
+5. **p25_halfrate with induced bit errors** — validates §3.2.3, §3.2.4, §9.1–§9.2
+6. **p25_halfrate with long mute periods** — validates §9.2 state preservation
 7. **cmpp25.txt scenario** (DVSI test recipe) — full P25 integration
 
 ### 11.4 Debug Order on Mismatch
@@ -1478,12 +1478,12 @@ catalog. This spec's validation targets (§11.3) are summarized:
 
 | Test vector | Rate | Exercises | Coverage priority |
 |-------------|------|-----------|-------------------|
-| `tv-std/r34/*silence*` | r34 | §3, §9.4 | 1 |
-| `tv-std/r34/*tone*` | r34 | §4, §5, §6 low-L | 2 |
-| `tv-std/r34/alert*` | r34 | full §4–§7 voice path | 3 |
-| `tv-std/r33/*` | r33 | §5–§7 shared core | 4 |
-| `tv-std/r34/*` (error-injected) | r34 | §3.2.3, §9.1 | 5 |
-| `cmpp25.txt` scenario | r33 + P25 FEC | P25 integration | 7 |
+| `tv-std/r34/*silence*` | p25_halfrate | §3, §9.4 | 1 |
+| `tv-std/r34/*tone*` | p25_halfrate | §4, §5, §6 low-L | 2 |
+| `tv-std/r34/alert*` | p25_halfrate | full §4–§7 voice path | 3 |
+| `tv-std/r33/*` | p25_fullrate | §5–§7 shared core | 4 |
+| `tv-std/r34/*` (error-injected) | p25_halfrate | §3.2.3, §9.1 | 5 |
+| `cmpp25.txt` scenario | p25_fullrate + P25 FEC | P25 integration | 7 |
 
 ### Appendix C — Cross-Reference Quick Index
 

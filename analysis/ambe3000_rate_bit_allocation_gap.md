@@ -1,13 +1,15 @@
 # AMBE-3000 Rate-Index Table: Bit-Allocation and Naming Gaps
 
-**Status:** Partially open — two coupled gaps surfaced while producing
-`DVSI/AMBE-3000/annex_tables/halfrate_bit_allocations.csv` and
-`rate_conversion_pairs.csv`.
+**Status:** Gap 1 open (per-field bit allocations for rates 35–61
+deferred to blip25-mbe empirical work); Gap 2 resolved 2026-04-16 via
+rename to `p25_fullrate` / `p25_halfrate` aliases.
 
 **Scope:** AMBE-3000 per-rate bit allocations for rates beyond P25, and
-the project-vs-chip r33/r34 naming collision.
+the project-vs-chip r33/r34 naming collision that surfaced during the
+bit-allocation CSV work.
 
 **Opened:** 2026-04-16
+**Gap 2 resolved:** 2026-04-16
 
 ---
 
@@ -134,27 +136,21 @@ The existing CSVs follow chip indexing; the impl specs use project
 aliasing. Both are internally consistent but collide at the numeric
 values 33 and 34.
 
-### Resolution in the New CSVs (Option #1 Convention)
+### Resolution in the New CSVs (CSV keying)
 
 `halfrate_bit_allocations.csv` uses chip rate-index numbering (matching
 existing CSVs). To accommodate P25 full-rate IMBE — which the chip
 supports but does not index — two project-extension rows are added at
-indices 62 and 63 (unused in the manual):
-
-| CSV row | Algorithm                      | Project alias |
-|---------|--------------------------------|---------------|
-| 33      | P25 half-rate AMBE+2 with FEC  | r34 (with FEC) |
-| 34      | AMBE+2 half-rate no-FEC        | r34-variant (no FEC) |
-| 62      | P25 full-rate IMBE with FEC    | r33           |
-| 63      | P25 full-rate IMBE no-FEC      | r33-nofec     |
+indices 62 and 63 (unused in the manual). See the row map under
+"Resolution Adopted — Option C" below.
 
 `rate_conversion_pairs.csv` likewise uses chip indexing. The primary
-spec target "r33 ↔ r34" becomes "{62, 63} ↔ {33, 34}" (eight pairs,
-`category = p25_fullrate_to_halfrate`).
+spec target is the eight-pair set `{62, 63} ↔ {33, 34}` with
+`category = p25_fullrate_to_halfrate`.
 
-### Broader Resolution Path
+### Broader Resolution Path — Options Considered
 
-The impl specs should be updated to either:
+The impl specs could be updated any of three ways:
 
 - **Option A**: Adopt chip indexing throughout and remove "r33"/"r34"
   as project aliases. Replace references with "chip r33" (AMBE+2
@@ -164,24 +160,63 @@ The impl specs should be updated to either:
   each spec's §1 explicitly stating that "r33/r34" here mean P25
   full-rate / half-rate and not the chip indices. Cheaper; some
   remaining collision risk.
-- **Option C**: Define a distinct alias that doesn't collide — e.g.,
-  `p25.fullrate` and `p25.halfrate` instead of `r33`/`r34`. Cleanest
+- **Option C**: Define distinct aliases that don't collide — e.g.,
+  `p25_fullrate` and `p25_halfrate` instead of `r33`/`r34`. Cleanest
   but a broad rename.
 
-No resolution chosen yet — this is a separate, user-scoped decision
-that doesn't block the CSVs themselves.
+### Resolution Adopted — Option C
+
+**Decision (2026-04-16):** Option C. The project's existing
+`~/blip25-mbe` implementation already uses `p25_fullrate` and
+`p25_halfrate` as its peer crate/module identifiers (per that repo's
+README), so adopting the same convention in the spec repo aligns the
+two vocabularies.
+
+Rename performed across the AMBE-3000 impl specs, annex table
+sidecars, analysis cross-references, and the next-session prompts
+file:
+
+- `r33` → `p25_fullrate` (P25 Phase 1 full-rate IMBE, 144/88 bits)
+- `r34` → `p25_halfrate` (P25 Phase 2 half-rate AMBE+2, 72/49 bits)
+
+Rename scope was **project aliases in prose only**. Filesystem paths
+referencing DVSI test-vector directories (`tv-std/r33/`,
+`tv-std/r34/`, `tv-rc/r33→r34/` and similar) use chip rate-index
+numbering directly and were left intact. Any correctness issues with
+those paths — e.g., the impl spec's `tv-std/r33/*` citations may be
+mis-indexed since chip index 33 is AMBE+2 half-rate, not P25
+full-rate IMBE — are a separate test-vector-reference pass and do
+not block this resolution.
+
+### Resolution in the New CSVs
+
+`halfrate_bit_allocations.csv` and `rate_conversion_pairs.csv` use
+chip rate-index numbering as keys. P25 full-rate IMBE (which has no
+chip rate index in the manual's Appendix 7.2) occupies
+project-extension rows 62 and 63. Historical alias → CSV row map:
+
+| CSV row | Algorithm                      | Current alias      | Old alias    |
+|---------|--------------------------------|--------------------|--------------|
+| 33      | AMBE+2 half-rate with FEC      | `p25_halfrate` w/FEC  | `r34` (w/FEC) |
+| 34      | AMBE+2 half-rate no-FEC        | `p25_halfrate` no-FEC | `r34` (no-FEC) |
+| 62      | P25 full-rate IMBE with FEC    | `p25_fullrate` w/FEC  | `r33` (w/FEC) |
+| 63      | P25 full-rate IMBE no-FEC      | `p25_fullrate` no-FEC | `r33` (no-FEC) |
+
+The primary spec target previously written "r33 ↔ r34" is now
+"`p25_fullrate` ↔ `p25_halfrate`" in prose, backed by the
+`{62, 63} ↔ {33, 34}` pair set (eight CSV rows,
+`category = p25_fullrate_to_halfrate`).
 
 ---
 
 ## Impact on Impl Specs
 
-Decoder §10.2 currently states the manual has the bit-allocation
-breakdown. That is incorrect and should be updated to cite this gap
-entry. Fixed in the same commit that adds these CSVs.
+Decoder §10.2 (resolved in the earlier commit): no longer claims the
+manual contains per-field bit allocations; points at this gap entry.
 
-Decoder §10.1, Encoder §10.1, Rate Converter §10.2 use the project
-aliasing unchanged. Those are left for a follow-up pass once the
-r33/r34 naming resolution option is chosen.
+Decoder §10.1, Encoder §10.1, Rate Converter §10.2 (resolved by the
+Option C rename): now use `p25_fullrate` / `p25_halfrate` aliases
+consistent with this entry and with blip25-mbe's module naming.
 
 ## Cross-References
 

@@ -4,8 +4,8 @@
 **Date:** 2026-04-16  
 **Author:** Chance Lindsey  
 **Scope:** Software encoder functionally equivalent to the DVSI AMBE-3000 chip
-in encoder direction, for P25 full-rate (7200 bps, r33) and P25 half-rate
-(3600 bps, r34) as the normative targets, parameterized over the chip's
+in encoder direction, for P25 full-rate (7200 bps, p25_fullrate) and P25 half-rate
+(3600 bps, p25_halfrate) as the normative targets, parameterized over the chip's
 rate table (r0–r63) where the same algorithmic skeleton applies.
 
 **Sources:**
@@ -46,7 +46,7 @@ normative Rust. Spec is language-neutral per project conventions.
 ### 1.1 What This Encoder Does
 
 Given a stream of 8 kHz 16-bit PCM samples, produce 144 bits per 20 ms
-(full-rate r33) or 72 bits per 20 ms (half-rate r34) that, when fed to
+(full-rate p25_fullrate) or 72 bits per 20 ms (half-rate p25_halfrate) that, when fed to
 either an AMBE-3000 chip decoder or to the software decoder
 (`AMBE-3000_Decoder_Implementation_Spec.md`), reproduce the input speech
 with the standard's algorithmic delay (~80 ms) and quantization quality.
@@ -155,7 +155,7 @@ Same as decoder spec §1.5. Encoder additionally requires:
 Mirror of decoder spec §2; restated for completeness so this spec is
 self-contained on the wire interface.
 
-### 2.1 Full-Rate IMBE (r33, P25 Phase 1 FDMA)
+### 2.1 Full-Rate IMBE (p25_fullrate, P25 Phase 1 FDMA)
 
 **Channel frame:** 144 bits per 20 ms = 7200 bps.
 
@@ -175,7 +175,7 @@ PN modulation applied to ĉ₁ only. Annex H interleaver applied to the 144
 output bits before transmission. Forward chain: `b̂_k → bit prioritization
 → û_k → FEC → ĉ_k → PN modulate ĉ₁ → Annex H interleave → 144 bits`.
 
-### 2.2 Half-Rate AMBE+2 (r34, P25 Phase 2 TDMA)
+### 2.2 Half-Rate AMBE+2 (p25_halfrate, P25 Phase 2 TDMA)
 
 **Channel frame:** 72 bits per 20 ms = 3600 bps.
 
@@ -227,7 +227,7 @@ choose one of:
 
 ### 3.2 Silence Frame Template
 
-For half-rate (r34), per BABA-A §6.1 + addendum §0.8.4:
+For half-rate (p25_halfrate), per BABA-A §6.1 + addendum §0.8.4:
 - Set `b̂₀ ∈ {124, 125}` (124 = standard silence; 125 = comfort-noise variant
   if rate supports it)
 - Set `b̂₁ = 0` (all-voiced codebook entry; combined with b̂₀ ∈ silence range,
@@ -239,7 +239,7 @@ then run §6 FEC and §7 interleave normally.
 
 ### 3.3 Tone Frame Template
 
-For half-rate (r34), per BABA-A §16 + addendum §0.8.5:
+For half-rate (p25_halfrate), per BABA-A §16 + addendum §0.8.5:
 - Tone detection input: `(I_D, A_D)` from addendum §0.8.5 detector
 - Pack per BABA-A Table 20 (decoder spec also references this in §9.4):
   - û₀(11..6) = `0x3F` (signature)
@@ -277,7 +277,7 @@ reconstruction best matches the input."
 
 ### 4.1 Pitch Quantization (b̂₀)
 
-#### 4.1.1 Full-Rate (r33)
+#### 4.1.1 Full-Rate (p25_fullrate)
 
 Source: BABA-A §6.1 Eq. 45–48 (page 21–22). Forward of decoder spec §4.1.1.
 
@@ -298,7 +298,7 @@ uint8_t imbe_pitch_quantize(double P_hat) {
 }
 ```
 
-#### 4.1.2 Half-Rate (r34)
+#### 4.1.2 Half-Rate (p25_halfrate)
 
 Source: BABA-A §13.1 Eq. 143–144 (page 58), US8595002 col. 17 lines 35–50.
 
@@ -635,7 +635,7 @@ because the lookahead and pitch-history buffers aren't yet populated.
 Source: BABA-A §1.4 (full-rate), §2.3 (half-rate). The encoder packs the
 quantized `b̂_k` parameters into the prioritized bit vectors `û_0..û_M`.
 
-### 5.1 Half-Rate (r34)
+### 5.1 Half-Rate (p25_halfrate)
 
 Direct table lookup. Use the same `ambe_bit_map[49]` CSV that the decoder
 walks in reverse — committed at
@@ -656,7 +656,7 @@ void ambe_pack(const uint16_t b[9], uint16_t u[4]) {
 
 49 bit-copy operations per frame — trivial cost.
 
-### 5.2 Full-Rate (r33)
+### 5.2 Full-Rate (p25_fullrate)
 
 Source: BABA-A §1.4 priority scan. The full-rate map is L̂-dependent
 (spectral amplitude bit allocations vary with the number of harmonics).
@@ -673,7 +673,7 @@ the CSV; the encoder is a table walk, not an algorithm.
 
 ## 6. Forward FEC
 
-### 6.1 Half-Rate (r34) Forward FEC
+### 6.1 Half-Rate (p25_halfrate) Forward FEC
 
 Per BABA-A §2.4 Eq. 189–192 (page 68):
 ```
@@ -734,7 +734,7 @@ fail bit-exact match to DVSI reference.
 
 `ĉ₂ = û₂` (11 bits) and `ĉ₃ = û₃` (14 bits). Direct copy. No PN.
 
-### 6.2 Full-Rate (r33) Forward FEC
+### 6.2 Full-Rate (p25_fullrate) Forward FEC
 
 Defer entirely to BABA-A impl spec §1.5:
 - ĉ₀..ĉ₃ : [23,12] Golay encode of û₀..û₃
@@ -853,8 +853,8 @@ Encoder additions per rate:
 
 | Rate | Bit rate | §3 dispatch | §4 quantization | §6 FEC | §7 interleave |
 |------|---------:|-------------|-----------------|--------|---------------|
-| r33  | 7200 bps | full-rate dispatch (BABA-A §6.1) | §4.1.1 + BABA-A §1.8 forward | BABA-A §1.5 | Annex H |
-| r34  | 3600 bps | half-rate dispatch (BABA-A §13.1) | §4.1.2 + §4.2 + §4.3 | §6.1 | Annex S |
+| p25_fullrate  | 7200 bps | full-rate dispatch (BABA-A §6.1) | §4.1.1 + BABA-A §1.8 forward | BABA-A §1.5 | Annex H |
+| p25_halfrate  | 3600 bps | half-rate dispatch (BABA-A §13.1) | §4.1.2 + §4.2 + §4.3 | §6.1 | Annex S |
 
 ### 10.2 Multi-Subframe Rates (US6199037)
 
@@ -1274,13 +1274,13 @@ int ambe_encode_frame(uint8_t rate,
 
 | Test vector | Rate | Exercises | Coverage priority |
 |-------------|------|-----------|-------------------|
-| `tv-std/r34/*silence*.pcm` | r34 | §3.1, §3.2 | 1 |
-| Synthetic single-sinusoid PCM | r34 | §4.1, §4.3 trivial | 2 |
-| `tv-std/r34/*dtmf*.pcm` | r34 | §3.3, §3.4 tone path | 3 |
-| `tv-std/r34/alert.pcm` | r34 | full §3–§7 voice | 4 |
-| `tv-std/r33/*.pcm` | r33 | full-rate path | 5 |
+| `tv-std/r34/*silence*.pcm` | p25_halfrate | §3.1, §3.2 | 1 |
+| Synthetic single-sinusoid PCM | p25_halfrate | §4.1, §4.3 trivial | 2 |
+| `tv-std/r34/*dtmf*.pcm` | p25_halfrate | §3.3, §3.4 tone path | 3 |
+| `tv-std/r34/alert.pcm` | p25_halfrate | full §3–§7 voice | 4 |
+| `tv-std/r33/*.pcm` | p25_fullrate | full-rate path | 5 |
 | Round-trip (encoder + decoder spec §11) | both | cumulative SNR | 6 |
-| `cmpp25.txt` recipe | r33 + P25 FEC | P25 integration | 7 |
+| `cmpp25.txt` recipe | p25_fullrate + P25 FEC | P25 integration | 7 |
 
 ### Appendix C — Cross-Reference Quick Index
 

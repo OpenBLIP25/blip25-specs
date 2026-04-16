@@ -30,7 +30,7 @@ process it describes is how empirical results land in this repo.
 ## Prompt 1 — Per-Rate Config CSVs (Non-P25 Rates)
 
 **Copy everything between the triple-dashes below into a fresh session.**
-This prompt expands AMBE-3000 coverage beyond P25 (r33, r34) to the full
+This prompt expands AMBE-3000 coverage beyond P25 (p25_fullrate, p25_halfrate) to the full
 r0–r63 rate table.
 
 ---

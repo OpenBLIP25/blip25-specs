@@ -50,11 +50,11 @@ multi-subframe:
    > "Rates r17, r18, and a few others encode 2 subframes per frame"
 
 2. `AMBE-3000_Rate_Converter_Implementation_Spec.md` §1.6:
-   > "single-subframe r34 → two-subframe r17"
-   > "2 → 1 (e.g., r17 → r34) | emit two target frames per source frame"
+   > "single-subframe p25_halfrate → two-subframe r17"
+   > "2 → 1 (e.g., r17 → p25_halfrate) | emit two target frames per source frame"
 
 3. `AMBE-3000_Rate_Converter_Implementation_Spec.md` §10.3:
-   > "| Multi-subframe ↔ single-subframe | r17 ↔ r34 | TODO §10; out of P25 scope |"
+   > "| Multi-subframe ↔ single-subframe | r17 ↔ p25_halfrate | TODO §10; out of P25 scope |"
 
 None of these claims cite a source. They appear to be worked examples
 rather than verified facts. The identification of r17/r18 as

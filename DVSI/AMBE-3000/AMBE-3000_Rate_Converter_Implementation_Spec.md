@@ -7,7 +7,7 @@
 DVSI AMBE-3000 chip in repeater/transcoder mode (`PKT_RPT_MODE`). Converts
 channel bits at one AMBE rate to channel bits at another rate **without a
 PCM round-trip**, operating entirely in MBE parameter space. Primary
-targets: P25 full-rate (r33) ↔ P25 half-rate (r34), and P25 ↔ external
+targets: P25 full-rate (p25_fullrate) ↔ P25 half-rate (p25_halfrate), and P25 ↔ external
 AMBE-based standards (DMR, D-STAR) via shared MBE parameter representation.
 
 **Sources:**
@@ -210,20 +210,20 @@ the wall-clock difference is dominated by the audio-frame boundary
 ### 1.6 Multi-Subframe Considerations
 
 When source and target rates have different subframe counts (e.g.,
-single-subframe r34 → two-subframe r17), the converter must time-align
+single-subframe p25_halfrate → two-subframe r17), the converter must time-align
 the parameter streams. Two-subframe rates produce 320 samples worth of
 parameters per channel frame; single-subframe rates produce 160. Cross-
 rate alignment:
 
 | Source → Target | Alignment |
 |-----------------|-----------|
-| 1 → 1 (e.g., r34 → r34 variant) | one-to-one, trivial |
-| 1 → 2 (e.g., r34 → r17) | accumulate two source frames per target frame |
-| 2 → 1 (e.g., r17 → r34) | emit two target frames per source frame |
+| 1 → 1 (e.g., p25_halfrate → p25_halfrate variant) | one-to-one, trivial |
+| 1 → 2 (e.g., p25_halfrate → r17) | accumulate two source frames per target frame |
+| 2 → 1 (e.g., r17 → p25_halfrate) | emit two target frames per source frame |
 | 2 → 2 | one-to-one if subframe boundaries align; else interpolate |
 
 Out of scope for this spec's first cut: the P25-focused validation in §11
-covers only 1↔1 conversions (r33 ↔ r34). Multi-subframe rates (US6199037
+covers only 1↔1 conversions (p25_fullrate ↔ p25_halfrate). Multi-subframe rates (US6199037
 joint quantization) are flagged as TODO in §10.
 
 ---
@@ -238,8 +238,8 @@ decode for rate A) + decoder spec §4 (parameter recovery for rate A) and
 
 | Decoder spec section | Rate converter usage |
 |---------------------|----------------------|
-| §3.1 Full-rate FEC decode | Used as-is for source = r33 |
-| §3.2 Half-rate FEC decode | Used as-is for source = r34 |
+| §3.1 Full-rate FEC decode | Used as-is for source = p25_fullrate |
+| §3.2 Half-rate FEC decode | Used as-is for source = p25_halfrate |
 | §4.1 Pitch recovery | Used as-is |
 | §4.2 V/UV recovery | Used as-is — produces ṽ_l (per-harmonic) |
 | §4.3.1–4 PRBA/HOC recovery | Used as-is — produces M̃_l |
@@ -315,15 +315,15 @@ int ambe_rate_convert_frame(ambe_rate_converter_state_t *state,
 
 | Pair category | Example | Status in this spec |
 |---------------|---------|--------------------|
-| Same rate (passthrough) | r34 → r34 | trivial; identity transform |
-| P25 ↔ P25 (within standard) | r33 ↔ r34 | §4 fully specified |
-| P25 ↔ external AMBE+2 half | r34 ↔ r-other-3600 | §4 fully specified |
-| Full-rate ↔ Half-rate (P25 internal) | r33 ↔ r34 | §4 with extra care for L̃_A vs L̃_B mismatch |
-| Multi-subframe ↔ single-subframe | r17 ↔ r34 | TODO §10; out of P25 scope |
-| Vocoder family change (AMBE → AMBE+2) | r0 → r34 | §4 generic + per-rate quirks; expect lower quality |
+| Same rate (passthrough) | p25_halfrate → p25_halfrate | trivial; identity transform |
+| P25 ↔ P25 (within standard) | p25_fullrate ↔ p25_halfrate | §4 fully specified |
+| P25 ↔ external AMBE+2 half | p25_halfrate ↔ r-other-3600 | §4 fully specified |
+| Full-rate ↔ Half-rate (P25 internal) | p25_fullrate ↔ p25_halfrate | §4 with extra care for L̃_A vs L̃_B mismatch |
+| Multi-subframe ↔ single-subframe | r17 ↔ p25_halfrate | TODO §10; out of P25 scope |
+| Vocoder family change (AMBE → AMBE+2) | r0 → p25_halfrate | §4 generic + per-rate quirks; expect lower quality |
 
 The **P25 ↔ external** case is the keystone use case from Objectives.md:
-DMR uses 3600 bps AMBE+2 (similar to r34); D-STAR uses 3600 bps AMBE
+DMR uses 3600 bps AMBE+2 (similar to p25_halfrate); D-STAR uses 3600 bps AMBE
 (closer to r28); converting between them and P25-half via this spec
 preserves intelligibility across gateways.
 
@@ -436,7 +436,7 @@ the codebook search against this 8-band target.
 
 #### 4.2.2 Same-Family Identity Path
 
-When source and target are both half-rate (e.g., r34 → r34), the source's
+When source and target are both half-rate (e.g., p25_halfrate → p25_halfrate), the source's
 b̂₁ codebook index can in principle be passed through unchanged. The
 spec recommends always re-running the §4.2.1 → §4.2.2 path anyway:
 - The codebook search re-runs cheaply (32 entries × 8 distances)
@@ -705,7 +705,7 @@ void rate_xform_substitute_invalid(uint8_t target_rate, uint8_t *out_bits) {
 }
 ```
 
-For P25 half-rate (r34), the frame-repeat bits set `b̂₀ ∈ [120, 123]`
+For P25 half-rate (p25_halfrate), the frame-repeat bits set `b̂₀ ∈ [120, 123]`
 (the erasure sentinel range, decoder spec §9.4). The receiving decoder
 sees this and triggers its own frame-repeat (which preserves *that
 decoder's* prior state — not the converter's).
@@ -812,24 +812,24 @@ overrides:
 
 The CSV is currently a TODO — populate as rate-pair-specific testing
 proceeds. Until the CSV exists, the converter uses §4 defaults for all
-pairs (which works for the P25-internal r33 ↔ r34 pair this spec
+pairs (which works for the P25-internal p25_fullrate ↔ p25_halfrate pair this spec
 primarily targets).
 
 ### 10.2 P25 Rate Pairs (Primary Targets)
 
 | Pair | Use case | §4 path |
 |------|----------|---------|
-| r33 → r34 | P25 full-rate ingress, half-rate egress | full §4.1–§4.5; expect quality limited by half-rate target |
-| r34 → r33 | P25 half-rate ingress, full-rate egress | full §4.1–§4.5; quality limited by half-rate source |
-| r34 → r34 | P25 half-rate identity (validation) | §8 passthrough |
-| r33 → r33 | P25 full-rate identity (validation) | §8 passthrough |
+| p25_fullrate → p25_halfrate | P25 full-rate ingress, half-rate egress | full §4.1–§4.5; expect quality limited by half-rate target |
+| p25_halfrate → p25_fullrate | P25 half-rate ingress, full-rate egress | full §4.1–§4.5; quality limited by half-rate source |
+| p25_halfrate → p25_halfrate | P25 half-rate identity (validation) | §8 passthrough |
+| p25_fullrate → p25_fullrate | P25 full-rate identity (validation) | §8 passthrough |
 
 ### 10.3 Cross-Standard Pairs (Future Targets)
 
 | Pair | Bridges | Notes |
 |------|---------|-------|
-| r34 ↔ DMR-half (r-other) | P25 ↔ DMR | both 3600 bps AMBE+2 — near-identity |
-| r34 ↔ D-STAR-half (r-other) | P25 ↔ D-STAR | both 3600 bps but D-STAR is plain AMBE, not AMBE+2 — vocoder-family change adds quality loss |
+| p25_halfrate ↔ DMR-half (r-other) | P25 ↔ DMR | both 3600 bps AMBE+2 — near-identity |
+| p25_halfrate ↔ D-STAR-half (r-other) | P25 ↔ D-STAR | both 3600 bps but D-STAR is plain AMBE, not AMBE+2 — vocoder-family change adds quality loss |
 | Multi-subframe AMBE rates | various | TODO; needs §1.6 |
 
 The exact rate indices for DMR and D-STAR variants live in the DVSI
@@ -850,7 +850,7 @@ The four cases from §1.6 map to these §4 paths:
 
 | Src → Tgt | §4 path |
 |-----------|---------|
-| 1 → 1     | §4 as specified — current P25 scope (r33 ↔ r34).            |
+| 1 → 1     | §4 as specified — current P25 scope (p25_fullrate ↔ p25_halfrate).            |
 | 1 → 2     | Accumulate two source frames → joint-encode per decoder §10.5 via target-encoder §10.2. |
 | 2 → 1     | Split source frame into two MbeParams (decoder §10.5) → emit two target frames via encoder (single-subframe §4). |
 | 2 → 2     | Two paths: (a) split-and-rejoin per-subframe §4; (b) direct joint-to-joint bit repack if codebooks match. |
@@ -1011,14 +1011,14 @@ Test recipe: `cmprc.txt` from same directory.
 
 ### 11.3 Recommended Test Order
 
-1. **Identity passthrough** (§8): r34 → r34 bit-exact verification.
+1. **Identity passthrough** (§8): p25_halfrate → p25_halfrate bit-exact verification.
    Bit-exact is achievable; if not, bug is in §3.A or §3.B (composition
    issue, not transform issue).
-2. **r33 → r34** (full to half): exercise §4.3 magnitude resampling
+2. **p25_fullrate → p25_halfrate** (full to half): exercise §4.3 magnitude resampling
    (R typically near unity but not exact) and §4.4 unvoiced compensation
-3. **r34 → r33** (half to full): exercise grid expansion direction,
+3. **p25_halfrate → p25_fullrate** (half to full): exercise grid expansion direction,
    §4.3 zero-padding for L̂_B > L̃_A
-4. **r33 → r33** identity (validation of full-rate path)
+4. **p25_fullrate → p25_fullrate** identity (validation of full-rate path)
 5. **`cmprc.txt` recipe scenarios** — DVSI's official test plan
 6. **Cross-standard pairs** (P25 ↔ DMR ↔ D-STAR via shared MBE) —
    future, not in first cut
@@ -1048,7 +1048,7 @@ PCM-domain metrics:
 - **Decode both source and converter output to PCM via the decoder spec,
   then measure PCM-domain SNR / MCD between the two.**
   - Identity pair: SNR ≥ 30 dB (essentially lossless)
-  - P25-internal (r33 ↔ r34): SNR ≥ 15 dB
+  - P25-internal (p25_fullrate ↔ p25_halfrate): SNR ≥ 15 dB
   - Cross-standard (P25 ↔ DMR): SNR ≥ 12 dB (per DVSI's 12% intelligibility
     improvement claim — this is the target the project Objectives.md is
     measured against)

@@ -17,7 +17,7 @@ pairs are explicit.
 |-------------------------------------|------:|-----------|------|
 | `identity`                          |    64 | yes       | `source == target` — all transforms no-op, §8 passthrough |
 | `p25_fullrate_fec_toggle`           |     2 | yes       | both source and target in {62, 63} — P25 full-rate IMBE FEC on/off, MbeParams identical, bit-pack only |
-| `p25_fullrate_to_halfrate`          |     8 | yes       | {62, 63} ↔ {33, 34} — project `r33 ↔ r34`; Rate Converter spec §4 primary target |
+| `p25_fullrate_to_halfrate`          |     8 | yes       | {62, 63} ↔ {33, 34} — project `p25_fullrate ↔ p25_halfrate`; Rate Converter spec §4 primary target |
 | `p25_fullrate_to_halfrate_variant`  |   108 | pending   | {62, 63} ↔ {35–61} — AMBE+2 variant bit allocation pending |
 | `ambe_plus_2_halfrate_internal` (P25 subset) |  2 | yes | pairs within {33, 34} not caught by identity — same bit allocation, FEC differs only |
 | `ambe_plus_2_halfrate_internal` (variants) | 810 | pending | pairs within {33–61} involving at least one of {35–61} — variant bit allocation pending |

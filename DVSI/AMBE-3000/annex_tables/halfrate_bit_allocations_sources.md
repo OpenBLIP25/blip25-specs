@@ -99,23 +99,24 @@ column schema cannot represent their bit allocations. The total frame
 sizes and FEC overhead are captured in the `total_info_bits` column and
 the notes; per-field widths are omitted as `n/a`.
 
-## r33 / r34 Naming Collision
+## Project Alias Convention
 
-The rest of this project uses `r33` and `r34` as **P25-scoped aliases**
-for "P25 full-rate IMBE" and "P25 half-rate AMBE+2" respectively. These
-aliases **do not** match the AMBE-3000F chip's rate-index-table
-numbering:
+The project uses `p25_fullrate` and `p25_halfrate` as **P25-scoped
+aliases** for the two P25 vocoder algorithms. These are symbolic
+identifiers in prose; they are distinct from the chip rate indices
+used as CSV keys:
 
-| Project label | Algorithm                | Chip rate-index mapping                    |
-|---------------|--------------------------|--------------------------------------------|
-| `r33`         | P25 full-rate IMBE       | **NOT a chip index** — invoked via RCW; captured here as row 62 (with FEC) / 63 (no FEC) |
-| `r34`         | P25 half-rate AMBE+2     | **Chip index 33** (with FEC) or chip index 34 (no FEC) |
+| Project alias    | Algorithm                | Chip rate-index mapping                    |
+|------------------|--------------------------|--------------------------------------------|
+| `p25_fullrate`   | P25 full-rate IMBE       | **NOT a chip index** — invoked via RCW; captured here as row 62 (with FEC) / 63 (no FEC) |
+| `p25_halfrate`   | P25 half-rate AMBE+2     | **Chip index 33** (with FEC) or chip index 34 (no FEC) |
 
-This CSV follows chip-index numbering (consistent with
-`rate_index_table.csv` and `rate_control_words.csv`). When the impl
-specs refer to "r33" or "r34" they mean the project alias, not a row
-in this CSV. See `analysis/ambe3000_rate_bit_allocation_gap.md` for
-reconciliation.
+The aliases were previously written as `r33` / `r34`, which collided
+with chip rate indices 33 and 34 (both AMBE+2 half-rate variants, not
+P25 full-rate). See `analysis/ambe3000_rate_bit_allocation_gap.md`
+Gap 2 for the historical discussion and the rationale for adopting
+the current aliases. This CSV follows chip-index numbering
+(consistent with `rate_index_table.csv` and `rate_control_words.csv`).
 
 ## CSV Column Definitions
 
