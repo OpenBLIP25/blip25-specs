@@ -39,33 +39,89 @@ a BABA-A-specific choice, not a convention.
 
 ---
 
-## 2. Inverse DCT is Per-Block, not Fixed 6-Point
+## 2. Gain DCT is Fixed 6-Point; HOC DCT is Per-Block (J̃_i)
 
-**Source:** BABA-A §6.4.1 Eq. 69 (gain → residual) and §6.4.2 Eq. 73 (HOC →
-per-block residual), pages 29–30.
+**Source:** BABA-A §6.4.1 Eq. 69 (gain → residual, page 30) and §6.4.2
+Eq. 73 (HOC → per-block residual, page 30).
 
+**Correction (2026-04-16):** this section previously asserted that
+**both** Eq. 69 and Eq. 73 use a per-block `J̃_i` denominator. Reading
+the PDF directly and cross-checking against Eq. 61 reveals that Eq. 69
+as printed in the PDF is an **editorial error** — the gain DCT is a
+fixed 6-point transform, not per-block. Only Eq. 73 is genuinely
+per-block.
+
+### The two equations
+
+**Eq. 69 (gain inverse DCT, 6-element ↔ 6-element):**
 ```
+                                                     (as printed in BABA-A page 30)
 R̃_i = Σ_{m=1}^{6} α(m) · G̃_m · cos[ π · (m−1) · (i − 0.5) / J̃_i ]   (Eq. 69)
+                                                     — spec bug; use `6`
+R̃_i = Σ_{m=1}^{6} α(m) · G̃_m · cos[ π · (m−1) · (i − 0.5) / 6 ]     (Eq. 69, corrected)
+```
+
+**Eq. 73 (HOC inverse DCT, 6-element ↔ `J̃_i`-element, per-block):**
+```
 c̃_{i,j} = Σ_{k=1}^{J̃_i} α(k) · C̃_{i,k} · cos[ π · (k−1) · (j − 0.5) / J̃_i ]   (Eq. 73)
 ```
 
-The cosine denominator is **J̃_i (the block length)**, not a fixed 6 or any
-other constant. This means:
+### Why Eq. 69 as printed is an editorial error
 
-- The inverse DCT **cannot be precomputed as a single fixed-size transform**.
-  The basis frequency changes with block length.
-- Each of the 6 blocks may have a different J̃_i (from Annex J / §12.5),
-  ranging from ⌊L̃/6⌋ to ⌈L̃/6⌉. You need 6 potentially-different DCTs.
-- Using a single 6×6 DCT for R̃_i (as might be inferred from "6-point inverse
-  DCT on the gain vector") produces the wrong coefficients for every block
-  except the unlikely case where all J̃_i = 6.
+1. **Forward/inverse DCT must have matching denominators.** Eq. 61
+   (encoder forward DCT, page 27) has denominator `6`:
+   ```
+   Ĝ_m = (1/6) Σ_{i=1}^{6} R̂_i · cos[ π(m−1)(i − 1/2) / 6 ]
+   ```
+   A forward DCT with period `2N = 12` and an inverse DCT with period
+   `2·J̃_i` are not a DCT pair unless `J̃_i = 6` — which is true only at
+   `L̃ = 36`.
 
-**Why implementations get this wrong:** the impl spec §6.4 originally said
-"HOCs are encoded using block-level DCT" without citing Eq. 69/73. The word
-"block-level" is easy to miss — and the "6-point DCT" language in analysis
-notes elsewhere refers to the *encoder's* forward transform of the 6-element
-gain vector, which *is* a fixed 6-point DCT. The inverse path at the decoder
-is structurally different.
+2. **Both operands are 6-element vectors.** `Ĝ_m` for `1 ≤ m ≤ 6` and
+   `R̂_i` for `1 ≤ i ≤ 6` (Eq. 60, 61, 67). The DCT basis length is 6,
+   fixed. `J̃_i` varies with `i` and changes each frame via Annex J;
+   substituting it into the basis makes the cosine frequency depend on
+   which output index is being computed, which is not any standard DCT.
+
+3. **PDF text preceding Eq. 69 says "an inverse DCT of `G̃_m`"** —
+   phrasing consistent with a single fixed transform. If the intent
+   were per-block, the text would say "an inverse DCT per block" as it
+   does in §6.4.2 for Eq. 73.
+
+4. **Round-trip identity fails under the literal reading.** `R̂ → Ĝ`
+   via Eq. 61 → `R̃` via Eq. 69 (with `J̃_i`) does not give `R̃ = R̂`
+   for any `L̃ ≠ 36`. Under the corrected reading (`6` denominator),
+   the round trip is exact (up to IEEE-754 rounding).
+
+5. **Every working reference implementation uses `6`.** JMBE, mbelib,
+   OP25, SDRTrunk all implement the gain inverse DCT as a fixed 6-point
+   transform. Interoperable P25 voice has been decoded for over a decade
+   on the basis of `6`, not `J̃_i`.
+
+The most likely cause: BABA-A editors copied Eq. 73's `J̃_i` denominator
+into Eq. 69 when revising the document. Eq. 73's `J̃_i` **is** correct
+(each block's HOCs form a `J̃_i`-element vector, so the per-block inverse
+DCT is genuinely `J̃_i`-point).
+
+### Implementation guidance
+
+- **Eq. 69 (gain):** use denominator `6`. Implement as a single fixed
+  6-point inverse DCT, precomputable as a 6×6 matrix.
+- **Eq. 73 (HOC):** use denominator `J̃_i`. Implement as a per-block
+  inverse DCT, with `J̃_i` varying across the 6 blocks per Annex J.
+
+The two transforms are **structurally different** and share only the
+α-weighting and the asymmetric-forward/inverse convention discussed in
+§9.
+
+### Invariant that catches the bug
+
+Forward-inverse round-trip identity of the gain DCT. Take arbitrary
+`R̂_1..R̂_6`, run Eq. 61 forward to get `Ĝ_1..Ĝ_6`, run Eq. 69 inverse
+to recover `R̃_1..R̃_6`. Under the literal reading (`J̃_i`) this fails
+for every `L̃` with non-uniform `J̃_i` (i.e., every `L̃ ≠ 36`). Under
+the corrected reading (`6`) it passes modulo IEEE-754 rounding. This
+is the cheapest unit test for the gain DCT pair.
 
 ---
 
@@ -297,7 +353,7 @@ C_{i,k} = (1/J_i) Σ_{j=1}^{J_i} c_{i,j} · cos[ π·(k−1)·(j − 0.5) / J_i 
 The inverse DCT uses α(k) = {1 if k = 1, 2 otherwise} with **no `1/N`**:
 
 ```
-R̃_i = Σ_{m=1}^{6} α(m) · G̃_m · cos[ π·(m−1)·(i − 0.5) / J̃_i ]     (Eq. 69)
+R̃_i = Σ_{m=1}^{6} α(m) · G̃_m · cos[ π·(m−1)·(i − 0.5) / 6 ]       (Eq. 69, corrected; see §2)
 c̃_{i,j} = Σ_{k=1}^{J̃_i} α(k) · C̃_{i,k} · cos[ π·(k−1)·(j − 0.5) / J̃_i ]  (Eq. 73)
 ```
 

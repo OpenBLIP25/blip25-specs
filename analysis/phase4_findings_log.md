@@ -240,19 +240,34 @@ extraction artifact), it's flagged as **SPEC BUG** for emphasis.
   this fails for every L with non-uniform `J̃_i`. Under Reading B it
   passes modulo IEEE-754 rounding.
 
-  *Fix:* **open.** Reconciliation paths, in priority order:
-  1. Verify the BABA-A PDF as-printed. If the PDF's Eq. 69 literally
-     has `J̃_i` in the denominator, file as a SPEC BUG against BABA-A
-     page 29 — the equation is inconsistent with Eq. 61.
-  2. If the PDF says `6` and the impl spec §1.8.3 Note is an author
-     paraphrase, correct the Note and the §2.14 cross-reference to
-     Reading B. The §9 reference C already matches Reading B; no code
-     change in the disambiguations doc is needed.
-  3. If Reading A is intentional — i.e. the encoder and decoder are
-     deliberately asymmetric beyond the known 1/N vs. α-weighting —
-     this belongs in §9 as an explicit second asymmetry alongside the
-     existing one, with a derivation showing what cancels and why.
-     No current analysis entry supports this.
+  *Fix:* **RESOLVED 2026-04-16** via PDF inspection. BABA-A PDF page 30
+  Eq. 69 as-printed literally has `J̃_i` in the denominator — confirmed
+  from the canonical 2014 publication. Path (1) from the original fix
+  plan applies: this is a **BABA-A editorial error** (SPEC BUG), not
+  an impl-spec paraphrase issue. Filed against BABA-A page 30 for
+  inconsistency with Eq. 61 (page 27, denominator `6`). The `J̃_i`
+  was almost certainly copy-pasted from Eq. 73 (per-block HOC inverse
+  DCT) during revision.
+
+  Implementation guidance: use denominator `6` in Eq. 69. Verified
+  round-trip identity under Reading B. Matches JMBE, mbelib, OP25,
+  SDRTrunk.
+
+  *Applied corrections:*
+  - `standards/TIA-102.BABA-A/P25_Vocoder_Implementation_Spec.md`
+    §1.8.3 — Note replaced with SPEC BUG annotation giving the
+    corrected equation form inline
+  - `standards/TIA-102.BABA-A/P25_Vocoder_Implementation_Spec.md`
+    §2.11 — cross-reference at the 8-point half-rate PRBA DCT
+    corrected to describe Eq. 69 as fixed 6-point (the original
+    "§2.14" reference in the earlier fix plan was a typo for
+    §2.11's cross-reference line)
+  - `analysis/vocoder_decode_disambiguations.md` §2 — title and
+    body rewritten: "Gain DCT is Fixed 6-Point; HOC DCT is
+    Per-Block (J̃_i)"; both the as-printed and corrected forms of
+    Eq. 69 documented
+  - `analysis/vocoder_decode_disambiguations.md` §9 — Eq. 69
+    transcription corrected to use denominator `6`
 
   *Noted by:* downstream implementer (p25-decoder), 2026-04-16, during
   a systematic audit of the JMBE-ported IMBE tables against the
@@ -260,7 +275,8 @@ extraction artifact), it's flagged as **SPEC BUG** for emphasis.
   downstream finding (code bug in p25-decoder, not a spec bug) by
   documenting a spec-text inconsistency that does not affect that
   implementation but would trip a different implementer following
-  §1.8.3's Note literally.
+  §1.8.3's Note literally. Resolution work performed by blip25-specs
+  maintainer the same afternoon.
 
 ---
 

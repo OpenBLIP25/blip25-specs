@@ -683,9 +683,38 @@ R̃_i = Σ_{m=1}^{6} α(m) · G̃_m · cos[ π·(m−1)·(i − 0.5) / J̃_i ]
 α(1) = 1,  α(m) = 2  for m > 1                                       (Eq. 70)
 ```
 
-**Note:** this is a **per-block** inverse DCT — the cosine denominator is
-J̃_i, not 6. The basis frequency changes with block length, so R̃_i cannot
-be computed with a single fixed 6-point DCT table.
+**SPEC BUG — Eq. 69 denominator is `6`, not `J̃_i`.** As printed in
+BABA-A page 30, Eq. 69 has `J̃_i` in the cosine denominator. Verified
+against the PDF on 2026-04-16. This is an editorial error in the
+published standard:
+
+- Eq. 61 (encoder forward DCT, page 27) uses denominator `6`.
+- `R̂_i` and `Ĝ_m` are both 6-element vectors (Eq. 60, 61, 67). A
+  forward/inverse DCT pair between two 6-element vectors is 6-point by
+  definition; `J̃_i` makes the "inverse" mathematically unrelated to
+  the forward, and the round-trip identity `R̂ → Ĝ → R̃` fails for
+  every `L̃ ≠ 36` (36 is the only `L̃` where Annex J gives `J̃_i = 6`
+  for all six blocks).
+- The PDF text immediately preceding Eq. 69 calls it "an inverse DCT
+  of `G̃_m`" — phrasing consistent with a fixed 6-point transform, not
+  a per-block operation.
+- The `J̃_i` was almost certainly copy-pasted from Eq. 73 (per-block
+  HOC inverse DCT, page 30), where `J̃_i` is correct because each block's
+  HOCs form a `J̃_i`-element vector.
+- Every working reference implementation (JMBE, mbelib, OP25, SDRTrunk)
+  uses denominator `6` in Eq. 69.
+
+**Implementers must use denominator `6`:**
+
+```
+R̃_i = Σ_{m=1}^{6} α(m) · G̃_m · cos[ π·(m−1)·(i − 0.5) / 6 ]
+                                                     for 1 ≤ i ≤ 6   (Eq. 69, corrected)
+α(1) = 1,  α(m) = 2  for m > 1                                       (Eq. 70)
+```
+
+Tracked in [`analysis/phase4_findings_log.md`](../../analysis/phase4_findings_log.md)
+2026-04-16 entry (flagged by downstream p25-decoder implementer, resolved
+via PDF inspection the same day).
 
 **Asymmetric forward/inverse convention:** the encoder's forward DCT
 (Eq. 60 / 61) uses a uniform `1/N` factor with no α weighting; the
@@ -1819,9 +1848,13 @@ R̃_i = Σ_{m=1}^{8} α(m) · G̃_m · cos[ π·(m−1)·(i − 0.5) / 8 ]
 ```
 
 This is a fixed 8-point DCT — the basis length is always 8, independent
-of L̃ (unlike §1.8.3's Eq. 69 / §2.13's per-block DCT, where the basis
-length follows J̃_i). The same asymmetric-forward/inverse caveat noted
-in §1.8.3 applies: this is not an orthonormal DCT-II / DCT-III pair.
+of L̃. Matches the structure of §1.8.3's Eq. 69 (a fixed 6-point DCT once
+the BABA-A typo is corrected per §1.8.3's Spec Bug note) and the encoder's
+Eq. 60/61. The per-block `J̃_i`-length DCT appears only at the inner
+spectral-residual reconstruction stage — §1.8.3's Eq. 73 (full-rate HOC
+inverse DCT) and §2.13's Eq. 183 (half-rate HOC inverse DCT). The same
+asymmetric-forward/inverse caveat noted in §1.8.3 applies: this is not
+an orthonormal DCT-II / DCT-III pair.
 
 **Stage 4 — pair-wise split into per-block (mean, first non-mean DCT coef)
 (Eq. 171–178):**
