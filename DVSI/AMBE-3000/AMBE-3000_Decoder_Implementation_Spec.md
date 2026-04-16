@@ -1038,20 +1038,33 @@ Control Words. Each rate selects:
 
 ### 10.2 AMBE+2 Half-Rate Variants
 
-Rates r35..r40 and several in r0..r32 use the same AMBE+2 half-rate
-algorithm skeleton (§4.2 codebook-based V/UV, §4.3 PRBA+HOC) but with
-different bit budgets, different FEC schemes, and in some cases 2
-sub-frames per transmission frame. The synthesizer (§6–§7) is unchanged.
-The per-rate bit allocation is **not normatively specified in this
-spec** — it comes from:
-- DVSI AMBE-3000F Manual Appendix (rate table summary)
-- US6199037 (for 2-subframe joint quantization)
-- US8595002 (for the single-subframe half-rate family)
+Chip rates 35..61 use the same AMBE+2 half-rate algorithm skeleton
+(§4.2 codebook-based V/UV, §4.3 PRBA+HOC) but with different bit
+budgets, different FEC schemes, and in some cases 2 sub-frames per
+transmission frame. The synthesizer (§6–§7) is unchanged. The per-rate
+bit allocation is **not normatively specified in this spec or in any
+public source**. Confirmed public sources and their coverage:
 
-A full bit-allocation matrix `rate_bit_allocations.csv` can be derived
-by inspecting the rate-index × RCW-field encoding in the DVSI manual,
-but this belongs to the rate-converter spec and is left as a TODO from
-this decoder spec.
+- **BABA-A §12** — provides the per-field widths for chip indices 33
+  and 34 only (P25 Phase 2 half-rate with/without FEC). Normative.
+- **DVSI AMBE-3000F User Manual v4.0** — Appendix 7.2 gives
+  total/speech/FEC rates per chip index; Appendix 7.3 gives six-word
+  RCW values and six configuration-pin settings. **Does not** enumerate
+  per-field bit widths.
+- **US8595002 §3** — describes the half-rate codebook structure (fixed
+  codebook sizes per field) and the "bit reduction trick" of using
+  subset codebook entries for lower rates, but does not specify
+  which rates use which subsets or by how much.
+- **US6199037** — covers 2-subframe joint quantization of pitch and
+  voicing. Algorithmic structure only; does not identify which chip
+  rate indices are multi-subframe.
+
+Per-field bit widths for chip rates 35..61 are marked `pending` in
+`annex_tables/halfrate_bit_allocations.csv`. Resolution requires
+empirical characterization against DVSI test vectors — see
+`analysis/ambe3000_rate_bit_allocation_gap.md`. That work belongs in
+the `~/blip25-mbe` implementation repo; results land back here as
+updates to the CSV and the gap entry.
 
 ### 10.3 Non-AMBE+2 Rates
 
