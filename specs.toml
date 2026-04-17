@@ -659,9 +659,23 @@ conv_procs_spec  = "standards/TIA-102.BAAD-B/P25_Conventional_Procedures_Impleme
 [specs."TIA-102.BABA"]
 title = "P25 Vocoder Description (original IMBE)"
 classification = ["vocoder"]
-status = "pending"
+status = "not_required"
 current_revision = "Superseded by BABA-A"
-notes = "Directory has 2 PDFs."
+notes = """
+Superseded by TIA-102.BABA-A (2014), which merges the 2003 full-rate BABA
+and the 2009 BABA-1 half-rate addendum into a single document. BABA-A is
+fully processed (Phase 1–4) with implementation spec, annex CSVs, and
+analysis notes — no separate Phase 3 needed for BABA or BABA-1.
+
+Directory holds 3 PDFs for archival: TIA-102.BABA_2003.pdf (original
+full-rate), TIA-102.BABA-1 Final for Publication.pdf (half-rate
+addendum), and an earlier BABA-1 draft. The `TIA-102-BABA_Summary.txt`
+and `TIA-102-BABA_Related_Resources.md` files in this directory describe
+the BABA-1 half-rate addendum despite their BABA-named filenames
+(artifact of `tools/process_specs.py::find_pdf` picking the 6.6 MB
+BABA-1 PDF over the 1.7 MB 2003 original). Kept as-is since BABA-A's
+impl spec is the canonical reference.
+"""
 
 [specs."TIA-102.BABA-A"]
 title = "P25 Vocoder Description (IMBE Full-Rate and Half-Rate)"
