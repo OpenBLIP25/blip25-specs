@@ -240,6 +240,16 @@ landing it first.
 
 ### 4. Log-magnitude prediction residual (encoder side of Eq. 75–79)
 
+> **Superseded by the addendum §0.6 (2026-04-15) and the 2026-04-17 ρ
+> correction sweep.** This section's "`ρ = 0.65`" claim is wrong for
+> full-rate — BABA-A Eq. 55 defines full-rate `ρ` as a piecewise-linear
+> function of `L̃(0)` ranging over `[0.4, 0.7]`. The claim is only
+> correct for half-rate (literal 0.65 per Eq. 185). See
+> [`vocoder_decode_disambiguations.md` §3](./vocoder_decode_disambiguations.md)
+> and [`vocoder_analysis_encoder_addendum.md` §0.6.2](./vocoder_analysis_encoder_addendum.md)
+> for the corrected treatment. The body of §4 below is preserved for
+> historical context; do not consume the `ρ = 0.65` line verbatim.
+
 **What the implementation spec has (decoder side):** §1.8.5 "Inverse
 Log-Magnitude Prediction" and §2.13 for half-rate render the decoder's
 `R̃_l = T̃_l + ρ·R̃_l(−1)` direction with `ρ = 0.65` (per

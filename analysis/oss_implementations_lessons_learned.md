@@ -35,7 +35,14 @@ C code. Used by OP25, DSDPlus, and many hobbyist P25 decoders.
 **MBE parameter recovery (mostly trustworthy, with caveats):**
 - Inverse uniform quantizer uses the `+0.5` midtread offset correctly.
 - Per-block inverse DCT uses the J̃_i denominator (not a fixed 6-point).
-- Log-magnitude prediction implements Eq. 77 with ρ = 0.65.
+- Log-magnitude prediction implements Eq. 77 — but typically with a
+  hardcoded `ρ = 0.65` (matching the 1993 IMBE convention and the
+  half-rate Eq. 185 literal). BABA-A §6.3 Eq. 55 defines full-rate `ρ`
+  as a piecewise-linear function of `L̃(0)` ranging over `[0.4, 0.7]`
+  — see `vocoder_decode_disambiguations.md` §3. Expect predictor
+  divergence from DVSI full-rate at the `L̃ ≤ 15` and `L̃ > 24` tails;
+  the `L̃ ≈ 22–23` band happens to yield ≈ 0.65 under Eq. 55 so the
+  middle of the range is incidentally correct.
 
 **Known divergences from BABA-A 2014 / DVSI AMBE-3000 (full-rate):**
 - Uses the **1993 IMBE algorithm** for synthesis, not the 2014 BABA-A

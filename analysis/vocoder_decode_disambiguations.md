@@ -186,15 +186,28 @@ harmless for `L̂ ≈ 22–23` where Eq. 55 happens to yield values near
 `L̂ > 24` → true ρ = 0.70), where implementations that hardcode 0.65
 will mispredict by 40% or more.
 
-**Follow-up required:**
+**Sweep status (updated 2026-04-17):**
 
-- Full-rate implementations based on this note need a sweep: replace
-  hardcoded 0.65 with Eq. 55's schedule. Verify against DVSI full-rate
-  test vectors (AMBE-3000 rate 33; see
-  [`dvsi_test_vector_modes.md`](./dvsi_test_vector_modes.md)).
-- Implementation spec §1.8.5 inherits this error and needs the same
-  correction sweep.
-- Half-rate implementations are unaffected.
+- `standards/TIA-102.BABA-A/P25_Vocoder_Implementation_Spec.md` §1.8.5
+  has been updated with the Eq. 55 piecewise schedule and a
+  `fullrate_rho()` reference helper; the stale "ρ = 0.65 everywhere"
+  phrasing has been replaced. Committed upstream as part of
+  `7e35238` (2026-04-15).
+- `analysis/vocoder_analysis_encoder_addendum.md` §0.6.2 (encoder-side
+  predictor) renders the same schedule with a correction header
+  flagging the original mistake.
+- `analysis/vocoder_decode_disambiguations.md` §8 (this file) had one
+  remaining stale reference in its cold-start commentary; swept in
+  the 2026-04-17 ρ-correction pass.
+- Full-rate blip25-mbe implementations that derived `ρ` from this
+  note's earlier version should rerun against DVSI full-rate
+  vectors (AMBE-3000 rate 33; see
+  [`dvsi_test_vector_modes.md`](./dvsi_test_vector_modes.md)) to
+  confirm the fix. Error magnitude is bounded: tails (`L̂ ≤ 15` or
+  `L̂ > 24`) see `|Δρ| ≤ 0.25`; the `L̂ ≈ 22–23` band sees no change
+  because Eq. 55 happens to yield ≈ 0.65 there.
+- Half-rate implementations are unaffected — Eq. 155 / Eq. 185's
+  literal 0.65 is correct for half-rate.
 
 For the encoder-side treatment of the same prediction residual
 (full-rate Eq. 54), see
@@ -331,8 +344,11 @@ impl spec:
   valid frame uses it for prediction.
 - **Repeat:** The repeated M̃_l becomes `M̃_l(−1)` for the frame after.
 - **Cold start:** Per §10 Annex A, `M̃_l(−1) = 1 for all l`, `L̃(−1) = 30`.
-  With ρ = 0.65, the uniform initial state creates a constant bias that
-  decays over ≈ 3–5 frames to steady state.
+  In log₂ units, `log₂ 1 = 0`, so the first-frame predictor contribution
+  is exactly zero regardless of `ρ` (full-rate Eq. 55 piecewise or
+  half-rate literal 0.65). Residual bias from the all-ones state decays
+  over ≈ 3–5 frames to steady state as `M̃_l(−1)` rolls forward through
+  real reconstructed values.
 
 **Why implementations get this wrong:** a stateless decoder (e.g., one that
 resets internal buffers each frame for safety) will produce silence or
