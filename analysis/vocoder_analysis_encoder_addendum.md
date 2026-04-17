@@ -1485,10 +1485,22 @@ State carried into §0.6:
 | `M̃_l(−1)` | real vector, length `L̃(−1)` | closed-loop decoder output (§0.6.6) |
 | `L̃(−1)`  | int | set to `L̂(0)` at end of each frame |
 
-**Cold start** per §6.3 prose (page 25, verbatim):
+**Cold start** per §6.3 prose (page 25):
 
 > "Also upon initialization `M̃_l(−1)` should be set equal to 1.0 for
 > all `l`, and `L̃(−1) = 30`."
+
+**PDF typo note.** The published BABA-A page 25 reads
+`L̂(−1) = 30` (hat, not tilde). This appears to be a typographical
+error in the standard itself: Eq. 52 reads `k̂_l = (L̃(−1) / L̂(0))·l`
+(tilde over L in the past-frame denominator), and the matched-
+decoder cold-start initializes the **previous reconstructed** L,
+which is `L̃(−1)`. An encoder that literally sets `L̂(−1) = 30` is
+setting a quantity that is not referenced anywhere in Eq. 52–57.
+The hat→tilde correction above is the only reading under which
+Eq. 52 is well-defined on frame 0. Implementers should set
+`L̃(−1) = 30` at init; the semantics are unambiguous despite the
+typo.
 
 In log₂ units, `log₂ 1.0 = 0`, so the cold-start predictor
 contribution is zero — the first frame's `T̂_l` is exactly
@@ -1508,21 +1520,35 @@ void predictor_state_init(PredictorState *st) {
     st->L_tilde_prev = 30;
 }
 
-/* Eq. 55: ρ as a function of L̂(0). */
-static double rho_of_L(int L_hat) {
+/* Eq. 55: ρ as a function of L̂(0). FULL-RATE ONLY — half-rate uses
+ * a literal 0.65 per Eq. 155 (not a piecewise schedule). Call
+ * rho_halfrate() below when rate_mode == RATE_HALF. See §0.10.3. */
+static double rho_of_L_fullrate(int L_hat) {
     if (L_hat <= 15) return 0.4;
     if (L_hat <= 24) return 0.03 * (double)L_hat - 0.05;
     return 0.7;
 }
 
-/* Eq. 52–54: compute T̂_l for l = 1..L̂(0). */
+/* Eq. 155 (half-rate encoder, PDF page 60): literal constant 0.65,
+ * independent of L̂. */
+static double rho_halfrate(void) {
+    return 0.65;
+}
+
+/* Eq. 52–54: compute T̂_l for l = 1..L̂(0). Rate mode selects between
+ * the full-rate piecewise ρ (Eq. 55) and the half-rate literal 0.65
+ * (Eq. 155); see §0.10.3. */
+typedef enum { RATE_FULL, RATE_HALF } RateMode;
+
 void compute_prediction_residual(const double M_hat[],   /* M̂_l(0), 1-indexed */
                                  int L_hat,
+                                 RateMode rate_mode,
                                  const PredictorState *st,
                                  double T_hat[]) {
     int L_prev = st->L_tilde_prev;
     double ratio = (double)L_prev / (double)L_hat;
-    double rho   = rho_of_L(L_hat);
+    double rho   = (rate_mode == RATE_HALF) ? rho_halfrate()
+                                            : rho_of_L_fullrate(L_hat);
 
     /* Precompute P_λ = interpolated past log-amplitude at λ, for all λ. */
     double P[MAX_L + 1];
@@ -2618,7 +2644,7 @@ EncoderFrame analysis_encode_frame(AnalysisEncoderState *st,
         /* .M_tilde_prev[] aliased from st */
     };
     memcpy(pred.M_tilde_prev, st->M_tilde_prev, sizeof(pred.M_tilde_prev));
-    compute_prediction_residual(M_hat, refined.L_hat, &pred, T_hat);
+    compute_prediction_residual(M_hat, refined.L_hat, rate_mode, &pred, T_hat);
 
     /* 13. Wire-side quantization — blip25-mbe::quantize (NOT in this addendum). */
     QuantizedBits qb;
@@ -2674,9 +2700,12 @@ The `RateMode` argument selects between the two bitstream shapes:
 
 The analysis pipeline itself (§0.1–§0.7) is rate-agnostic: the same
 `M̂_l`, `ω̂_0`, `v̂_k`, `L̂` feed both rates. The rate-specific code
-lives in the matched decoder (step 14) and the wire-side quantizer
-(step 13). The `PredictorState.rho_of_L` function picks the right
-`ρ` per rate.
+lives in the matched decoder (step 14), the wire-side quantizer
+(step 13), and step 12's ρ selection: `compute_prediction_residual`
+(defined in §0.6.8) takes `rate_mode` and dispatches between
+`rho_of_L_fullrate` (Eq. 55 piecewise) and `rho_halfrate` (Eq. 155
+literal 0.65). Callers must pass the current frame's rate mode; the
+ρ is not a per-encoder compile-time constant.
 
 ### 0.10.4 Feedback Loop Invariants
 
