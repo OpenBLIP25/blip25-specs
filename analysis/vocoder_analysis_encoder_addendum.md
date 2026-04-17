@@ -20,7 +20,10 @@ Drafted so far:
 - §0.3 — Initial pitch estimation (Eq. 4–23, Annex D LPF)
 - §0.4 — Pitch refinement and pitch quantization (Eq. 24, 31–33, 45)
 - §0.5 — Spectral amplitude estimation (Eq. 43, 44)
-- §0.6 — Log-magnitude prediction residual (Eq. 52–57)
+- §0.6 — Log-magnitude prediction residual (Eq. 52–57, full-rate)
+- §0.6.10 — Half-rate predictor deltas (Eq. 150–157, state shape,
+  `Λ̃`-domain storage, `γ̃(−1)` differential-gain state,
+  `L̃(−1) = 15` cold start)
 - §0.7 — V/UV determination (Eq. 34–42)
 - §0.8 — Frame-type dispatch (voice / silence / tone / erasure)
 - §0.9 — Encoder state structure and initialization
@@ -1625,6 +1628,283 @@ existing decoder pipeline from implementation-spec §1.8, invoked with
   per-harmonic prediction and subtracts the mean. Mirror-image, not
   identical.
 
+### 0.6.10 Half-Rate Predictor Deltas (Full-Rate vs Half-Rate)
+
+**Source:** TIA-102.BABA-A §14.3 "Half-Rate Log-Magnitude Prediction"
+encoder path (pages 59–60, Equations 150–157) and §13.4.4 decoder path
+(pages 64–65, Equations 182–188). §0.6.1–§0.6.9 above describe the
+full-rate predictor (BABA-A §6.3, Eq. 52–57). The half-rate predictor
+has a different state shape, different cold-start values, and an
+additional differential-gain scalar. This subsection catalogs the
+deltas so an implementation that shares code between rates knows
+what to branch on.
+
+#### State representation
+
+Full-rate encoder (§0.6) carries:
+
+```
+PredictorState_fullrate {
+    M_tilde_prev[l] : real,  l = 0..L̃(−1)      // LINEAR-domain amplitudes
+    L_tilde_prev   : int                        // previous harmonic count
+}
+```
+
+Half-rate encoder carries a distinct structure:
+
+```
+PredictorState_halfrate {
+    Lambda_tilde_prev[l] : real,  l = 0..L̃(−1)  // LOG₂-domain amplitudes
+    L_tilde_prev         : int                   // previous harmonic count
+    gamma_tilde_prev     : real                  // Eq. 152 differential-gain state
+}
+```
+
+These are **not interchangeable** without per-frame conversion. The
+half-rate predictor (Eq. 155) reads `Λ̃_⌊k̂_l⌋(−1)` directly in the
+log-domain arithmetic — no `log₂(M̃)` call appears inside the inner
+loop. Full-rate Eq. 54 does the same structurally but with
+`log₂(M̃_⌊k̂_l⌋(−1))` called on the stored linear value on each access.
+The information content is equivalent up to `Λ̃ = log₂ M̃`, but the
+representation choice matters for (a) where the `exp/log` happens,
+(b) which form is stored frame-to-frame, and (c) numerical precision
+near `M̃ ≈ 0` where `log₂` underflows.
+
+**Recommended half-rate choice: store `Λ̃` directly** (i.e. Option B
+from gap report 0002 §3.Q1). Rationale:
+
+- Matches the half-rate wire decoder's `prev_lambda` state at
+  `p25_halfrate/dequantize.rs`, so no conversion is needed at the
+  matched-decoder roundtrip boundary.
+- Eq. 155's arithmetic is log-domain native; converting to linear
+  for storage and back to log on each access costs an `exp2`/`log2`
+  pair per harmonic per frame for no algorithmic benefit.
+- Avoids the `log₂ 0` singularity: the spec-prescribed cold start
+  `Λ̃_l(−1) = 1.0` for all `l` (see below) already provides a
+  finite log-domain seed that would otherwise need `log₂(exp₂(1)) = 1`
+  round-tripping.
+
+#### Cold-start values
+
+| Variable | Full-rate init | Half-rate init | PDF source |
+|----------|---------------|----------------|------------|
+| `L̃(−1)` | `30` | `15` | BABA-A §6.3 p. 25 (full) / §14.3 p. 60 (half) |
+| `M̃_l(−1)` or `Λ̃_l(−1)` | `M̃_l(−1) = 1.0` (linear) → `log₂ = 0` | `Λ̃_l(−1) = 1.0` (log) → `M̃_l = 2` | Eq. 56 / Eq. 187-adjacent prose p. 60 |
+| `γ̃(−1)` | *not applicable* | `0.0` | §14.3 p. 60 "value of `γ̃(−1)` should be initialized to 0" |
+
+**Note the unusual half-rate init.** The PDF explicitly says
+`Λ̃_l(−1) = 1.0 for all l`, where `Λ̃` is in the log₂ domain per
+Eq. 150. So the cold-start assumes the receiver's prior-frame
+magnitude is effectively `M̃_l = 2^1 = 2`, not `M̃_l = 1`. This
+differs from the full-rate convention (`M̃_l(−1) = 1.0` linear,
+`log₂ 1 = 0` in log-domain arithmetic). The full-rate cold-start
+produces zero predictor contribution on frame 0; the half-rate
+cold-start produces a constant non-zero contribution that decays as
+real `Λ̃` values roll in.
+
+This is the standard as published; do not "fix" the init value to
+0 for consistency with full-rate. The closed-loop matched-decoder
+feedback will converge to real values within 3–5 frames either
+way.
+
+#### Algorithmic differences
+
+**1. Voicing-dependent `Λ̃` conversion — Eq. 150.** Half-rate
+converts `M̂_l` to `Λ̂_l` with a per-harmonic rule dependent on
+`ṽ_l`:
+
+```
+Λ̂_l = ⎧ log₂ M̂_l + 0.5·log₂ L̂                    if ṽ_l = 1    (voiced)
+       ⎩ log₂ M̂_l + 0.5·log₂(ω̃_0 · L̂) + 2.289      otherwise     (unvoiced)
+                                                                   (Eq. 150)
+```
+
+This voicing adjustment is applied **before** the predictor residual
+is computed, and the inverse is applied after reconstruction at the
+decoder (Eq. 188's `(0.2046 / √ω̃_0) · exp(0.693 · Λ̃_l)` branch).
+Full-rate has no analog — full-rate encoder feeds `log₂ M̂_l` directly
+into the predictor.
+
+The half-rate analysis encoder must therefore:
+
+1. Receive `M̂_l` and `v̂_k` (rate-agnostic outputs of §0.5 / §0.7).
+2. Convert per-harmonic to `Λ̂_l` via Eq. 150 using `v̂_k` at the
+   harmonic's band.
+3. Feed `Λ̂_l` to the predictor (Eq. 155 below).
+
+**2. Differential-gain state — Eq. 151–152.** Half-rate separates
+out an overall-gain scalar and tracks it with a first-order predictor:
+
+```
+γ̂(0) = (1/L̂) · Σ_l Λ̂_l                                        (Eq. 151)
+
+Δ̂_γ = γ̂(0) − 0.5 · γ̃(−1)                                      (Eq. 152)
+```
+
+`Δ̂_γ` is what gets quantized into `b̂_2` (5 bits, Annex O). After
+the roundtrip, the decoded `Δ̃_γ` reconstructs `γ̃(0)` via:
+
+```
+γ̃(0) = Δ̃_γ + 0.5 · γ̃(−1)                                     (inverse of Eq. 152)
+```
+
+`γ̃(0)` then commits as `γ̃(−1)` for the next frame. Full-rate has no
+analogous state — its gain quantization (Eq. 60–62) is independent
+per-frame.
+
+**3. Predictor residual — Eq. 155.** Half-rate uses `Λ̂` / `Λ̃`
+everywhere where full-rate uses `log₂ M̂` / `log₂ M̃`:
+
+```
+T̂_l = Λ̂_l(0)
+    − 0.65 · (1 − δ̂_l) · Λ̃_{⌊k̂_l⌋}(−1)
+    − 0.65 · δ̂_l       · Λ̃_{⌊k̂_l⌋ + 1}(−1)
+          0.65    L̂(0)
+    + ─────── · Σ [ (1 − δ̂_λ) · Λ̃_{⌊k̂_λ⌋}(−1)  + δ̂_λ · Λ̃_{⌊k̂_λ⌋ + 1}(−1) ]
+          L̂(0)   λ=1
+                                                                   (Eq. 155)
+```
+
+Structurally this is Eq. 54 with `log₂ M̂` → `Λ̂` and `log₂ M̃` → `Λ̃`
+(both already log-domain), and `ρ` fixed at `0.65` (per §0.6.2).
+The mean-removal term has the same `+` sign as full-rate Eq. 54.
+
+**4. `Λ̃` boundary extension — Eq. 156–157.** Same structure as
+full-rate Eq. 56–57:
+
+```
+Λ̃_0(−1) = Λ̃_1(−1)                    (Eq. 156)
+Λ̃_l(−1) = Λ̃_{L̃(−1)}(−1)  for l > L̃(−1)   (Eq. 157)
+```
+
+Note `Λ̃_0 = Λ̃_1` (DC boundary tracks the first harmonic) is
+different from full-rate Eq. 56's `M̃_0(−1) = 1.0` (DC boundary
+fixed at unity). The half-rate DC is coupled to whatever the
+current low-harmonic value happens to be; full-rate DC is always
+the log-domain zero.
+
+#### Matched-decoder roundtrip for half-rate
+
+Per §0.10.1 step 14, the encoder runs a matched decoder on the
+just-emitted bits to recover the `Λ̃_l(0)` that the receiver will
+see. For half-rate the steps are:
+
+1. Quantize `Δ̂_γ` (Eq. 152) and the four prediction-residual DCT
+   blocks per §13.3. Emit `b̂_0..b̂_8`.
+2. Run the half-rate decoder (implementation-spec §2.11–§2.13) on
+   those bits with the current frame's `ω̃_0`, `L̃`, `ṽ_k` already
+   known. This produces:
+   - `γ̃(0)` via inverse of Eq. 152 and Annex O dequantization.
+   - `Λ̃_l(0)` for `1 ≤ l ≤ L̃(0)` via Eq. 182–187.
+   - The final `M̃_l(0)` via Eq. 188 (voicing-dependent inverse).
+3. Commit to next frame's state:
+   - `Λ̃_l(−1) ← Λ̃_l(0)` for `1 ≤ l ≤ L̃(0)`
+   - `Λ̃_0(−1) ← Λ̃_1(0)` (Eq. 156)
+   - `L̃(−1) ← L̃(0)`
+   - `γ̃(−1) ← γ̃(0)`
+
+The `M̃_l(0)` produced in step 2 is **for downstream consumers**
+(synthesis, §11-style PCM reconstruction if the encoder is being
+used as an end-to-end codec), not for the predictor state. The
+predictor reads `Λ̃_l(−1)` directly, bypassing any need for the
+linear `M̃_l` form.
+
+#### What is rate-agnostic and what is not
+
+| §0.6 concern | Full-rate | Half-rate | Rate-agnostic? |
+|---|---|---|---|
+| Predictor coefficient `ρ` | Eq. 55 piecewise `[0.4, 0.7]` | Literal `0.65` | **NO** (see §0.6.2) |
+| State storage domain | Linear `M̃_l(−1)` | Log-domain `Λ̃_l(−1)` | **NO** |
+| Cold-start `L̃(−1)` | `30` | `15` | **NO** |
+| Cold-start state vector | `M̃_l(−1) = 1.0` (linear) | `Λ̃_l(−1) = 1.0` (log) | **NO** |
+| Extra differential-gain state | *none* | `γ̃(−1)` | **NO** (half-rate-only) |
+| Voicing-dependent `Λ̂` conversion (Eq. 150) | *none* | applies per-harmonic | **NO** (half-rate-only) |
+| Interpolation structure (Eq. 52–53 vs 153–154) | `k̂_l`, `δ̂_l` | `k̂_l`, `δ̂_l` (identical) | YES |
+| Predictor residual shape (Eq. 54 vs 155) | identical up to `log₂ M̃` ↔ `Λ̃` substitution | identical | YES (structurally) |
+| Mean-removal sign (`+` in both) | `+` | `+` | YES |
+| Matched-decoder roundtrip discipline | run the wire decoder | run the wire decoder | YES (principle; mechanics differ) |
+
+The rate-agnostic claim in §0.10.3 ("analysis pipeline §0.1–§0.7 is
+rate-agnostic") was shorthand for the `§0.1–§0.5 + §0.7` outputs —
+`ω̂_0`, `L̂`, `v̂_k`, `M̂_l` — which feed both rates. **§0.6 itself
+is not rate-agnostic**: it is the bridge between the rate-agnostic
+analysis outputs and the rate-specific quantizer. The four rows
+marked **NO** above must be dispatched on rate mode.
+
+#### Recommended implementation shape
+
+```c
+typedef enum { RATE_FULL, RATE_HALF } RateMode;
+
+typedef struct {
+    /* Full-rate state. Unused when rate_mode == RATE_HALF. */
+    double M_tilde_prev_full[MAX_L + 1];    /* linear */
+    int    L_tilde_prev_full;               /* init 30 */
+
+    /* Half-rate state. Unused when rate_mode == RATE_FULL. */
+    double Lambda_tilde_prev_half[MAX_L + 1];  /* log₂ */
+    int    L_tilde_prev_half;                  /* init 15 */
+    double gamma_tilde_prev_half;              /* init 0.0 */
+} PredictorState;
+
+void predictor_state_init(PredictorState *st) {
+    for (int l = 0; l <= MAX_L; ++l) {
+        st->M_tilde_prev_full[l]      = 1.0;    /* linear 1.0 */
+        st->Lambda_tilde_prev_half[l] = 1.0;    /* log₂ 1.0, NOT 0.0 */
+    }
+    st->L_tilde_prev_full      = 30;
+    st->L_tilde_prev_half      = 15;
+    st->gamma_tilde_prev_half  = 0.0;
+}
+```
+
+Splitting state per rate (rather than a union or a tagged sum)
+avoids cross-rate contamination if a future encoder switches rate
+mid-stream (e.g. full-rate voice interleaved with half-rate data
+PDUs). Each rate's state evolves independently and is consulted
+only when that rate's frame is being emitted.
+
+Alternatively, an implementation that only ever emits one rate can
+omit the unused fields. Static dispatch at the type level
+(`PredictorState_Fullrate` vs `PredictorState_Halfrate` as two
+separate structs, threaded through the orchestration generically)
+is a style choice, not a spec requirement.
+
+#### Common pitfalls
+
+- **Do not try to store half-rate state as `M̃_l(−1)` linear.**
+  The conversion is defined (`M̃ = 2^Λ̃`) but forces an `exp2`/`log2`
+  round-trip on every predictor access. Worse, unvoiced Eq. 188
+  applies a voicing-dependent scaling that the encoder's Eq. 150 has
+  already accounted for — storing the `Λ̃`-domain value directly
+  avoids the risk of the encoder and decoder disagreeing about which
+  side of the `(0.2046 / √ω̃_0)` factor the stored state sits on.
+- **`γ̃(−1)` commit is separate from `Λ̃_l(−1)` commit.** On a
+  silence-frame dispatch (§0.8.3), the half-rate receiver freezes
+  `Λ̃` but the PDF is silent on whether `γ̃` also freezes. The
+  conservative reading is that both freeze together — `γ̃` is part
+  of the predictor state and §13.3 says "silence frames ... are not
+  updated with the reconstructed spectral amplitudes from the
+  current frame", which should include the differential-gain state
+  by parallel construction. Implementers should flag this choice in
+  their state-commit code with a comment pointing to §13.3 prose.
+- **Cold-start `Λ̃_l(−1) = 1.0` is a log-domain value, not linear.**
+  The half-rate PDF at §14.3 p. 60 and §13.4.4 p. 65 both say
+  "`Λ̃_l(−1) = 1` for all `l`" as the init. Treating this as linear
+  (`M̃_l = 1`, `Λ̃_l = 0`) on the encoder side and as log (`M̃_l = 2`,
+  `Λ̃_l = 1`) on the decoder side — or vice versa — produces a
+  cold-start predictor mismatch of `log₂ 2 = 1` across the encoder /
+  decoder boundary, which is exactly the `3·0.65 ≈ 1.95 dB` that
+  decays over ~5 frames. If the encoder's first-frame `T̂_l` and
+  the decoder's reconstructed `Λ̃_l(0)` diverge by ~1.0 on frame 0,
+  this is the likely cause.
+- **The full-rate `γ` in Eq. 68 (gain substitution) is not the same
+  `γ` as half-rate Eq. 151–152.** Full-rate's `γ` is implicit in
+  `C̃_{i, 1}` and does not persist across frames. Half-rate's `γ̃`
+  is an explicit scalar that does persist. Sharing a variable name
+  across the two rates in code is a readability footgun; prefix or
+  namespace them.
+
 ---
 
 ## §0.7 Voiced/Unvoiced Determination
@@ -2698,14 +2978,31 @@ The `RateMode` argument selects between the two bitstream shapes:
   bits, matched decoder runs implementation-spec §2.11–2.13 (half-
   rate branch), `ρ = 0.65` (literal per Eq. 155).
 
-The analysis pipeline itself (§0.1–§0.7) is rate-agnostic: the same
-`M̂_l`, `ω̂_0`, `v̂_k`, `L̂` feed both rates. The rate-specific code
-lives in the matched decoder (step 14), the wire-side quantizer
-(step 13), and step 12's ρ selection: `compute_prediction_residual`
-(defined in §0.6.8) takes `rate_mode` and dispatches between
-`rho_of_L_fullrate` (Eq. 55 piecewise) and `rho_halfrate` (Eq. 155
-literal 0.65). Callers must pass the current frame's rate mode; the
-ρ is not a per-encoder compile-time constant.
+The analysis pipeline §0.1–§0.5 + §0.7 is rate-agnostic: the same
+`M̂_l`, `ω̂_0`, `v̂_k`, `L̂` feed both rates. §0.6 is **not fully
+rate-agnostic** — it is the bridge between the rate-agnostic analysis
+outputs and the rate-specific quantizer. §0.6.10 catalogues the
+half-rate-specific deltas in detail; the headline is:
+
+- `ρ` dispatch — `compute_prediction_residual` (defined in §0.6.8)
+  takes `rate_mode` and dispatches between `rho_of_L_fullrate` (Eq. 55
+  piecewise) and `rho_halfrate` (Eq. 155 literal 0.65).
+- Predictor **state shape** differs — full-rate stores linear
+  `M̃_l(−1)`, half-rate stores log-domain `Λ̃_l(−1)` plus an extra
+  `γ̃(−1)` differential-gain scalar. Implementations typically carry
+  two separate state structs (see §0.6.10 "Recommended implementation
+  shape").
+- Cold-start values differ — full-rate `L̃(−1) = 30`, half-rate
+  `L̃(−1) = 15`, half-rate additionally sets `γ̃(−1) = 0.0`.
+- Half-rate additionally applies a voicing-dependent `M̂_l → Λ̂_l`
+  conversion (Eq. 150) before the predictor residual is formed; full-
+  rate does not.
+
+The rate-specific code outside §0.6 lives in the matched decoder
+(step 14) and the wire-side quantizer (step 13). Callers must pass
+the current frame's rate mode through; none of the rate-specific
+choices are safe as compile-time constants if the encoder can be
+switched mid-stream.
 
 ### 0.10.4 Feedback Loop Invariants
 
