@@ -32,6 +32,90 @@ TIA-102.BABA-A standard and should be self-sufficient for implementation.
 
 ---
 
+## 0. Analysis Encoder: PCM → MbeParams (Addendum Pointer)
+
+**Source:** TIA-102.BABA-A §§3–6 (PDF pages ~5–22).
+
+The forward path — PCM input through initial pitch estimation, pitch
+refinement, spectral amplitude estimation, V/UV decision, log-magnitude
+prediction residual, and frame-type dispatch into `MbeParams` ready for
+the wire-side quantizer — is rendered as a separate derived work at
+
+> [`analysis/vocoder_analysis_encoder_addendum.md`](../../analysis/vocoder_analysis_encoder_addendum.md)
+
+That file is §0 for the purposes of this implementation spec: subsections
+§0.1 through §0.11 match the structure the gap report
+(`analysis/vocoder_analysis_encoder_gap.md`) originally proposed and
+together cover the complete PCM → MbeParams pipeline.
+
+| Addendum | BABA-A source | Topic |
+|---|---|---|
+| §0.1 | §3, §4, §5.1, Figure 7/8 | Input framing, HPF (Eq. 3), analysis windows `w_I` / `w_R` |
+| §0.2 | §5.1.5 (Eq. 24–30) | 256-point DFT and `S_w(m, ω₀)` basis function |
+| §0.3 | §5.1 (Eq. 4–23), Annex D | Initial pitch estimation, `E(P)` and look-back / look-ahead tracking |
+| §0.4 | §5.1.5 (Eq. 24, 31–33, 45) | Pitch refinement and pitch quantization |
+| §0.5 | §5.3 (Eq. 43, 44) | Spectral amplitude estimation `M̂_l` |
+| §0.6 | §6.4 (Eq. 52–57) | Log-magnitude prediction residual `T̂_l` and closed-loop predictor |
+| §0.7 | §5.2 (Eq. 34–42) | V/UV determination, `D_k`, `ξ`-family metrics, `Θ_ξ` threshold |
+| §0.8 | §6.1, §13.1 (+ §16) | Frame-type dispatch (voice / silence / tone / erasure) |
+| §0.9 | Annex A (ext.) | Encoder state structure and Annex-A-style initialization |
+| §0.10 | synthesis | End-to-end reference C pipeline |
+| §0.11 | informative | Numerical cross-checks against DVSI test vectors |
+
+### 0.0.1 Items not prescribed by the standard
+
+Per BABA-A, the encoder's *decision* layer (as opposed to its *analysis*
+layer) is left to the implementer:
+
+- **Silence-frame entry criteria** — the standard specifies the silence
+  payload (`b̂_0 = 124` half-rate) but not the energy threshold or
+  hysteresis that triggers it. See addendum §0.8.4 for an implementation
+  baseline and the companion gap report for chip-probe requirements.
+- **Tone-frame entry criteria** — the standard specifies the Annex T
+  tone payload but not how the encoder decides "this is a tone." See
+  addendum §0.8.5.
+- **Pitch `E(P)` grid-max on silence** — the `E(P)` formula (Eq. 5–7) is
+  well-defined, but in the absence of signal it degenerates to a flat
+  surface. The addendum notes this in §0.3.9; in practice it is handled
+  by the silence-dispatch layer (§0.8.4), not by modifying `E(P)`.
+
+These are explicitly called out as "NOT in the PDF" in the corresponding
+addendum subsections. Implementers should calibrate thresholds against
+DVSI observed behavior rather than the literature.
+
+### 0.0.2 Absolute-amplitude residual (open investigation)
+
+A cross-cutting investigation thread — independent of the decoder-side
+`γ_w` localization in §11 below — concerns the absolute scale of `M̂_l`
+out of Eq. 43/44 versus DVSI chip-observed amplitudes. Addendum §0.5.6
+and §0.2.8 record the current status. Resolving it requires DVSI probe
+data, not further spec work.
+
+### 0.0.3 Corrections applied
+
+Two transcription errors were found and corrected during the addendum
+drafting pass; both are documented in-line in the addendum header and
+in dedicated correction notes:
+
+- **Eq. 7 `r(t)`** — see
+  [`analysis/vocoder_analysis_eq7_correction.md`](../../analysis/vocoder_analysis_eq7_correction.md).
+  The original draft duplicated the squared-window onto `s_LPF`; the
+  PDF form has `s_LPF` to the first power. Corrected in addendum
+  §0.3.2, §0.3.3, §0.3.8, §0.3.9.
+- **Eq. 43/44 `M̂_l`** — the original gap report §6 paraphrased the
+  spectral amplitude estimator as `â_l + j·b̂_l` (complex). The PDF
+  instead uses magnitude-only Eq. 43 (voiced) and Eq. 44 (unvoiced);
+  Eq. 32–33 are per-harmonic bin endpoints, not spectral-amplitude
+  projections. Corrected in addendum §0.5 and acknowledged in the
+  gap report.
+- **Full-rate `ρ` piecewise** — `ρ` in Eq. 54/77 is defined piecewise
+  in `L̂` by Eq. 55 (0.4 / `0.03·L̂ − 0.05` / 0.7), not the constant
+  0.65 that appears in half-rate Eq. 155/185. Corrected in addendum
+  header and §0.6.2; `vocoder_decode_disambiguations.md` §3 and this
+  file's §1.8.5 need a companion correction sweep (pending).
+
+---
+
 ## 1. IMBE Full-Rate Vocoder (Phase 1 FDMA)
 
 ### 1.1 Fundamental Parameters

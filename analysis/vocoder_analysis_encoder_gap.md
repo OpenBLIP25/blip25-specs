@@ -8,6 +8,59 @@ encoding; PDF pages roughly 5–22)
 
 ---
 
+## Triage status (updated 2026-04-16)
+
+The original inventory below has been walked against the derived
+addendum [`vocoder_analysis_encoder_addendum.md`](./vocoder_analysis_encoder_addendum.md)
+and the post-Eq. 7 correction pass. Items are now split into two
+buckets.
+
+### Bucket (a) — answerable from TIA-102.BABA-A alone (drafted, awaiting merge)
+
+The addendum transcribes the standard-side answer for every one of these.
+Once the user approves the addendum it should be folded into
+`standards/TIA-102.BABA-A/P25_Vocoder_Implementation_Spec.md` as §0
+(ahead of the existing decoder §1), per the "Proposed structure" section
+at the bottom of this report.
+
+| Gap-report section | Addendum subsection | Standard reference |
+|---|---|---|
+| §1 Input framing / windowing | §0.1 | BABA-A §3, §4, §5.1, Figure 7/8, Eq. 1, 3 |
+| Critical path `S_w(m, ω₀)` basis | §0.2 | BABA-A §5.1.5, Eq. 24–30 |
+| §2 Initial pitch estimation | §0.3 (+ Eq. 7 correction note) | BABA-A §5.1, Eq. 4–23; Annex D |
+| §3 Pitch refinement | §0.4 | BABA-A §5.1.5, Eq. 24, 31–33, 45 |
+| §6 Spectral amplitude estimation | §0.5 | BABA-A §5.3, Eq. 43, 44 (corrected from original gap-report paraphrase) |
+| §4 Log-magnitude prediction | §0.6 | BABA-A §6.4, Eq. 52–57; `ρ` from Eq. 55 (not constant 0.65 — see addendum header) |
+| §5 V/UV determination | §0.7 | BABA-A §5.2, Eq. 34–42 |
+| §8 Cross-frame state | §0.9 | BABA-A Annex A (decoder) + addendum table for encoder-side |
+| §9 Reference C implementation | §0.10 | synthesis of §0.1–§0.9 |
+
+### Bucket (b) — requires chip probe or vendor clarification
+
+These items are either explicitly labelled "NOT in the PDF" in the
+addendum or have a PDF-documented algorithm that diverges from observed
+DVSI behavior. The standard side is as complete as it can be; the
+remaining ambiguity is DVSI black-box. The implementer owns probe
+design; the spec-author will rewrite the relevant addendum subsection
+once probe results land.
+
+| Item | Where flagged | What the chip probe needs to answer |
+|---|---|---|
+| Silence-frame entry criterion | Addendum §0.8.4 (gap report §7) | Input-energy threshold, hysteresis, frame count at which AMBE-3000 switches `b̂_0 = 124`. Rough `-45 dBFS / -40 dBFS / 3-frame` baseline in §0.8.4 is not authoritative. |
+| Tone-frame entry criterion | Addendum §0.8.5 (gap report §7) | What MBE-analysis features (unanimous `v̂_k`, amplitude concentration, pitch stability) the DVSI chip actually uses to trigger Annex T tone-frame emission. PDF specifies only the payload, never the trigger. |
+| Preroll behavior | Addendum §0.8.6 / §0.9.4 | Does DVSI emit silence frames during its 2-frame preroll, or synthetic-voice with cold-start parameters? Half-rate has `b̂_0 = 124` available; full-rate has no silence sentinel. |
+| Amplitude-estimator absolute scale (`M̃_l` / `γ_w`) | Addendum §0.5.6, §0.2.8; blip25-mbe memory | ~8.83 dB floor between our `M̂_l` and chip output on L+pitch-matched frames. PDF formula is transcribed (Eq. 43/44); residual points to either a window-energy normalization not stated or DVSI chip-side §11 perceptual weighting. Same family as the decoder-side γ_w mismatch already flagged in commit `741eeef`. |
+| V/UV `D_k` numerical precision residual | Addendum §0.7.10; blip25-mbe memory | Chip-seed-V/UV experiment shows ~1% residual voicing mismatch even when seeded with chip L and ω̂_0. Suggests chip uses either different intermediate precision or a slightly different `θ_G(k, ω̂_0)` table than Eq. 37 transcription. |
+| Pitch `E(P)` silence-frame grid-max lockup | Addendum §0.3.9; blip25-mbe memory | On silent frames `E(P)` is flat → grid-max lock. PDF prescribes the formula but not a silence gate for it. The §0.8.4 silence dispatch masks this in practice; spec has nothing more to say without chip behavior. |
+
+Bucket (b) items are NOT blocking the spec-author's completion of §0.
+The addendum paraphrases the standard where the standard speaks, and
+explicitly marks "NOT in the PDF" where the standard is silent. The
+implementer can proceed against the addendum while running chip probes
+to refine §0.8.4 / §0.8.5 / §0.5.6 / §0.7.10.
+
+---
+
 ## Summary
 
 The derived implementation spec
