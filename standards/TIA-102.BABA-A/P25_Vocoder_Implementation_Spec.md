@@ -1245,6 +1245,24 @@ Both components use the Annex I synthesis window `wS(n)` (211 values,
    may be compensating for a bug elsewhere in the pipeline, and
    "fitting" γ_w locally could mask it.
 
+   **Independent chip measurement (2026-04-17, gap report 0001 §9.4):**
+   A chip-vs-local comparison on a realistic silence→voiced-flat-500
+   scenario (post blip25-mbe's quantizer-predictor fix) measured the
+   voiced-amplitude chip/local ratio at **1.56×**. This is consistent
+   with the historical "~1.7× too loud" memory note on voiced
+   synthesis and with the broader unvoiced-scale story here. The
+   single-harmonic synthetic probes attempted in the same gap report
+   (§9.2 γ_w, §9.3 §1.10 bypass, §9.5 M̃_l scale) did **not** produce
+   clean scalars because the AMBE-3000R applies proprietary post-
+   synthesis gating that is not in BABA-A §1.10–§1.12 — see
+   [`analysis/ambe3000_chip_oracle_caveats.md`](../../analysis/ambe3000_chip_oracle_caveats.md)
+   for the three documented chip behaviors (amplitude-dependent mute,
+   ±10000 internal cap, stationary-signal detector) and the revised
+   probing methodology. The 1.56× figure remains the most trustworthy
+   chip-side measurement of the voiced-amplitude gap to date; it is
+   not a direct γ_w measurement but bounds the combined §1.10 + §1.12
+   amplitude error.
+
 4. **Inverse DFT** (Eq. 125):
    ```
    ũ_w(n) = (1/256) · Σ_{m=−128}^{127} Ũ_w(m) · e^{j2π·m·n/256}
