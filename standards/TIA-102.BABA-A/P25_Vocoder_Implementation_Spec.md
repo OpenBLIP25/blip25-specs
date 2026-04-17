@@ -111,8 +111,9 @@ in dedicated correction notes:
 - **Full-rate `ρ` piecewise** — `ρ` in Eq. 54/77 is defined piecewise
   in `L̂` by Eq. 55 (0.4 / `0.03·L̂ − 0.05` / 0.7), not the constant
   0.65 that appears in half-rate Eq. 155/185. Corrected in addendum
-  header and §0.6.2; `vocoder_decode_disambiguations.md` §3 and this
-  file's §1.8.5 need a companion correction sweep (pending).
+  header and §0.6.2; companion correction sweep in
+  `vocoder_decode_disambiguations.md` §3 and this file's §1.8.5 was
+  applied upstream (commits `7e35238`, `20d7ca4`).
 
 ---
 
