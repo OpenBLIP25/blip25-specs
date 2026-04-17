@@ -114,6 +114,14 @@ in dedicated correction notes:
   header and §0.6.2; companion correction sweep in
   `vocoder_decode_disambiguations.md` §3 and this file's §1.8.5 was
   applied upstream (commits `7e35238`, `20d7ca4`).
+- **Eq. 31 `L̂` double floor** — see
+  [`analysis/vocoder_analysis_eq31_correction.md`](../../analysis/vocoder_analysis_eq31_correction.md).
+  The addendum's original §0.4.3 transcribed Eq. 31 with a single
+  outer floor (`⌊ 0.9254 · (π/ω̂_0 + 0.25) ⌋`). The PDF form has a
+  nested inner floor (`⌊ 0.9254 · ⌊ π/ω̂_0 + 0.25 ⌋ ⌋`), matching the
+  decoder-side Eq. 47 already rendered correctly at §1.2 / §1.7 of
+  this file. Impact: ≈2.5% of admissible `ω̂_0` get `L̂_addendum =
+  L̂_PDF + 1`. Corrected in addendum §0.4.3 and §0.4.6.
 
 ---
 

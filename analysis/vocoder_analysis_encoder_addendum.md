@@ -907,12 +907,24 @@ and reused across all 10 candidates.
 Once `ω̂_0` is selected, three derived quantities follow:
 
 ```
-L̂ = ⌊ 0.9254 · ( π/ω̂_0 + 0.25 ) ⌋                              (Eq. 31)
+L̂ = ⌊ 0.9254 · ⌊ π/ω̂_0 + 0.25 ⌋ ⌋                              (Eq. 31)
 ```
 
-With `ω̂_0 ∈ [2π/123.125, 2π/19.875]`, Eq. 31 confines `L̂` to
-`9 ≤ L̂ ≤ 56`. This matches the implementation spec's
-`Harmonics L: 9 to 56` entry at §1.1.
+**Note the double floor** — `π/ω̂_0 + 0.25` is rounded down to an
+integer *before* the `0.9254` multiply, and the result is floored
+again. The inner floor implements a "round pitch-period estimate to
+the nearest integer" step; the outer floor is the standard truncation
+applied after the `0.9254` scaling. Dropping either floor (e.g.
+writing `⌊ 0.9254 · (π/ω̂_0 + 0.25) ⌋`) yields values that differ by
+one from the PDF form for `ω̂_0` near transitions, which surfaces as
+a ±1 drift in `L̂` on frames that straddle a boundary.
+
+With `ω̂_0 ∈ [2π/123.125, 2π/19.875]`, `π/ω̂_0 + 0.25 ∈ [10.1875, 61.8125]`,
+the inner floor produces integers in `[10, 61]`, and the outer floor
+of `0.9254 · {10, …, 61}` produces `L̂ ∈ {9, …, 56}` — matching the
+implementation spec's `Harmonics L: 9 to 56` entry at §1.1. The
+decoder-side copy of this formula (Eq. 47) is rendered with the
+same double floor at `P25_Vocoder_Implementation_Spec.md` §1.2 / §1.7.
 
 The per-harmonic bin endpoints at the refined fundamental are:
 
@@ -1030,7 +1042,10 @@ PitchRefineOut refine_pitch(double complex Sw[N_DFT], double P_hat_I) {
 
     PitchRefineOut out;
     out.omega_hat = best_omega;
-    out.L_hat     = (int)floor(0.9254 * (M_PI / best_omega + 0.25));
+    /* Eq. 31: double floor — inner rounds π/ω̂₀ + 0.25 to integer,
+     * outer rounds the 0.9254-scaled product. */
+    double inner = floor(M_PI / best_omega + 0.25);
+    out.L_hat     = (int)floor(0.9254 * inner);
     double bin_scale = 256.0 / (2.0 * M_PI);
     for (int l = 0; l <= out.L_hat; ++l) {
         out.a_hat[l] = bin_scale * ((double)l - 0.5) * best_omega;
