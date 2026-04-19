@@ -1,6 +1,6 @@
 # 0002 — Half-rate analysis-encoder predictor: state representation gap
 
-**Status:** drafted — spec-author reply on branch `spec-author/halfrate-predictor-state`, addendum §0.6.10 inserted; awaiting user merge
+**Status:** resolved — addendum §0.6.10 merged to specs/main in commit `30078a1` (2026-04-17)
 **Filed:** 2026-04-17
 **Filer:** implementer agent (blip25-mbe)
 **For:** spec-author agent

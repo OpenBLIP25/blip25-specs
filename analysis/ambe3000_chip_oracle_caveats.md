@@ -192,51 +192,65 @@ additional DVSI disclosure or reverse-engineering.
 
 ## 4. What this means for the amplitude investigation
 
-The blip25-mbe decoder reports a `~150×` discrepancy between
-`γ_w = 146.64` from BABA-A Eq. 121 and the empirical optimum on
-DVSI reference PCM (impl spec §1.12.1, 2026-04-14 commit
-`741eeef`). This note **does not** refute that observation — the
-reference PCM for that calibration came from DVSI test vectors
-(`tv-rc/alert.bit` through the chip), which are real speech, not
-synthetic input, and therefore not subject to §1.1 / §1.2 / §1.3
-the way synthetic probes are.
+**Update (2026-04-19).** The amplitude-calibration question is
+largely resolved on the recorded-reference side: a five-vector
+half-rate decode comparison against DVSI `tv-rc/*.pcm` shows
+`γ_w = 146.64` is correct to within ~5% RMS (mean ratio 0.956×,
+σ = 0.024 across alert / clean / cp0 / cp1 / cp31) — see impl
+spec §1.12.1 for the table. The recorded reference PCM predates
+the three live-chip behaviors documented here in §1; it is a
+clean BABA-A oracle for decoder amplitude scale. This tightens
+the earlier bracket from "γ_w anywhere in `[1, 146.64]`" to
+"γ_w = 146.64 is consistent with BABA-A on recorded reference
+PCM to ~5% RMS."
 
-However, the `~150×` figure is also not a clean linear
-measurement — it includes any chip post-processing that survives
-the realistic-input regime. The true BABA-A-spec γ_w may be
-anywhere in `[1, 146.64]` range depending on which of the chip's
-proprietary stages compound into the observed output. Further
-disambiguation requires either:
+The `~1.56×` live-chip voiced-amplitude ratio from gap report
+0001 §3.C (previously the most trustworthy chip-side scalar) is
+**not** a γ_w anomaly: it is the additive effect of the chip's
+post-synthesis envelope (§§1.1–1.3) on top of the recorded-
+reference parity. The live chip runs ~1.5× louder on voiced-
+flat-500 than blip25-mbe's spec-faithful decode — consistent
+with the live chip applying proprietary gain stages beyond what
+the stored tv-rc PCM captures.
 
-- Access to the chip's fixed-point reference code (not publicly
-  available) to see exactly what post-synthesis processing is
-  applied.
-- A second, independently-developed BABA-A decoder that faithfully
-  implements §1.10 / §1.11 / §1.12 without proprietary additions,
-  to triangulate.
+The following legacy observations are preserved for historical
+context but are no longer current:
 
-Gap report 0001 §3.C provided the first clean chip-vs-local
-scalar on realistic input: `1.56×` voiced-amplitude ratio,
-consistent with the historical `~1.7×` memory note
-(`project_state_2026-04-15`). That number is more trustworthy
-than the synthetic-probe γ_w measurements because it survived
-the chip's realistic-input regime.
+- Pre-Proposal-B (2026-04-14): a single-vector `alert.bit` sweep
+  showed `γ_w ≈ 1.0` minimising RMS error, implying `γ_w = 146.64`
+  was ~150× too loud. That conclusion was an artefact of a
+  separate ~1.56× voiced-amplitude bias in blip25-mbe's
+  quantizer-predictor (fixed by Proposal B on 2026-04-17; see
+  memory `project_proposal_b_verified_2026-04-17`). With the
+  predictor fixed, the 2026-04-19 five-vector measurement places
+  `γ_w` back at the spec value.
+- The `[1, 146.64]` bracket previously quoted here is superseded.
+
+Gap report 0001 §3.C's `1.56×` chip-side number remains the
+right baseline for interpreting future live-chip probes (the
+chip's live output is ~1.5× louder than a spec-faithful decode
+on realistic voiced input), but it should not be interpreted as
+a γ_w tuning target.
 
 ---
 
 ## 5. What to do in the implementation spec
 
 **Do not update** §1.10 / §1.11 / §1.12 / §1.12.3 on the basis of
-the first-pass probe data. The observations are not clean enough
-to support spec edits. The existing calibration note in
-implementation-spec §1.12.1 (lines 1225–1246, the "γ_w = 1.0 RMS
-error" table) remains the right posture: commit the spec value,
-document the mismatch, continue investigating.
+live-chip probe data. The observations are not clean enough to
+support spec edits; chip proprietary post-processing (§§1.1–1.3)
+contaminates any scalar extracted from live-chip output.
+Recorded-reference PCM parity (impl spec §1.12.1, 2026-04-19
+five-vector measurement) is the authoritative decode-side
+amplitude oracle: it confirms `γ_w = 146.643269` holds on speech
+inputs to within ~5% RMS without any spec change.
 
 **Do reference this note** from any future implementer who tries
-to validate decoder amplitude scales against the chip. The probe
-tooling under `conformance/chip/` is re-usable; the
-methodological conclusions are what change.
+to validate decoder amplitude scales against the live chip. The
+probe tooling under `conformance/chip/` is re-usable; the
+methodological conclusions are what change. For decoder amplitude
+validation, prefer recorded-reference PCM comparison over live-
+chip probing whenever both are available.
 
 ---
 

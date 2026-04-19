@@ -1222,16 +1222,36 @@ Both components use the Annex I synthesis window `wS(n)` (211 values,
    ```
    Precompute once at decoder init; it's a fixed scalar.
 
-   **⚠ Empirical calibration note:** direct use of γ_w = 146.643269
-   produces unvoiced output roughly 150× louder than DVSI's reference
-   PCM for the same bitstream. Empirical optimum on the `alert.bit`
-   test case lies near γ_w ≈ 1.0 (see table below). The spec value
-   is committed as authoritative; the mismatch is under investigation
-   and documented in
-   [`analysis/vocoder_decode_disambiguations.md §11`](../../analysis/vocoder_decode_disambiguations.md)
-   with candidate causes (M̃_l scale from the Annex E quantizer
-   interpretation, unvoiced-norm formula, or a different normalization
-   convention between the spec and DVSI's implementation).
+   **γ_w calibration status (2026-04-19): spec value confirmed
+   correct on recorded-reference PCM.** The authoritative decode-side
+   amplitude oracle for BABA-A is DVSI's distributed test-vector PCM
+   (`tv-rc/<name>.pcm` paired with `<name>.bit`). A half-rate decode
+   comparison of blip25-mbe against those recorded references across
+   five vectors shows γ_w = 146.643269 is correct to within ~5% RMS:
+
+   ```
+   Vector   DVSI ref RMS   ours RMS   ratio (ours/DVSI)
+   alert         3429        3255        0.949
+   clean         1284        1285        1.001
+   cp0           8363        7904        0.945
+   cp1           7598        7202        0.948
+   cp31          8461        7933        0.938
+
+   mean ratio ≈ 0.956        σ ≈ 0.024   (5 vectors)
+   ```
+
+   The recorded reference PCM predates the live-chip probing artifacts
+   documented in
+   [`analysis/ambe3000_chip_oracle_caveats.md`](../../analysis/ambe3000_chip_oracle_caveats.md)
+   — it was produced at DVSI-internal calibration before any
+   amplitude-dependent mute, ±10000 cap, or stationary-signal detector
+   is applied at run time — and is thus a clean BABA-A oracle for
+   decoder amplitude scale. **Use γ_w = 146.643269 as specified.**
+
+   **Historical note — the pre-Proposal-B γ_w=1.0 sweep (2026-04-14).**
+   Earlier project history carried a single-vector (`alert.bit`) sweep
+   showing RMS error minimised near γ_w ≈ 1.0 and maximised at the
+   spec value:
    ```
        γ_w   RMS error   SNR
        0.5    3587      -0.36 dB
@@ -1241,27 +1261,37 @@ Both components use the Annex I synthesis window `wS(n)` (211 values,
       50.0    4230      -1.80 dB
      146.6    6724      -5.82 dB        (spec value)
    ```
-   Use the spec value until the root cause is found — the mismatch
-   may be compensating for a bug elsewhere in the pipeline, and
-   "fitting" γ_w locally could mask it.
+   That sweep was taken before blip25-mbe's Proposal B quantizer-
+   predictor fix (`project_proposal_b_verified_2026-04-17`), which
+   corrected a ~1.56× voiced-amplitude bias in the decode pipeline.
+   With Proposal B landed, the five-vector recorded-reference
+   comparison above inverts the earlier conclusion: γ_w = 146.64 is
+   right, and γ_w ≈ 1.0 was "winning" only because a separate ~150×
+   downstream error in the dequantized M̃_l scale was compensating
+   for the correct γ_w. The 2026-04-14 sweep is retained here for
+   historical context and should not be used to re-tune γ_w.
 
-   **Independent chip measurement (2026-04-17, gap report 0001 §9.4):**
-   A chip-vs-local comparison on a realistic silence→voiced-flat-500
-   scenario (post blip25-mbe's quantizer-predictor fix) measured the
-   voiced-amplitude chip/local ratio at **1.56×**. This is consistent
-   with the historical "~1.7× too loud" memory note on voiced
-   synthesis and with the broader unvoiced-scale story here. The
-   single-harmonic synthetic probes attempted in the same gap report
-   (§9.2 γ_w, §9.3 §1.10 bypass, §9.5 M̃_l scale) did **not** produce
-   clean scalars because the AMBE-3000R applies proprietary post-
-   synthesis gating that is not in BABA-A §1.10–§1.12 — see
-   [`analysis/ambe3000_chip_oracle_caveats.md`](../../analysis/ambe3000_chip_oracle_caveats.md)
-   for the three documented chip behaviors (amplitude-dependent mute,
-   ±10000 internal cap, stationary-signal detector) and the revised
-   probing methodology. The 1.56× figure remains the most trustworthy
-   chip-side measurement of the voiced-amplitude gap to date; it is
-   not a direct γ_w measurement but bounds the combined §1.10 + §1.12
-   amplitude error.
+   **Live-chip AMBE-3000R ratio (2026-04-17, gap report 0001 §9.4):
+   1.56× vs local.** A live-chip-vs-local comparison on a realistic
+   silence→voiced-flat-500 scenario (post-Proposal-B) measured the
+   voiced-amplitude chip/local ratio at **1.56×**. This sits ~1.5×
+   above the recorded-reference parity reported above and is
+   attributable to the live chip's proprietary post-synthesis
+   envelope (amplitude-dependent mute, ±10000 cap, stationary-signal
+   detector — see
+   [`analysis/ambe3000_chip_oracle_caveats.md`](../../analysis/ambe3000_chip_oracle_caveats.md))
+   rather than a γ_w anomaly. The live-chip 1.56× remains the most
+   trustworthy scalar derivable from chip probes in the realistic-
+   input regime, but for BABA-A amplitude-scale validation the
+   recorded-reference PCM oracle takes precedence.
+
+   **Reproducibility.** The recorded-reference measurement can be
+   reproduced from the blip25-mbe side via:
+   ```
+   cargo run -p blip25-conformance-vectors --release -- \
+       decode-pcm-halfrate <name> --write-pcm /tmp/ours.pcm
+   ```
+   comparing the resulting PCM's RMS to `DVSI/Vectors/tv-rc/<name>.pcm`.
 
 4. **Inverse DFT** (Eq. 125):
    ```

@@ -530,13 +530,25 @@ against the AMBE-3000 chip output.
 
 ## 11. γ_w Empirical Mismatch Against DVSI (Investigation Pending)
 
+> **STATUS — 2026-04-19: this investigation thread is closed.**
+> A five-vector half-rate decode comparison against DVSI
+> `tv-rc/*.pcm` (impl spec §1.12.1) confirms `γ_w = 146.643269`
+> is correct to within ~5% RMS (mean ratio 0.956×). The `~150×`
+> gap described below was an artefact of a separate
+> quantizer-predictor bias in the decode pipeline, fixed by
+> blip25-mbe Proposal B on 2026-04-17. The candidate-cause
+> analysis and chip-probe planning in this section remain as
+> historical record, but the premise ("γ_w ≈ 1.0 is the
+> empirical optimum") is no longer correct. Do not re-tune γ_w.
+
 **Source of the spec value:** BABA-A §11.2 Eq. 121, page 52.
 
-**Empirical finding:** downstream implementer (2026-04-14) reported that
-direct use of the spec-computed γ_w = 146.643269 produces unvoiced output
-approximately 150× louder than DVSI's reference PCM for the same bitstream.
-The error scales monotonically with γ_w; the empirical optimum sits near
-γ_w ≈ 1.0. Sweep on the `alert.bit` test case:
+**Empirical finding (2026-04-14, superseded — see status box above):**
+downstream implementer reported that direct use of the spec-computed
+γ_w = 146.643269 produces unvoiced output approximately 150× louder
+than DVSI's reference PCM for the same bitstream. The error scales
+monotonically with γ_w; the empirical optimum sits near γ_w ≈ 1.0.
+Sweep on the `alert.bit` test case:
 
 | γ_w    | RMS error | SNR       |
 |-------:|----------:|----------:|
