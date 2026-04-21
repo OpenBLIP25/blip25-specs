@@ -1,6 +1,6 @@
 # 0010 — Last data block layout when pad > 0: user data / pad / CRC-32 octet order
 
-**Status:** drafted (2026-04-21) — `analysis/fdma_pdu_frame.md` §4.3 and §4.4 updated with worked pad-boundary examples; layout CSV in `annex_tables/pdu_last_block_examples.csv`; BAAA-B implementation spec §5.7.3 / §5.7.4 already contains the canonical worked examples (reference).
+**Status:** resolved (2026-04-21) — `analysis/fdma_pdu_frame.md` §4.3 and §4.4 updated with worked pad-boundary examples; layout CSV in `annex_tables/pdu_last_block_examples.csv`; BAAA-B implementation spec §5.7.3 / §5.7.4 already contains the canonical worked examples (reference).
 **Filed:** 2026-04-21
 **Filer:** implementer (p25-decoder / blip25-data)
 **For:** spec-author

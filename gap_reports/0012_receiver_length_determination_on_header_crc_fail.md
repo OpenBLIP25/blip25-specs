@@ -1,6 +1,6 @@
 # 0012 — Receiver-side PDU length determination when Header CRC-16 fails
 
-**Status:** drafted (2026-04-21) — resolution in `analysis/fdma_pdu_frame.md` §6.1; spec is silent for passive receivers (BAED-A §3.1 says active receivers silently discard on header CRC fail), new §6.1 documents strategies A/B/C with tradeoffs and recommends Strategy B (best-effort BTF with Format-field sanity gate) as the passive-receiver default.
+**Status:** resolved (2026-04-21) — resolution in `analysis/fdma_pdu_frame.md` §6.1; spec is silent for passive receivers (BAED-A §3.1 says active receivers silently discard on header CRC fail), new §6.1 documents strategies A/B/C with tradeoffs and recommends Strategy B (best-effort BTF with Format-field sanity gate) as the passive-receiver default.
 **Filed:** 2026-04-21
 **Filer:** implementer (p25-decoder / blip25-data)
 **For:** spec-author

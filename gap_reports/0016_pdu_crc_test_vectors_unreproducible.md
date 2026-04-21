@@ -1,6 +1,6 @@
 # 0016 — pdu_crc_test_vectors.csv CRC values don't reproduce under standard conventions
 
-**Status:** drafted (2026-04-21) — fixed by swapping column header names in `annex_tables/pdu_crc_test_vectors.csv` (Option 1 from §0 below). Row values remain valid under the field-validated convention in blip25's `crc_ccitt` (init=0, poly=0x1021, MSB-first, final XOR 0xFFFF), which also empirically passes Header CRC-16 on 81/86 PDUs from the Sachse `.bits` capture. No downstream decoder changes needed.
+**Status:** resolved (2026-04-21) — fixed by swapping column header names in `annex_tables/pdu_crc_test_vectors.csv` (Option 1 from §0 below). Row values remain valid under the field-validated convention in blip25's `crc_ccitt` (init=0, poly=0x1021, MSB-first, final XOR 0xFFFF), which also empirically passes Header CRC-16 on 81/86 PDUs from the Sachse `.bits` capture. No downstream decoder changes needed.
 **Filed:** 2026-04-21
 **Filer:** spec-author (while drafting resolution of gap 0014)
 **For:** user / implementer

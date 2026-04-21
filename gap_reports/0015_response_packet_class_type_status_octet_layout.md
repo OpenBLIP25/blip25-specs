@@ -1,6 +1,6 @@
 # 0015 — Response Packet class/type/status field byte positions
 
-**Status:** drafted (2026-04-21) — opcode table delivered as `annex_tables/response_packet_opcodes.csv` with bit-field decomposition AND whole-byte values; `analysis/fdma_pdu_frame.md` §4.5 updated with cross-reference. Transcription error in the full-text extraction and implementation spec (Illegal Format was listed as Class=%00; correct per BAAA-B Revision B Table 10 is Class=%01 Type=%000 = octet 1 pattern `0x40 | status`) was corrected in the same pass.
+**Status:** resolved (2026-04-21) — opcode table delivered as `annex_tables/response_packet_opcodes.csv` with bit-field decomposition AND whole-byte values; `analysis/fdma_pdu_frame.md` §4.5 updated with cross-reference. Transcription error in the full-text extraction and implementation spec (Illegal Format was listed as Class=%00; correct per BAAA-B Revision B Table 10 is Class=%01 Type=%000 = octet 1 pattern `0x40 | status`) was corrected in the same pass.
 **Filed:** 2026-04-21
 **Filer:** implementer (p25-decoder / blip25-data)
 **For:** spec-author

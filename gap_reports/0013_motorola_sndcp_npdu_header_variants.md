@@ -1,6 +1,6 @@
 # 0013 — Motorola SNDCP N-PDU header variants (undocumented preamble bytes before IP)
 
-**Status:** drafted (2026-04-21) — resolution in `analysis/motorola_sndcp_npdu_preamble.md`; standard SNDCP header confirmed as 2 octets (BAEB-C §6.4.1 Figure 26); preamble bytes after the first 2 octets are NOT TIA-102 standard (three candidate explanations enumerated); heuristic IPv4-scan documented; remaining questions flagged for vendor documentation or session-activation-capture follow-up.
+**Status:** resolved (2026-04-21) — resolution in `analysis/motorola_sndcp_npdu_preamble.md`; standard SNDCP header confirmed as 2 octets (BAEB-C §6.4.1 Figure 26); preamble bytes after the first 2 octets are NOT TIA-102 standard (three candidate explanations enumerated); heuristic IPv4-scan documented; remaining questions flagged for vendor documentation or session-activation-capture follow-up.
 **Filed:** 2026-04-21
 **Filer:** implementer (p25-decoder / blip25-data)
 **For:** spec-author

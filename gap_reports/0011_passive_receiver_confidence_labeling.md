@@ -1,6 +1,6 @@
 # 0011 — Confidence labels for passively-received PDUs (native clean / corrected / merged / partial)
 
-**Status:** drafted (2026-04-21) — resolution in `analysis/passive_receiver_confidence_labels.md`
+**Status:** resolved (2026-04-21) — resolution in `analysis/passive_receiver_confidence_labels.md`
 **Filed:** 2026-04-21
 **Filer:** implementer (p25-decoder / blip25-data)
 **For:** spec-author

@@ -1,6 +1,6 @@
 # 0009 — Passive cross-copy PDU assembly (Motorola repeat-broadcast) is unspecified
 
-**Status:** drafted (2026-04-21) — resolution in `analysis/passive_cross_copy_pdu_assembly.md`
+**Status:** resolved (2026-04-21) — resolution in `analysis/passive_cross_copy_pdu_assembly.md`
 **Filed:** 2026-04-21
 **Filer:** implementer (p25-decoder / blip25-data)
 **For:** spec-author
