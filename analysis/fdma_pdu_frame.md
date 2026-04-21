@@ -3,8 +3,11 @@
 **Scope:** FDMA (Phase 1) Packet Data Unit — DUID `0xC`. Consolidates the wire-level
 frame layout (BAAA-B), trunking-specific header variants (AABB-B), LLC header fields
 and payload routing (BAED-A), and SNDCP IP encapsulation (BAEB-C) into a single
-implementer's reference. This is the frame type that carries *everything non-voice*
-on an FDMA channel: control-channel signaling, trunking signaling, and user data.
+implementer's reference. This is the frame type that carries non-voice payloads
+bigger than a single block: multi-block trunking (MBT), confirmed/unconfirmed
+user data, Enhanced Addressing, and Response packets. Single-block TSBK traffic
+uses its own DUID `0x7` (TSDU) and is out of scope here — see §3 for the split
+between `0x7` and `0xC` and BAAA-B Implementation Spec §5.6 for TSDU framing.
 
 **Why this note exists:** The PDU frame's definition is spread across four TIA
 documents. A single 5-bit Format field in octet 0 of the header block selects the
@@ -34,25 +37,22 @@ followed by one or more 196-bit trellis-coded blocks:
 └─────────┴──────────┴──────────────┴──────────────┴─────┴──────────────┘
 ```
 
-The receiver has a single entry point (correlate FS, decode NID, check DUID = `0xC`)
-and then must decide which of six payload families it's looking at. The decision is
-**not** made from a single field — it's a two-step dispatch:
-
-| Step 1: What is the first block? | Step 2: Disambiguator |
-|-----------------------------------|------------------------|
-| Looks like a TSBK (no Format field, octet 0 = LB/P/Opcode) | Accept as TSDU; expect 1–3 TSBKs until LB=1. *(Some deployments signal TSDU with DUID `0x7`; see §3.)* |
-| Looks like a header block (Format in octet 0 bits 4:0) | Dispatch on Format value AND SAP ID |
-
-The six families:
+Under DUID `0xC`, the first trellis-coded block is *always* a PDU header block
+(never a TSBK — TSBKs are carried under their own DUID `0x7`; see §3). The
+receiver decodes the header block and dispatches by the Format field and SAP
+ID to one of five payload families:
 
 | # | Family | First-block selector | Carries | Spec |
 |---|--------|----------------------|---------|------|
-| 1 | TSDU (1–3 TSBKs) | Octet 0 = LB/P/Opcode (no Format field) | Trunking messages (AABC-E opcodes) | AABB-B §4 |
-| 2 | MBT Standard | Format `0x15` + SAP `0x3D`/`0x3F` | Multi-block trunking messages | AABB-B §5 |
-| 3 | MBT Alternative (AMBT) | Format `0x17` + SAP `0x3D`/`0x3F` | Multi-block trunking messages with opcode in header | AABB-B §5 |
-| 4 | Unconfirmed Data | Format `0x15` + SAP ≠ trunking | Packet data (SNDCP), OTAR, fire-and-forget user data | BAED-A, BAEB-C |
-| 5 | Confirmed Data | Format `0x16` | ARQ'd packet data, registration, key mgmt | BAED-A |
-| 6 | Response | Format `0x03` | ACK / NACK / SACK for confirmed packets | BAAA-B §5.5 |
+| 1 | MBT Standard | Format `0x15` + SAP `0x3D`/`0x3F` | Multi-block trunking messages | AABB-B §5 |
+| 2 | MBT Alternative (AMBT) | Format `0x17` + SAP `0x3D`/`0x3F` | Multi-block trunking messages with opcode in header | AABB-B §5 |
+| 3 | Unconfirmed Data | Format `0x15` + SAP ≠ trunking | Packet data (SNDCP), OTAR, fire-and-forget user data | BAED-A, BAEB-C |
+| 4 | Confirmed Data | Format `0x16` | ARQ'd packet data, registration, key mgmt | BAED-A |
+| 5 | Response | Format `0x03` | ACK / NACK / SACK for confirmed packets | BAAA-B §5.5 |
+
+Single-block TSDU/TSBK traffic is a sixth payload family conceptually but uses
+DUID `0x7` on the wire, not DUID `0xC`. It therefore never enters this
+dispatch path — see §3 and BAAA-B §5.6.
 
 Enhanced Addressing (Direct/Repeated configurations) is not a seventh family — it's
 a variant of families 4 and 5 where SAP = `0x1F` in the header and the first data
@@ -93,32 +93,41 @@ can dispatch without examining SAP.
 
 ---
 
-## 3. DUID Ambiguity: `0xC` vs. `0x7`
+## 3. DUID `0x7` vs. `0xC`: Normative Split
 
-BAAA-B defines exactly six DUID values (0x0 HDU, 0x3 TDU, 0x5 LDU1, 0xA LDU2,
-`0xC` PDU, 0xF TDULC). The value `0xC` is the only non-voice DUID and therefore
-covers all six payload families above.
+BAAA-B §7.5.1 (Table 18) defines only six DUID values and leaves the remaining
+ten "reserved for use in trunking or other systems." Two of those reserved
+values are normatively assigned by **TIA-102.AABB-B §4.2**:
 
-AABB-B clause 4.2 specifies DUID `$7` for single-block TSBK OSPs/ISPs and `$C` for
-multi-block packets. `0x7` is not formally defined as a DUID in BAAA-B — it falls
-into the "reserved" range. In practice:
+- DUID `$7` — **single-block format (TSBK).** Used for OSP/ISP TSBKs, 1–3 per
+  TSDU, with no PDU header block. The 196-bit trellis-coded blocks following
+  the NID are TSBKs directly.
+- DUID `$C` — **multi-block format (PDU).** Used for every payload family in
+  §1: MBT Standard, AMBT, Unconfirmed Data, Confirmed Data, and Response. The
+  first block after the NID is always a PDU header block.
 
-- **SDRTrunk** and **OP25** both accept DUID `0x7` as TSBK and DUID `0xC` as
-  multi-block PDU. They do *not* emit a reserved-value error for `0x7`.
-- Some deployments may use `0xC` for TSBKs too (relying on payload-shape dispatch
-  as described in §1).
+The two framings are fully disambiguated by DUID alone; no payload-shape
+inspection is needed. A conformant decoder dispatches:
 
-A robust decoder:
-1. Decodes NID, extracts DUID.
+1. Decode NID, extract DUID.
 2. If DUID = `0x0`, `0x3`, `0x5`, `0xA`, `0xF` → voice-frame dispatch.
-3. If DUID = `0x7` → single-block TSBK dispatch (TSDU).
-4. If DUID = `0xC` → read the first trellis-coded block, decode, then dispatch
-   by payload shape: octet 0 = `LB/P/Opcode` pattern → TSDU; octet 0 = `0/AN/IO/Format`
-   pattern → header block, then dispatch by Format as in §1.
-5. Any other DUID → log and drop (reserved).
+3. If DUID = `0x7` → TSDU: decode the next 196-bit trellis-coded block as a
+   TSBK (octet 0 = `LB/P/Opcode`), CRC-CCITT-16 verify, dispatch via AABC-E.
+   Loop for up to 3 TSBKs until `LB = 1`.
+4. If DUID = `0xC` → read the next 196-bit trellis-coded block as a PDU
+   header block (octet 0 = `0/AN/IO/Format[4:0]`), Header-CRC-CCITT-16
+   verify, then dispatch by Format/SAP as in §1.
+5. Any other DUID → log and drop (reserved; AABB-B may assign more in the
+   future, but no other assignments are known as of BAAA-B/AABB-B).
+
+**Open-source cross-refs:** SDRTrunk (`P25P1DataUnitID.java`) and OP25 both
+implement this two-DUID split. Neither treats DUID `0xC` as a TSBK carrier.
 
 Gap report 0003 (`gap_reports/0003_duid_0x7_tsbk_reserved_but_universal.md`)
-documents the `0x7`-as-reserved situation in more detail.
+asked why `0x7` was "reserved" in BAAA-B Table 18 but universal on the air.
+The answer: BAAA-B intentionally leaves trunking DUID assignments to the
+trunking spec (AABB-B §4.2). BAAA-B's "reserved" language is the hook for
+that delegation, not a prohibition.
 
 ---
 
@@ -296,23 +305,17 @@ implicit in I/O bit) and therefore don't need EA.
 FUNCTION dispatch_fdma_pdu(nid: NID, first_block_bits: [u8; 12]):
 
     IF nid.duid == 0x07:
-        // TSDU signaled explicitly via DUID
+        // TSDU (single-block trunking) -- per AABB-B §4.2
         return parse_as_tsbk_sequence(first_block_bits)
 
     IF nid.duid != 0x0C:
         return Error(UnexpectedDuid)
 
-    // DUID = 0xC: could be TSDU, MBT, data, or response
+    // DUID = 0xC: multi-block PDU -- MBT, data, or response.
+    // First block is ALWAYS a PDU header block (never a TSBK).
     octet0 = first_block_bits[0]
     octet1 = first_block_bits[1]
 
-    // TSBK dispatch: TSBKs have no '0' in bit 7 of octet 0 by construction
-    // (LB is bit 7, can be 0 or 1); distinguishable by payload shape, not a clean
-    // bit test. Fall back to examining octet 1 MFID validity if ambiguous.
-    IF looks_like_tsbk(first_block_bits):
-        return parse_as_tsbk_sequence(first_block_bits)
-
-    // Otherwise treat first block as header block
     IF (octet0 & 0x80) != 0:
         return Error(ReservedHighBit)
 
@@ -371,9 +374,12 @@ Packet CRC-32.
 1. **Dispatching on Format alone.** Format `0x15` is ambiguous (Unconfirmed vs.
    Standard MBT). Always combine with SAP to disambiguate.
 
-2. **Assuming DUID `0xC` = data and DUID `0x7` = signaling.** Both are used for
-   trunking signaling depending on the deployment and the reference implementation.
-   A robust parser handles `0xC` as a polymorphic container.
+2. **Treating DUID `0xC` as a polymorphic TSBK/header container.** AABB-B §4.2
+   is normative: DUID `0x7` always carries 1–3 TSBKs (TSDU); DUID `0xC` always
+   carries a PDU header block followed by data blocks. A receiver should
+   dispatch on DUID *before* inspecting block contents. Conversely, don't
+   drop DUID `0x7` as "reserved" — BAAA-B Table 18 delegates trunking DUID
+   assignments to the trunking spec (see §3).
 
 3. **Computing CRCs in LSB-first order.** BAAA-B is MSB-first for all three PDU
    CRCs. The CCITT convention in consumer modem code (e.g., Kermit, XMODEM) is

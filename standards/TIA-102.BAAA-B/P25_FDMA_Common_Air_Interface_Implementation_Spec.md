@@ -631,34 +631,53 @@ typedef struct {
 
 ### 5.6 Trunking Signaling Data Unit (TSDU)
 
-The TSDU carries Trunking Signaling Block (TSBK) messages. In BAAA-B, this is carried
-as a PDU (DUID=0xC). The TSBK message formats are defined in TIA-102.AABC-E.
+The TSDU carries Trunking Signaling Block (TSBK) messages. Per **TIA-102.AABB-B
+§4.2**, the TSDU wire format uses **DUID = `0x7`** — *not* DUID = `0xC`.
+BAAA-B §7.5.1 lists six DUIDs and leaves the remaining ten "reserved for use in
+trunking or other systems"; AABB-B §4.2 is the normative assignment for two of
+them (`$7` for single-block TSBK, `$C` for multi-block PDU). See §3.2 for the
+full seven-DUID table. The TSBK *message* opcodes are defined in TIA-102.AABC-E.
 
-A TSDU contains 1-3 TSBK messages, each 12 octets (96 bits). Each TSBK is individually
-trellis-coded using rate-1/2 trellis code (same as unconfirmed data blocks).
+A TSDU contains 1-3 TSBK blocks, each 12 octets (96 bits) before FEC. Each TSBK
+is individually trellis-coded using the rate-1/2 trellis code (same as
+unconfirmed data blocks).
 
 | Field | Bits | Description |
 |-------|------|-------------|
 | Frame Sync (FS) | 48 | |
-| Network ID (NID) | 64 | DUID = 0xC |
-| TSBK block(s) | 196 each | Trellis-coded (98 dibits each) |
+| Network ID (NID) | 64 | DUID = `0x7` (per AABB-B §4.2) |
+| TSBK block(s) | 196 each | Trellis-coded (98 dibits each); 1, 2, or 3 blocks |
 | Null fill | variable | To next SS boundary |
 | Status Symbols | variable | |
 
 Each TSBK before trellis coding: 12 octets = 96 bits. After rate-1/2 trellis:
-48 dibits input -> 98 dibits output -> 196 bits per TSBK.
+48 dibits input → 98 dibits output → 196 bits per TSBK.
 
-The last TSBK in a TSDU has its "Last Block" flag set. Up to 3 TSBKs can be
-concatenated in a single TSDU.
+The last TSBK in a TSDU has its "Last Block" (LB) flag set (octet 0 bit 7). Up
+to 3 TSBKs can be concatenated in a single TSDU. See AABB-B §5 (Figures 5-1 and
+5-2) for the single/double/triple-TSBK slot layouts.
 
-**Cross-ref:** See TIA-102.AABC-E Implementation Spec for complete TSBK opcode table.
+**Discriminator vs. DUID `0xC`:** A receiver that has decoded the NID dispatches
+on DUID *before* looking at block contents. DUID `0x7` → always TSDU with 1–3
+TSBKs. DUID `0xC` → always a multi-block PDU header (data PDU, Response, or MBT
+per §5.7). The two framings never overlap at the NID layer, so the
+TSBK/header-block discriminator question of §3.2 is resolved by DUID alone.
+
+**Cross-ref:** See TIA-102.AABB-B Implementation Spec §4 for TSBK framing and
+Status Symbol placement, and TIA-102.AABC-E Implementation Spec for the
+complete TSBK opcode table.
 
 ### 5.7 Packet Data Unit (PDU)
 
-Variable-length data unit for all non-voice FDMA traffic: user data packets, trunking
-signaling (TSDU/TSBK), and multi-block trunking (MBT). All share DUID `0xC` and the
-same wire-level framing; a 5-bit **Format** field in the header block (or TSBK) octet 0
-selects the subtype.
+Variable-length data unit for non-voice FDMA traffic carried under **DUID `0xC`**:
+user data packets (Confirmed, Unconfirmed, Response) and multi-block trunking
+(MBT Standard and Alternative). All share DUID `0xC` and the same wire-level
+framing — header block + 1..N data blocks; a 5-bit **Format** field in the
+header block's octet 0 selects the subtype.
+
+Single-block TSBK traffic is *not* a PDU subtype — it uses its own DUID `0x7`
+(TSDU; see §5.6). Under DUID `0xC`, the first trellis-coded block is always a
+PDU header block, never a TSBK.
 
 #### 5.7.1 PDU Frame Structure
 
@@ -959,7 +978,7 @@ and the Format/TSBK-header choice) before dispatching on subtype:
 
 | Payload family | DUID | Header selector | Payload spec |
 |----------------|------|------------------|--------------|
-| TSDU (1–3 TSBKs) | `0xC` *(some implementations use `0x7`; see §5.6 and AABB-B)* | First block has TSBK layout: octet 0 = `LB/P/Opcode` | TIA-102.AABC-E |
+| TSDU (1–3 TSBKs) | `0x7` (per AABB-B §4.2) | Each block is a TSBK: octet 0 = `LB/P/Opcode`, no PDU header | TIA-102.AABC-E |
 | MBT Standard (trunking) | `0xC` | Format = `0x15`, SAP = `0x3D`/`0x3F` | TIA-102.AABB-B §5, AABC-E for message content |
 | MBT Alternative (AMBT) | `0xC` | Format = `0x17`, SAP = `0x3D`/`0x3F` | TIA-102.AABB-B §5 |
 | Unconfirmed data | `0xC` | Format = `0x15`, SAP ≠ trunking | TIA-102.BAED-A (LLC), BAEB-C (SNDCP) |
@@ -1119,7 +1138,8 @@ Data transmissions use PDU frames independently -- no superframe structure.
 [PDU] ... [PDU]    (each starts with FS + NID)
 ```
 
-TSDU transmissions also stand alone -- each TSDU is a single PDU with 1-3 TSBK blocks.
+TSDU transmissions also stand alone -- each TSDU (DUID `0x7`) carries 1–3 TSBK
+blocks directly after the NID, with no PDU header block (see §5.6).
 
 ---
 
@@ -1733,14 +1753,22 @@ LOOP forever:
            - RS(24,12,13) decode -> 12 info symbols -> LC word
            - Signal end of voice call with LC data
            
-       CASE PDU (0xC):
+       CASE TSBK (0x7):  /* TSDU -- per AABB-B §4.2 */
+           - Read 196-bit trellis-coded block
+           - Deinterleave (98 dibits), Viterbi decode (rate 1/2) -> 12-byte TSBK
+           - CRC-16 verify (CRC-CCITT, see §13)
+           - Parse: octet 0 = LB | P | Opcode(6); dispatch via TIA-102.AABC-E
+           - If LB=0 in this block, loop for the next TSBK (up to 3 per TSDU)
+
+       CASE PDU (0xC):   /* Multi-block PDU (data, Response, or MBT) */
            - Read 196-bit trellis-coded header block
-           - Deinterleave (98 dibits)
-           - Viterbi decode (rate 1/2) -> 12-byte header
-           - Parse header: format, SAP, LLID, blocks_to_follow, etc.
-           - If TSBK format: decode as TSDU (up to 3 TSBK messages)
-           - If data packet: read additional trellis-coded data blocks
-           - CRC verify (header CRC-CCITT, per-block CRC-9, packet CRC-32)
+           - Deinterleave (98 dibits), Viterbi decode (rate 1/2) -> 12-byte header
+           - Header CRC-CCITT-16 verify
+           - Parse header: octet 0 = 0 | A/N | I/O | Format(5); SAP, LLID,
+             blocks_to_follow, etc. (§5.7.2 dispatch table)
+           - Read `blocks_to_follow` additional trellis-coded data blocks
+             (rate chosen by Format subtype; see §5.7)
+           - CRC verify per-block CRC-9 (confirmed) and/or packet CRC-32
     
     5. OUTPUT decoded frame to upper layer
     
@@ -2023,8 +2051,8 @@ FDMA but in a time-slotted structure. Key correspondences:
 | LDU2 (DUID 0xA) | VTCH voice burst | ES via SACCH |
 | TDU (DUID 0x3) | SACCH TDULC | End-of-call via SACCH |
 | TDULC (DUID 0xF) | SACCH with LC | LC on termination |
-| TSDU/TSBK (DUID 0xC) | FACCH signaling burst | MAC messages (BBAD-A opcodes) |
-| PDU data (DUID 0xC) | DCH data burst | Data channel operation |
+| TSDU/TSBK (DUID 0x7) | FACCH signaling burst | MAC messages (BBAD-A opcodes) |
+| PDU data / MBT (DUID 0xC) | DCH data burst | Data channel operation |
 | NID (NAC+DUID) | DUID in ISCH field | TDMA uses ISCH for burst identification |
 | Frame Sync 48-bit | Sync pattern per burst type | TDMA has per-slot sync |
 | Status Symbols | Not used in TDMA | TDMA uses ISCH for status |
@@ -2034,7 +2062,7 @@ FDMA but in a time-slotted structure. Key correspondences:
 ### 14.2 Message Format Mapping
 
 TSBK messages (AABC-E) are used in both FDMA and TDMA:
-- **FDMA:** Carried in TSDU (PDU with DUID 0xC), trellis-coded
+- **FDMA:** Carried in TSDU (DUID 0x7, per AABB-B §4.2), trellis-coded rate 1/2
 - **TDMA:** Carried in FACCH burst, with TDMA-specific FEC (RS + Golay)
 
 Link Control words (AABF-D) are used in both:
