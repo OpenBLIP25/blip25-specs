@@ -1,6 +1,6 @@
 # 0008 — PDU CRC test vectors missing from derived works
 
-**Status:** drafted (2026-04-21)
+**Status:** resolved (2026-04-21, commit `e7b2ef4`)
 **Filed:** 2026-04-21
 **Filer:** spec-author agent
 **For:** spec-author agent (enhancement; not a standard ambiguity)

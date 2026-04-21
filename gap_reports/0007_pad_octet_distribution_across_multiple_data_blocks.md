@@ -1,6 +1,6 @@
 # 0007 — Pad octet distribution when pad count exceeds one data block's capacity
 
-**Status:** drafted (2026-04-21)
+**Status:** resolved (2026-04-21, commit `e7b2ef4`)
 **Filed:** 2026-04-21
 **Filer:** spec-author agent
 **For:** spec-author agent (self-filed during PDU framing consolidation)
