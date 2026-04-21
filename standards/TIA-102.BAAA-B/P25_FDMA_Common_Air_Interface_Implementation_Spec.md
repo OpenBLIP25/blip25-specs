@@ -958,7 +958,7 @@ O\B  | 7    6    5    4    3    2    1    0
 | Class | Type | Status | Meaning |
 |-------|------|--------|---------|
 | `%00` | `%001` | N(R) | ACK — all blocks received correctly |
-| `%00` | `%000` | N(R)* | NACK — illegal format (N(R) may be meaningless) |
+| `%01` | `%000` | N(R)* | NACK — illegal format (N(R) may be meaningless) |
 | `%01` | `%001` | N(R) | NACK — packet CRC-32 failure |
 | `%01` | `%010` | N(R) | NACK — memory full |
 | `%01` | `%011` | FSN | NACK — out-of-sequence fragment |

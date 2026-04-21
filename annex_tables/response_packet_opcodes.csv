@@ -1,0 +1,10 @@
+class_bits,type_bits,status_field,octet1_pattern,octet1_when_status_zero_hex,shorthand,meaning,source
+%00,%001,N(R),01001nnn,0x08,ACK,All blocks received correctly. Status = N(R) echoing N(S) of the confirmed packet.,BAAA-B Table 10 row 1
+%01,%000,N(R)*,01000nnn,0x40,NACK_ILLEGAL_FORMAT,Illegal format received. N(R) may be meaningless (Table 10 footnote *).,BAAA-B Table 10 row 2
+%01,%001,N(R),01001nnn,0x48,NACK_PACKET_CRC,Packet CRC-32 check failed across assembled data blocks.,BAAA-B Table 10 row 3
+%01,%010,N(R),01010nnn,0x50,NACK_MEMORY_FULL,Receiver has no reassembly buffer available.,BAAA-B Table 10 row 4
+%01,%011,FSN,01011fff,0x58,NACK_OUT_OF_SEQ_FSN,Fragment received out of logical FSNF sequence. Status carries the FSN that was expected/received (3 bits).,BAAA-B Table 10 row 5
+%01,%100,N(R),01100nnn,0x60,NACK_UNDELIVERABLE,Destination unreachable or declined delivery.,BAAA-B Table 10 row 6
+%01,%101,V(R),01101vvv,0x68,NACK_OUT_OF_SEQ_DEPRECATED,Out-of-sequence N(S) relative to V(R). Deprecated in Revision B (Table 10 footnote **); do not emit but accept-and-log on receive.,BAAA-B Table 10 row 7
+%01,%110,N(R),01110nnn,0x70,NACK_INVALID_USER,Sender not authorized by system policy.,BAAA-B Table 10 row 8
+%10,%000,N(R),10000nnn,0x80,SACK_SELECTIVE_RETRY,Some blocks errored; bitmap of retry flags follows in 1 or 2 appended data blocks per Figure 22.,BAAA-B Table 10 row 9

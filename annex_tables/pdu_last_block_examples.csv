@@ -1,0 +1,45 @@
+case_id,packet_type,btf,pad_count,user_octets,block_index,block_octet,contents,notes
+U_B1_P0,Unconfirmed,1,0,8,1,0-7,user[0..7],last block: 8 user octets fill the non-CRC area
+U_B1_P0,Unconfirmed,1,0,8,1,8-11,crc32,packet CRC-32 covers user[0..7]
+U_B1_P4,Unconfirmed,1,4,4,1,0-3,user[0..3],last block: 4 user octets
+U_B1_P4,Unconfirmed,1,4,4,1,4-7,pad[0..3],pad fills remainder of user-data area (4 octets)
+U_B1_P4,Unconfirmed,1,4,4,1,8-11,crc32,packet CRC-32 covers user[0..3] || pad[0..3]
+U_B2_P0,Unconfirmed,2,0,20,1,0-11,user[0..11],full user-data block
+U_B2_P0,Unconfirmed,2,0,20,2,0-7,user[12..19],8 user octets in last block
+U_B2_P0,Unconfirmed,2,0,20,2,8-11,crc32,packet CRC-32 covers user[0..19]
+U_B2_P8,Unconfirmed,2,8,12,1,0-11,user[0..11],full user-data block (pad didn't spill)
+U_B2_P8,Unconfirmed,2,8,12,2,0-0,user[12],1 user octet at start of last block
+U_B2_P8,Unconfirmed,2,8,12,2,0-7,"user[12] || pad[0..6]",1 user + 7 pad fills 8-octet area — BUT this case is pad=8 with only 1 last-block user octet
+U_B2_P8,Unconfirmed,2,8,12,2,8-11,crc32,packet CRC-32 covers user[0..11] || pad[0..7]
+U_B2_P10,Unconfirmed,2,10,14,1,0-9,user[0..9],10 user octets
+U_B2_P10,Unconfirmed,2,10,14,1,10-11,pad[0..1],2 pad octets cascade into second-to-last block (beyond last-block capacity of 8)
+U_B2_P10,Unconfirmed,2,10,14,2,0-3,user[10..13],4 user octets in last block
+U_B2_P10,Unconfirmed,2,10,14,2,4-7,pad[2..5],4 pad octets
+U_B2_P10,Unconfirmed,2,10,14,2,8-11,crc32,packet CRC-32 covers user[0..13] || pad[0..5]. NOTE gap report 0014 claims BTF=2 pad=10 should be 14-user/10-pad; see pdu_crc_test_vectors.csv for the CRC-32 value once that file is re-validated
+C_B1_P0,Confirmed,1,0,12,1,0-1,dbsn+crc9,data block serial number + CRC-9
+C_B1_P0,Confirmed,1,0,12,1,2-13,user[0..11],12 user octets (16 minus 4 for packet CRC-32)
+C_B1_P0,Confirmed,1,0,12,1,14-17,crc32,packet CRC-32 covers user[0..11]
+C_B2_P0,Confirmed,2,0,28,1,0-1,dbsn+crc9,intermediate block header
+C_B2_P0,Confirmed,2,0,28,1,2-17,user[0..15],16 user octets in intermediate block
+C_B2_P0,Confirmed,2,0,28,2,0-1,dbsn+crc9,last block header (unchanged)
+C_B2_P0,Confirmed,2,0,28,2,2-13,user[16..27],12 user octets in last block's user-data area
+C_B2_P0,Confirmed,2,0,28,2,14-17,crc32,packet CRC-32 covers user[0..27]
+C_B2_P8,Confirmed,2,8,20,1,0-1,dbsn+crc9,intermediate block header
+C_B2_P8,Confirmed,2,8,20,1,2-17,user[0..15],16 user octets (no pad spill)
+C_B2_P8,Confirmed,2,8,20,2,0-1,dbsn+crc9,last block header
+C_B2_P8,Confirmed,2,8,20,2,2-5,user[16..19],4 user octets
+C_B2_P8,Confirmed,2,8,20,2,6-13,pad[0..7],8 pad octets (all fit in last block; pad<=12)
+C_B2_P8,Confirmed,2,8,20,2,14-17,crc32,packet CRC-32 covers user[0..19] || pad[0..7]
+C_B2_P13,Confirmed,2,13,15,1,0-1,dbsn+crc9,intermediate block header
+C_B2_P13,Confirmed,2,13,15,1,2-16,user[0..14],15 user octets
+C_B2_P13,Confirmed,2,13,15,1,17-17,pad[12],1 pad octet cascades into second-to-last block (pad>12 exceeds last block capacity)
+C_B2_P13,Confirmed,2,13,15,2,0-1,dbsn+crc9,last block header
+C_B2_P13,Confirmed,2,13,15,2,2-13,pad[0..11],12 pad octets fill the last block's user-data area
+C_B2_P13,Confirmed,2,13,15,2,14-17,crc32,packet CRC-32 covers user[0..14] || pad[0..12]
+C_B3_P0,Confirmed,3,0,44,1,0-1,dbsn+crc9,block 1 header
+C_B3_P0,Confirmed,3,0,44,1,2-17,user[0..15],16 user octets
+C_B3_P0,Confirmed,3,0,44,2,0-1,dbsn+crc9,block 2 header
+C_B3_P0,Confirmed,3,0,44,2,2-17,user[16..31],16 user octets
+C_B3_P0,Confirmed,3,0,44,3,0-1,dbsn+crc9,last block header
+C_B3_P0,Confirmed,3,0,44,3,2-13,user[32..43],12 user octets in last block
+C_B3_P0,Confirmed,3,0,44,3,14-17,crc32,packet CRC-32 covers user[0..43]

@@ -204,9 +204,37 @@ Payload: SNDCP header (2 bytes: PDU Type + NSAPI + PCOMP + DCOMP) || IP datagram
 Last 4 octets of final data block: Packet CRC-32 (over all user data + pad)
 ```
 
-**Dispatch path:** FS → NID → header decode → Format=0x15 + SAP=0x04 → Unconfirmed
-Data handler → read BTF data blocks → packet CRC-32 → deliver to SNDCP. BAEB-C
-handles the 2-byte SNDCP header and upper-layer delivery.
+**Last data block layout (BAAA-B §5.4 Figure 24).** The last data block of an
+Unconfirmed packet is always 12 octets laid out as:
+
+```
+Octets 0-7:  User data followed by Pad octets (8 octets of user+pad area)
+Octets 8-11: Packet CRC-32 (4 octets)
+```
+
+CRC-32 **always** occupies the literal last 4 octets. User data fills from
+octet 0 upward; pad octets sit between the last user-data octet and the CRC-32.
+Per BAAA-B §5.4.3 ("greedy fill from the end"), when pad count exceeds the
+8-octet last-block capacity, additional pad octets spill into the *end of* the
+second-to-last block (pushing the user data downward in that block). BAED-A §5.4
+caps Unconfirmed at `P_MAXU = 11` pad octets (≤ 8 in last block + ≤ 3 cascading
+into second-to-last), which is the implementer budget that keeps pad confined
+to the last two blocks.
+
+*Worked example — BTF = 2, 14 octets user data, pad_count = 10:*
+
+```
+Block 1 (12 octets):  [ U0 U1 U2 U3 U4 U5 U6 U7 U8 U9 P0 P1 ]
+                       └──── user data (10 octets) ────┘└pad┘
+Block 2 (12 octets):  [ U10 U11 U12 U13 P2 P3 P4 P5 P6 P7 │ CRC-32 │ ]
+                       └─ user (4) ─┘└─── pad (6) ─────┘└── (4) ───┘
+```
+
+Total payload area = 24 octets = 14 user + 10 pad + 4 CRC. Pad value is
+conventionally `0x00` (not normative). See the BAAA-B implementation spec §5.7.3
+for the canonical worked example this was derived from. A baseline `pad = 0`
+case places user data contiguously from octet 0 of block 1 through octet 7 of
+the last block, with CRC-32 untouched in octets 8–11 of the last block.
 
 ### 4.4 Confirmed Data PDU (ARQ'd Data)
 
@@ -227,6 +255,41 @@ Each data block (18 octets pre-trellis, 144 bits input to rate-¾ trellis → 19
   Octets 2-17 = 16 octets of user data
   Last data block: last 4 user octets replaced by Packet CRC-32
 ```
+
+**Last data block layout (BAAA-B §5.4.3 Figure 20).** An intermediate Confirmed
+block has 16 octets of user-data area (octets 2–17). The **last** block reserves
+the last 4 of those for the Packet CRC-32, leaving 12 octets of user+pad area:
+
+```
+Octets 0-1:   Data Block Serial Number + CRC-9 (unchanged from intermediate blocks)
+Octets 2-13:  User data followed by Pad octets (12 octets of user+pad area)
+Octets 14-17: Packet CRC-32 (4 octets)
+```
+
+Important: the per-block CRC-9 in octets 0–1 still covers the *full 16-octet
+user-data region* (octets 2–17), including whatever Packet CRC-32 bytes now sit
+in octets 14–17. Conceptually, CRC-32 replaces the last 4 *logical* user-data
+bytes — not the last 4 *physical* block octets (which would stomp on CRC-9).
+Per §5.4.3, up to 12 pad octets may fit in the last block's user-data area;
+additional pad cascades into the *end of* the second-to-last block (same
+"greedy fill from the end" rule as Unconfirmed). BAED-A §5.4 caps Confirmed at
+`P_MAXC = 15` pad octets (≤ 12 in last block + ≤ 3 cascading into second-to-last).
+
+*Worked example — BTF = 2, 20 octets user data, pad_count = 8:*
+
+```
+Block 1 (18 octets): [ SN1 CRC9_1 ] [ U0  U1  U2  …  U15 ]
+                      └ 2 octets ┘  └── 16 user octets ──┘
+Block 2 (18 octets): [ SN2 CRC9_2 ] [ U16 U17 U18 U19 P0 P1 P2 P3 P4 P5 P6 P7 │ CRC-32 │ ]
+                      └ 2 octets ┘  └─ user (4) ─┘└─── pad (8) ───┘└─── (4) ─┘
+```
+
+Total user-area = 32 octets = 20 user + 8 pad + 4 CRC. All pad fits in the last
+block (`pad_count ≤ 12`). If `pad_count = 14`, the last block would hold 12 pad
+octets (user+pad area = 0 user + 12 pad + 4 CRC) and the second-to-last block's
+user-data area (octets 2–17) would carry the last 2 pad octets in its final
+positions (octets 16–17), with user data filling octets 2–15. See the BAAA-B
+implementation spec §5.7.4 for the canonical worked example.
 
 **Dispatch path:** FS → NID → header decode → Format=0x16 → Confirmed Data handler →
 read BTF rate-¾ blocks → validate per-block CRC-9 → validate Packet CRC-32 → if
@@ -255,6 +318,17 @@ Each SACK data block: 64 flag bits (f0..f63) + Packet CRC-32 in last 4 octets of
 **Dispatch path:** FS → NID → header decode → Format=0x03 → Response handler →
 extract Class/Type/Status → if SACK, read BTF data blocks and apply selective
 retry bitmap to the sender's packet buffer.
+
+**Opcode table.** BAAA-B Table 10 enumerates every defined `(Class, Type, Status)`
+triple. The full set is also mirrored in `annex_tables/response_packet_opcodes.csv`
+with the whole-byte `octet1_when_status_zero_hex` column (the form many
+open-source decoders — e.g. SDRTrunk's `ResponseHeader` — dispatch on). Decoders
+are free to treat octet 1 as either (a) three packed bit-fields or (b) a whole-byte
+opcode with the Status nibble carried separately; the two views are isomorphic.
+Only the Class=%11 row is reserved (no Table 10 assignment). Note that
+NACK — Illegal Format is Class=%01 Type=%000 (octet 1 = `0x40 | status`), not
+Class=%00; historical implementations that placed it under Class=%00 are
+inconsistent with BAAA-B Revision B Table 10.
 
 ---
 
@@ -343,6 +417,41 @@ FUNCTION dispatch_fdma_pdu(nid: NID, first_block_bits: [u8; 12]):
 
         _    → Error(ReservedFormat)
 ```
+
+### 6.1 Recovery Strategies When Header CRC-16 Fails
+
+BAAA-B §5.2 defines Header CRC-CCITT-16 as the integrity check over header
+octets 0–9; BAED-A §3.1 says an active receiver accepts the PDU for further
+processing only when Header CRC passes and silently discards otherwise. The
+spec is normatively written for the *active* receiver case (participating in
+ARQ), not for a passive monitor that cannot request retransmission.
+
+A passive receiver (logger, dispatch mirror, spectrum monitor) has three
+implementer strategies when Header CRC-16 fails on a DUID=`0xC` frame:
+
+| Strategy | Behavior | Cost | Best for |
+|----------|----------|------|----------|
+| **A — Drop** | Discard the frame. Skip forward to the next FS+NID correlator hit. This is the BAED-A-implied active-receiver behavior. | Loses information recoverable from a single-bit header flip. Doesn't know how far to skip, so relies on sync hunt to resume. | Conformance-strict / ARQ-participating receivers. |
+| **B — Best-effort BTF** | Read the (CRC-failed) BTF and Format fields anyway, after sanity-checking Format ∈ {`0x03`, `0x15`, `0x16`, `0x17`} and BTF ≤ a cap (e.g., 20). Attempt to decode that many data blocks. Per-block CRCs (Confirmed) or the Packet CRC-32 (Unconfirmed) act as a second-chance gate. | If BTF was the bit that flipped, over/under-reads by a small amount; the downstream CRC catches the overshoot. If Format field was corrupt, bails out early. | Passive monitoring where a single-bit header flip is more common than structural corruption. |
+| **C — Sync hunt** | Discard this header's BTF, search the raw dibit stream forward for the next P25 FS sync pattern, and infer this PDU's block count from the sync-to-sync distance. | Loses *all* data blocks of this PDU (information-inefficient when only one header bit flipped). Safer against structural corruption (can't collect blocks that belong to a different frame). | Weak-signal captures where structural corruption is more likely than single-bit flips. SDRTrunk's `P25P1MessageFramer.forceCompletion` is a pure Strategy C. |
+
+**Recommendation for passive receivers:** Strategy **B with a Format-field
+sanity gate** as the default. It extracts the most information when the
+corruption is small (which is empirically the common case at the edge of
+coverage), it fails gracefully (downstream CRCs reject the attempt when
+corruption is bigger than one bit in BTF), and it never trusts a frame that
+silently passes integrity checking. Decoders that are willing to spend
+additional compute can fall back to Strategy C on downstream CRC fail to
+maximize recovery.
+
+OP25 (`rx_pdu.cc`) implements Strategy A. SDRTrunk uses a hybrid biased toward
+Strategy C via `forceCompletion`. blip25 uses Strategy B with a Format-field
+sanity gate (`early_decode_pdu_blocks_to_follow`).
+
+This section is **not** a BAAA-B / BAED-A amendment — those specs reasonably
+don't discuss passive monitoring. It documents decoder-ergonomics choices the
+standard leaves to the implementer, so multiple decoders can converge on a
+common default instead of each rediscovering the tradeoff from scratch.
 
 ---
 
