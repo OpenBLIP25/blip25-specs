@@ -348,9 +348,91 @@ static const uint64_t GENERATOR_NID[16] = {
 4. Otherwise, use error-trapping or lookup table to correct up to 11 errors
    (the code has d_min = 23, so t = 11 error correction capability).
 5. Extract NAC (bits 63..52) and DUID (bits 51..48) from corrected word.
+6. If the correction algorithm cannot converge to a valid codeword (more than
+   `t = 11` errors, or a miscorrection into another coset leader), the NID
+   cannot be reliably decoded at the algebraic layer. The standard is silent
+   on what to do next — see §3.3.1.
+
+The interop contract is at the **codeword** level: any decoder that produces
+the correct `(NAC, DUID)` pair from a received word that lies within the
+t=11 correction sphere of a transmitted codeword satisfies TIA-102.BAAA-B
+§7.5.2. BAAA-B does not mandate a specific decoding algorithm (Berlekamp-
+Massey, Peterson–Gorenstein–Zierler, syndrome-table lookup, Chase-II
+over soft bits, etc. are all conformant).
 
 **SDRTrunk cross-ref:** `NID.java` performs BCH decode, then dispatches on DUID.
 **OP25 cross-ref:** `p25p1_fdma.cc` function `process_NID()`.
+
+#### 3.3.1 Post-failure Recovery (informative)
+
+BAAA-B §7.5.2 specifies only the code — generator polynomial, generator
+matrix, and the 64th overall-parity bit. It does not prescribe a decoding
+algorithm and does not describe what a receiver should do when correction
+fails. This is a deliberate separation: algebraic error-control coding is a
+well-studied general topic, and the standard treats the decoder as
+implementer-chosen.
+
+In practice, every production FDMA decoder layers *something* on top of the
+nominal t=11 syndrome decoder to recover NIDs that would otherwise be
+dropped. None of these patterns is normative, but all three are widely
+deployed and all produce the same `(NAC, DUID)` output when they succeed,
+so they are *interop-safe*: a receiver using any combination of these
+strategies is bit-compatible with a receiver using none.
+
+**Pattern A — NAC-forced retry (SDRTrunk, OP25, others).** A receiver that
+is already tracking the expected NAC (from prior frames in the same call or
+from a control-channel scan) overwrites the received NAC field with the
+tracked NAC and re-runs the t=11 decoder. This recovers NIDs whose residual
+errors, once the NAC field is corrected by hypothesis, fall back inside
+the correction sphere.
+
+```c
+/* Informative: SDRTrunk-style NAC-hint retry. Not normative. */
+int decode_nid_with_nac_hint(uint64_t received, uint16_t tracked_nac,
+                             uint16_t *out_nac, uint8_t *out_duid) {
+    if (bch_decode(received, out_nac, out_duid) == BCH_OK) return BCH_OK;
+    if (tracked_nac == 0) return BCH_FAIL;  /* no hint available */
+
+    /* Force the tracked NAC into bits 63..52, re-run correction. */
+    uint64_t forced = (received & ~((uint64_t)0xFFFu << 52))
+                    | ((uint64_t)(tracked_nac & 0xFFFu) << 52);
+    return bch_decode(forced, out_nac, out_duid);
+}
+```
+
+**Pattern B — Chase-II soft decoding.** A receiver with access to per-bit
+demod confidence flips the `p` least-reliable bits exhaustively (2^p
+combinations), runs the t=11 decoder for each, and picks the candidate
+with the smallest `(BCH corrections + Chase flips)` total (or weighted
+soft-distance). Typical `p` values are 3–6; the payoff grows sharply with
+`p` but so does the compute cost. This approach can tolerate up to roughly
+`t + p` hard errors when the high-error positions coincide with the
+low-confidence bits.
+
+**Pattern C — Matched-codeword enumeration.** A receiver that has locked
+onto a specific NAC may enumerate all 7 valid `(NAC_tracked, DUID)`
+codewords (one per known DUID) and pick the one with minimum hard- or
+soft-distance to the received word. This is equivalent to maximum-
+likelihood decoding over a tiny codebook and is cheap because there are
+only seven candidates. It is most useful during initial lock or on a
+fading channel where a small bump in recovery rate matters more than
+cycles.
+
+**Interop consequences.** All three patterns either succeed (and produce a
+codeword that also satisfies the nominal t=11 decoder) or fail (and the
+receiver drops the NID as uncorrectable). None of them produces NID output
+a conformant transmitter could not have emitted. A receiver that
+implements none of them is also conformant — it just recovers fewer
+marginal NIDs.
+
+**When to skip recovery.** On a clean channel with SNR well above the
+BER/SER knee, recovery patterns rarely fire and cost nothing. On a
+channel saturated with false frame syncs (for example, a CQPSK receiver
+with unresolved phase ambiguity), aggressive NID recovery can *amplify*
+false-positive rates by turning random noise into plausible-looking NIDs.
+Implementers should gate recovery on upstream lock quality (frame-sync
+confidence, symbol-timing lock, NAC consistency across adjacent frames)
+rather than always running it.
 
 ---
 
