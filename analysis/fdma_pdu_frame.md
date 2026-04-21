@@ -186,9 +186,20 @@ CRC-CCITT → Format=0x15 + SAP=0x3D → MBT Standard handler → read 2 data bl
 packet CRC-32 → route to AABC-E opcode dispatcher (opcode is encoded in the data
 blocks for Standard MBT).
 
-### 4.3 Unconfirmed Data PDU (SNDCP IP Datagram)
+### 4.3 Unconfirmed Data PDU (SNDCP IP Datagram — trunked IV&D)
 
 Same Format value (`0x15`), different SAP, different routing.
+
+**Scope note.** The SNDCP/IP example below is specific to **trunked
+IV&D** on Motorola ASTRO 25 (and any other P25 system that uses
+TIA-102.BAEB-C SNDCP above the TIA packet framing). On trunked traffic
+there is also an LLC user-plane layer (TIA-102.BAED-A) between the
+BAEB-C reassembled payload and the SNDCP header — its sliding-window
+sequence / ACK / SACK bytes are on the wire but are not drawn in the
+figure below. On **conventional** Motorola IV&D the wrapper is SCEP
+(Motorola proprietary) riding on TIA-102.BAEB-A, *not* SNDCP; see
+`analysis/motorola_conventional_scep_vs_trunked_sndcp.md` and
+`analysis/motorola_sndcp_npdu_preamble.md` for the mode split.
 
 ```
 [FS][NID DUID=0xC][Header block][Data blocks × BTF]
@@ -200,7 +211,10 @@ Octet 1 = 0x04 or 0xC0..0xC3 →  SAP = Packet Data (0x04) or Unencrypted User D
 Octet 6 = 0x85  →  high bit '1', BTF = 5 (5 data blocks follow)
 
 Data blocks: rate-½ trellis, 12 octets each
-Payload: SNDCP header (2 bytes: PDU Type + NSAPI + PCOMP + DCOMP) || IP datagram
+Payload (trunked IV&D):
+  [ LLC user-plane bytes (BAED-A)          ]   (sequence / window / ACK / SACK)
+  [ SNDCP header, 2 bytes (BAEB-C §6.4)    ]   (PDU Type + NSAPI + PCOMP + DCOMP)
+  [ IP datagram                            ]
 Last 4 octets of final data block: Packet CRC-32 (over all user data + pad)
 ```
 

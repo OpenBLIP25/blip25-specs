@@ -1,0 +1,56 @@
+field,size_bits,value,meaning,version,source
+PDU_Type,4,0,SN-Context Activation Request (SU->FNE) / SN-Context Activation Accept (FNE->SU),V1+,BAEB-B Table 1
+PDU_Type,4,1,SN-Context Activation Command,V2+,BAEB-B Table 1
+PDU_Type,4,2,SN-Context Deactivation Request (bidirectional),V1+,BAEB-B Table 1
+PDU_Type,4,3,SN-Context Activation Reject,V1+,BAEB-B Table 1
+PDU_Type,4,4,SN-UData (unconfirmed data),V1+,BAEB-B Table 1
+PDU_Type,4,5,SN-Data (confirmed data),V1+,BAEB-B Table 1
+PDU_Type,4,6-15,Reserved,V1+,BAEB-B Table 1
+SNDCP_Version,4,1,TIA-102 SNDCP V1,V1+,BAEB-B Figures 16/25
+SNDCP_Version,4,2,TIA-102 SNDCP V2,V2+,BAEB-B Figures 17/25
+SNDCP_Version,4,3,TIA-102 SNDCP V3,V3+,BAEB-B Figures 18/25
+SNDCP_Version,4,8,WAI SNDCP V1,WAI,BAEB-B §5.1
+SNDCP_Version,4,other,Reserved,all,BAEB-B §5.1
+NSAPI,4,0,Control signaling (reserved),all,BAEB-B §5.1
+NSAPI,4,1,Mandatory - all FNE implementations MUST support,all,BAEB-B §5.1
+NSAPI,4,2-14,Dynamic user-data contexts,all,BAEB-B §5.1
+NSAPI,4,15,Reserved,all,BAEB-B §5.1
+NAT,4,0,No static address; FNE assigns dynamically,all,BAEB-B §6.2.3
+NAT,4,1,Static address; SU provides in PDU,all,BAEB-B §6.2.3
+DSUT,4,0,Trunked Data Only SU,all,BAEB-B §6.2.4
+DSUT,4,1,Alternate Trunked Voice and Data SU,all,BAEB-B §6.2.4
+DSUT,4,2,Conventional Data Only SU,all,BAEB-B §6.2.4
+DSUT,4,3,Alternate Conventional Voice and Data SU,all,BAEB-B §6.2.4
+DSUT,4,4,Trunked and Conventional Data Only SU,all,BAEB-B §6.2.4
+DSUT,4,5,Alternate Trunked and Conventional Voice and Data SU,all,BAEB-B §6.2.4
+DSUT,4,6-15,Reserved,all,BAEB-B §6.2.4
+MTU,4,0,Reserved,all,BAEB-B §6.2.9
+MTU,4,1,296 octets,all,BAEB-B §6.2.9
+MTU,4,2,510 octets,all,BAEB-B §6.2.9
+MTU,4,3,1020 octets,all,BAEB-B §6.2.9
+MTU,4,4,1500 octets,all,BAEB-B §6.2.9
+MTU,4,5-15,Reserved,all,BAEB-B §6.2.9
+UDPC,4,0,UDP compression not supported/not requested,all,BAEB-B §6.2.5
+UDPC,4,1,UDP compression supported/requested,all,BAEB-B §6.2.5
+UDPC,4,2-15,Reserved,all,BAEB-B §6.2.5
+Deactivation_Type,8,0,Deactivate all NSAPIs,all,BAEB-B Table 28
+Deactivation_Type,8,1,Deactivate NSAPI in this PDU,all,BAEB-B Table 28
+Deactivation_Type,8,2-255,Reserved,all,BAEB-B Table 28
+IPHC_bit,1,1,TCP/IP Header Compression per RFC 1144,V1/V2,BAEB-B Table 31
+IPHC_bit,7,0,Reserved (bits 2-8),V1/V2,BAEB-B Table 31
+HCOMP_bit,1,1,TCP/IP Header Compression per RFC 1144,V3,BAEB-B Table 32
+HCOMP_bit,2,1,Header Compression per RFC 2507,V3,BAEB-B Table 32
+HCOMP_bit,6,0,Reserved (bits 3-8),V3,BAEB-B Table 32
+MAX_INT_FHD,8,0,Periodic full-header transmission disabled,V3,BAEB-B Table 38
+MAX_INT_FHD,8,1-255,Max compressed non-TCP headers between full headers: value x 16,V3,BAEB-B Table 38
+MAX_TME_FHD,8,0,Periodic full-header transmission disabled (time),V3,BAEB-B Table 39
+MAX_TME_FHD,8,1-255,Max time between full headers: value x 5 seconds,V3,BAEB-B Table 39
+MAX_HDR_SZE,8,0,Not significant for this context,V3,BAEB-B Table 40
+MAX_HDR_SZE,8,1-59,Reserved,V3,BAEB-B Table 40
+MAX_HDR_SZE,8,60-255,Maximum header size in octets,V3,BAEB-B Table 40
+Version_Supported_bit,1,1,TIA-102 SNDCP V1,V3,BAEB-B Table 43
+Version_Supported_bit,2,1,TIA-102 SNDCP V2,V3,BAEB-B Table 43
+Version_Supported_bit,3,1,TIA-102 SNDCP V3,V3,BAEB-B Table 43
+Version_Supported_bit,4-7,0,TIA reserved,V3,BAEB-B Table 43
+Version_Supported_bit,8,1,WAI SNDCP V1,V3,BAEB-B Table 43
+Version_Supported_bit,9-15,0,WAI reserved,V3,BAEB-B Table 43

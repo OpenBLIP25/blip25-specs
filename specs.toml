@@ -840,8 +840,19 @@ ansi = true
 [specs."TIA-102.BAEB-B"]
 title = "P25 IP Data Bearer Service Specification (revision B)"
 classification = ["protocol", "data"]
-status = "pending"
-current_revision = "Superseded by BAEB-C"
+status = "processed"
+current_revision = "Superseded by BAEB-C (but authoritative for SCEP, which BAEB-C does not reproduce)"
+published = "2014-09"
+processed_date = "2026-04-21"
+
+[specs."TIA-102.BAEB-B".extracted_files]
+pdf                        = "standards/TIA-102.BAEB-B/85 TIA 102 BAEB B Final Published Document 2014 09 02.pdf"
+full_text                  = "standards/TIA-102.BAEB-B/TIA-102-BAEB-B_Full_Text.md"
+summary                    = "standards/TIA-102.BAEB-B/TIA-102-BAEB-B_Summary.txt"
+related_resources          = "standards/TIA-102.BAEB-B/TIA-102-BAEB-B_Related_Resources.md"
+implementation_spec        = "standards/TIA-102.BAEB-B/P25_IP_Data_Bearer_BAEB_B_Implementation_Spec.md"
+sndcp_reject_codes_csv     = "annex_tables/sndcp_reject_codes.csv"
+sndcp_field_definitions_csv = "annex_tables/sndcp_field_definitions.csv"
 
 [specs."TIA-102.BAEB-C"]
 title = "P25 IP Data Bearer Service Specification"
@@ -1022,9 +1033,18 @@ current_revision = "Superseded by BAJD-A"
 [specs."TIA-102.BAJD-A"]
 title = "P25 TCP/UDP Port Number Assignments"
 classification = ["message_format"]
-status = "pending"
+status = "processed"
 current_revision = "BAJD-A"
 published = "2019-01"
+processed_date = "2026-04-21"
+
+[specs."TIA-102.BAJD-A".extracted_files]
+pdf                  = "standards/TIA-102.BAJD-A/8.5_TIA-102.BAJD-A_Final Published Document_2019_01_082.pdf"
+full_text            = "standards/TIA-102.BAJD-A/TIA-102-BAJD-A_Full_Text.md"
+summary              = "standards/TIA-102.BAJD-A/TIA-102-BAJD-A_Summary.txt"
+related_resources    = "standards/TIA-102.BAJD-A/TIA-102-BAJD-A_Related_Resources.md"
+implementation_spec  = "standards/TIA-102.BAJD-A/P25_Port_Number_Assignments_Implementation_Spec.md"
+port_assignments_csv = "annex_tables/baj_port_assignments.csv"
 
 # =============================================================================
 # KMF to KMF Interface (BAK series)

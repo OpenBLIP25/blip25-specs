@@ -1,0 +1,25 @@
+code,v1_v2,v3,name,notes
+0,yes,yes,Any Reason,Generic catch-all
+1,yes,yes,SU Not Provisioned for PDS,SU has no packet-data subscription
+2,yes,yes,SU DSUT Not Supported,FNE does not accept this DSUT value
+3,yes,yes,Maximum Number of PDS Contexts Exceeded,All NSAPI slots in use
+4,yes,yes,SNDCP Version Not Supported,V1/V2 equivalent of V3 code 23 (without Version Supported field)
+5,yes,yes,PDS Not Supported in this Site,Per-site configuration
+6,yes,yes,PDS Not Supported in this System,System-wide disable
+7,yes,yes,IP Static Address Not Correct,Address provided by SU is invalid
+8,yes,yes,IP Static Address Allocation Not Supported,FNE does not accept static addresses
+9,yes,yes,IP Static Address in Use,Address collision
+10,yes,yes,IPv4 Not Supported,IPv4 disabled for this context
+11,yes,yes,IP Dynamic Address Pool Empty,DHCP pool exhausted
+12,yes,yes,IP Dynamic Address Allocation Not Supported,FNE does not assign dynamic addresses
+13,reserved,reserved,Reserved,
+14,-,yes,Temporary Rejection,V3-only; retry later
+15,-,reserved,Reserved,V3-only
+16,-,reserved,Reserved,V3-only
+17,-,reserved,Reserved,V3-only
+18,-,reserved,Reserved,V3-only
+19,-,reserved,Reserved,V3-only
+20,-,yes,User Authentication Failed,V3-only; CHAP/PPP auth failure
+21,-,yes,Activation Rejected by External Network,V3-only; DHCP server or similar refused
+22,-,yes,Access Point Name Incorrect or Unknown,V3-only; APN not provisioned
+23,-,yes,SNDCP Version Not Supported (Version Supported Field Included),V3-only; Reject PDU carries 16-bit Version Supported bitmap

@@ -1,0 +1,19 @@
+range_start,range_end,usage,category,source
+0,1023,Well Known Ports (assigned by IANA),iana,IANA
+1024,49151,Registered Ports (assigned by IANA),iana,IANA
+49152,49197,Available,available,TIA-102.BAJD-A Table 1
+49198,49198,TIA-102 Tier 2 Location Service,tia_assigned,TIA-102.BAJD-A Table 1
+49199,49199,TIA-102 Inter-KMF Interface,tia_assigned,TIA-102.BAJD-A Table 1
+49200,49200,TIA-102 Key Fill Security Type - Radio Authentication,tia_assigned,TIA-102.BAJD-A Table 1
+49201,49201,TIA-102 Key Fill Security Type - End-to-End Encryption,tia_assigned,TIA-102.BAJD-A Table 1
+49202,49202,TIA-102 Key Fill Security Type - Link Layer Encryption,tia_assigned,TIA-102.BAJD-A Table 1
+49203,49213,Reserved for TIA-102 data applications,tia_reserved,TIA-102.BAJD-A Table 1
+49214,49225,Available,available,TIA-102.BAJD-A Table 1
+49226,49249,Reserved for TIA-102 data applications,tia_reserved,TIA-102.BAJD-A Table 1
+49250,49256,Available,available,TIA-102.BAJD-A Table 1
+49257,49279,Reserved for TIA-102 data applications,tia_reserved,TIA-102.BAJD-A Table 1
+49280,49280,Available,available,TIA-102.BAJD-A Table 1
+49281,49291,Reserved for TIA-102 data applications,tia_reserved,TIA-102.BAJD-A Table 1
+49292,64413,Available,available,TIA-102.BAJD-A Table 1
+64414,64414,TIA-102 OTAR,tia_assigned,TIA-102.BAJD-A Table 1
+64415,65535,Available,available,TIA-102.BAJD-A Table 1
