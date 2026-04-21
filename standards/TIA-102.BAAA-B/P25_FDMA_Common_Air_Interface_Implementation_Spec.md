@@ -212,28 +212,58 @@ static uint8_t nid_duid(uint64_t nid) {
 | `0000` | `0x0` | 0 | HDU -- Header Data Unit |
 | `0011` | `0x3` | 0 | TDU -- Terminator Data Unit (no LC) |
 | `0101` | `0x5` | 1 | LDU1 -- Logical Link Data Unit 1 |
+| `0111` | `0x7` | *—* | TSBK -- Single-block Trunking Signaling (per AABB-B §4.2; P bit not separately tabulated in BAAA-B) |
 | `1010` | `0xA` | 1 | LDU2 -- Logical Link Data Unit 2 |
-| `1100` | `0xC` | 0 | PDU -- Packet Data Unit |
+| `1100` | `0xC` | 0 | PDU -- Multi-block Packet Data Unit (data PDU or MBT) |
 | `1111` | `0xF` | 0 | TDULC -- Terminator with Link Control |
 
-**Note:** The 10 unused DUID values are reserved. In practice, TSDU (Trunking Signaling
-Data Unit) is carried as a PDU (DUID=0xC) containing TSBK messages. Some implementations
-treat DUID 0x7 and 0x9 as additional types, but these are not defined in BAAA-B.
+**Note on DUID `0x7` (TSBK / TSDU):** BAAA-B does not list DUID `0x7` in its own
+table, but TIA-102.AABB-B §4.2 (Trunking Control Channel Formats) normatively
+assigns DUID `$7` to single-block TSBK packets (Trunking Signaling Data Units).
+DUID `$C` in AABB-B is reserved for multi-block PDUs (MBT and data PDUs).
+
+A conformant FDMA receiver therefore recognizes **seven** DUID values, not six:
+
+| DUID | Defined by | Payload |
+|------|-----------|---------|
+| `0x0` / HDU | BAAA-B | Voice-call header |
+| `0x3` / TDU | BAAA-B | Bare voice-call terminator |
+| `0x5` / LDU1 | BAAA-B | Voice superframe half 1 |
+| `0x7` / TSBK | **AABB-B §4.2** | 1–3 TSBKs (single-block trunking) |
+| `0xA` / LDU2 | BAAA-B | Voice superframe half 2 |
+| `0xC` / PDU | BAAA-B (+ AABB-B §5 for MBT) | Header block + data blocks (data PDU or MBT) |
+| `0xF` / TDULC | BAAA-B | Voice terminator with Link Control |
+
+**TSBK vs. header-block discriminator:** Under DUID `0xC`, the first trellis-
+coded block is **always** a PDU header block (§5.2) — never a TSBK. TSBKs only
+appear under DUID `0x7`. A receiver can therefore dispatch unambiguously:
+
+- DUID `0x7` → 1–3 consecutive TSBKs, terminated by the `LB=1` flag in the last
+  one (see AABB-B §4.2 for LB/P/Opcode layout).
+- DUID `0xC` → single header block (§5.7.2 Format dispatch), followed by 1–3
+  data blocks determined by the header's Blocks-to-Follow field.
+
+The remaining 9 DUID values (`0x1`, `0x2`, `0x4`, `0x6`, `0x8`, `0x9`, `0xB`,
+`0xD`, `0xE`) are reserved for future P25 standards work and should be treated
+as unknown/drop by current receivers. DUID `0x9` in particular has appeared in
+some legacy captures but is not defined in any current TIA-102 document.
 
 ```c
-/* Data Unit Identifier values. */
+/* Data Unit Identifier values recognized by a conformant FDMA receiver. */
 #define DUID_HDU   0x0u  /* Header Data Unit */
 #define DUID_TDU   0x3u  /* Terminator (no LC) */
 #define DUID_LDU1  0x5u  /* Logical Data Unit 1 */
+#define DUID_TSBK  0x7u  /* Single-block TSBK / TSDU (per TIA-102.AABB-B §4.2) */
 #define DUID_LDU2  0xAu  /* Logical Data Unit 2 */
-#define DUID_PDU   0xCu  /* Packet Data Unit (also TSDU) */
+#define DUID_PDU   0xCu  /* Multi-block PDU (header + data blocks; data PDU or MBT) */
 #define DUID_TDULC 0xFu  /* Terminator with Link Control */
 
 /* Validate a raw 4-bit DUID nibble. Returns 1 if known, 0 if reserved. */
 static int duid_is_valid(uint8_t val) {
     val &= 0xFu;
-    return (val == DUID_HDU  || val == DUID_TDU  || val == DUID_LDU1 ||
-            val == DUID_LDU2 || val == DUID_PDU  || val == DUID_TDULC);
+    return (val == DUID_HDU  || val == DUID_TDU   || val == DUID_LDU1 ||
+            val == DUID_TSBK || val == DUID_LDU2  || val == DUID_PDU  ||
+            val == DUID_TDULC);
 }
 ```
 
@@ -712,6 +742,24 @@ covering all user data + pad. See Section 13 for CRC polynomials.
 
 **Payload capacity:** `user_octets = 12 × BTF − 4 − pad_octets`.
 
+**Pad octet placement:** BAED-A §5.4 recommends `P_MAXU = 11` as the maximum pad
+octet count for Unconfirmed packets. Since the last data block has
+`12 − 4 = 8` octets of non-CRC payload area, pads beyond 8 cascade into the
+second-to-last data block (BAAA-B §5.4.3 convention: greedy fill from the end).
+
+*Worked example — 14 octets of user data, pad_count = 10 (BTF = 2):*
+
+```
+Block 1 (12 octets):  [U0 U1 U2 U3 U4 U5 U6 U7 U8 U9 P0 P1]
+                       └─── user data (10 octets) ────┘└pad┘
+Block 2 (12 octets):  [U10 U11 U12 U13 P2 P3 P4 P5 P6 P7 |  CRC-32  |]
+                       └─ user (4) ┘└── pad (6) ──┘└─── CRC-32 (4) ─┘
+```
+
+Total = 2×12 = 24 octets = 14 user + 10 pad + 4 CRC. Pad fills 2 octets at the
+end of block 1's payload area and 6 octets at the end of block 2's user-data
+area (just before the CRC-32). Pad octet value is conventionally `0x00`.
+
 #### 5.7.4 Confirmed Data Packet (Format `0x16`)
 
 Header block adds a re-sync bit, sequence number N(S), and Fragment Sequence Number
@@ -753,6 +801,28 @@ the 32-bit Packet CRC). See §5.7.3 payload formula adjusted for 16-octet blocks
 `user_octets = 16 × BTF − 4 − pad_octets`.
 
 See §13.2 for CRC-9 polynomial (`x^9 + x^6 + x^4 + x^3 + 1`).
+
+**Pad octet placement:** BAED-A §5.4 recommends `P_MAXC = 15` as the maximum pad
+octet count for Confirmed packets. Last data block has 12 octets of non-CRC
+payload area (`16 − 4`); pads beyond 12 cascade into the second-to-last data
+block (BAAA-B §5.4.3). Each block's serial number and CRC-9 are computed over
+the 16 user-data octets as-padded, then the Packet CRC-32 is computed over all
+user-data (including pad) across all blocks.
+
+*Worked example — 20 octets of user data, pad_count = 8 (BTF = 2):*
+
+```
+Block 1 (18 octets): [SN1 CRC9_1] [U0 U1 U2 ... U15]
+                                   └── user data (16 octets) ──┘
+Block 2 (18 octets): [SN2 CRC9_2] [U16 U17 U18 U19 P0 P1 P2 P3 P4 P5 P6 P7 | CRC-32 |]
+                                   └─ user (4) ─┘└─── pad (8) ───┘└── CRC-32 (4) ──┘
+```
+
+Total user-area bytes = 2×16 = 32 = 20 user + 8 pad + 4 CRC. All 8 pad octets
+fit in the last block (pad_count ≤ 12), so the second-to-last block carries no
+pad. If pad_count were 14, last block would hold 12 pad (filling its non-CRC
+area) and the second-to-last block would take the remaining 2 pad octets at the
+end of its user-data area.
 
 #### 5.7.5 Response Packet (Format `0x03`)
 
@@ -803,6 +873,9 @@ blocks cover the full 127-block maximum). Flag bit `fN = 1` means block N was
 received correctly; `fN = 0` means block N must be retransmitted. Unused flag bits
 (beyond the actual packet's BTF) are set to 1.
 
+*Single-block SACK* (for Confirmed packets with ≤ 64 data blocks; Response header
+BTF = 1):
+
 ```
 O\B  | 7    6    5    4    3    2    1    0
 -----+----------------------------------------
@@ -815,6 +888,46 @@ O\B  | 7    6    5    4    3    2    1    0
  10  |
  11  |
 ```
+
+*Two-block SACK* (for Confirmed packets with 65–127 data blocks; Response header
+BTF = 2). First SACK block carries `f0..f63` and has no CRC. Second SACK block
+carries `f64..f127` in the same octet-0..7 layout, with the Packet CRC-32 in
+octets 8–11. The CRC-32 covers both SACK data blocks' flag areas (octets 0–7 of
+block 1 concatenated with octets 0–7 of block 2 = 16 octets of flag data) per
+BAAA-B §5.3.3. The unused flag `f127` is always set to 1 because the maximum
+packet size is 127 blocks (BTF field is 7 bits but value 0 is not a valid packet).
+
+```
+Block 1 (octets 0-11):
+O\B  | 7    6    5    4    3    2    1    0
+-----+----------------------------------------
+  0  | f7   f6   f5   f4   f3   f2   f1   f0
+  1  | f15  f14  f13  f12  f11  f10  f9   f8
+  ...
+  7  | f63  f62  f61  f60  f59  f58  f57  f56
+  8  |           (padded to 12 octets;
+  9  |            last 4 octets are user-data
+ 10  |            flag continuation is in
+ 11  |            the next block)
+
+Block 2 (octets 0-11):
+O\B  | 7    6    5    4    3    2    1    0
+-----+----------------------------------------
+  0  | f71  f70  f69  f68  f67  f66  f65  f64
+  1  | f79  f78  f77  f76  f75  f74  f73  f72
+  ...
+  7  | f127 f126 f125 f124 f123 f122 f121 f120
+  8  |
+  9  |           Packet CRC-32
+ 10  |
+ 11  |
+```
+
+Some implementations simplify by capping SACK responses at 64 blocks per Response
+and requiring the sender to track retry state across multiple Response packets.
+This avoids the two-block layout entirely at the cost of more round-trips for
+long packets. Real-world P25 data traffic rarely produces packets with more than
+64 blocks, so the two-block SACK is uncommon in practice.
 
 #### 5.7.6 Enhanced Addressing (Symmetric, Formats `0x15` / `0x16` with EA SAP)
 
@@ -1867,6 +1980,32 @@ static int frame_sync_detector_feed(FrameSyncDetector *d, uint8_t bit) {
 #define CRC32_POLY 0x04C11DB7u  /* 32-bit polynomial (bit 32 implicit) */
 #define CRC32_INIT 0xFFFFFFFFu  /* initial value: all 1s */
 ```
+
+### 13.4 Wire-Format CRC (Post-Inversion)
+
+All three PDU CRCs use the BAAA-B inversion polynomial `I(x) = x^(n-1) + ... + 1`
+(all-ones of width n). The raw polynomial remainder is XORed with `I(x)` before
+being placed on the wire:
+
+```
+wire_crc = raw_remainder XOR ((1 << crc_width) - 1)
+```
+
+Equivalently, the receiver computes the remainder over the received message AND
+the CRC field; the expected result is the all-ones pattern of CRC width (e.g.
+`0xFFFF` for CRC-16). This matches SDRTrunk's `CRCP25.correctCCITT80()` accept
+condition `residual == 0 || residual == 0xFFFF`.
+
+### 13.5 Test Vectors
+
+Canonical (input → expected wire CRC) pairs for all three PDU CRCs are in
+`annex_tables/pdu_crc_test_vectors.csv`. Vectors were generated from a
+self-contained MSB-first polynomial-division implementation and cross-verified
+against SDRTrunk `edac.CRCP25` checksum tables for all three CRCs. Run a new
+CRC implementation against these vectors before exposing it on-air — P25's
+MSB-first, initial-fill-of-all-ones, inversion-on-output convention differs
+from the LSB-first convention in most consumer modem / file-integrity CRC
+libraries, and the bugs are silent.
 
 ---
 

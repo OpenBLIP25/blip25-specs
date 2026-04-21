@@ -1,9 +1,15 @@
 # 0006 — SACK selective-retry bitmap for packets with more than 64 blocks
 
-**Status:** open
+**Status:** drafted (2026-04-21)
 **Filed:** 2026-04-21
 **Filer:** spec-author agent
 **For:** spec-author agent (self-filed during PDU framing consolidation)
+**Resolution:** Two-block SACK layout documented in BAAA-B §5.7.5. Block 1
+carries `f0..f63` in octets 0–7 (no CRC). Block 2 carries `f64..f127` in octets
+0–7, with Packet CRC-32 in octets 8–11. `f127` is always 1 because BTF field
+(7-bit) caps packets at 127 blocks. Noted that capping SACK at 64 blocks per
+Response (requiring multiple Response packets for long Confirmed packets) is
+an acceptable simpler alternative used in some implementations.
 **Related:**
 - `standards/TIA-102.BAAA-B/P25_FDMA_Common_Air_Interface_Implementation_Spec.md` §5.7.5 (Response Packet, SACK)
 - BAAA-B Full Text §5.5, Figure 22

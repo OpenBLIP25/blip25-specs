@@ -1,9 +1,14 @@
 # 0005 — DUID 0xC polymorphic dispatch: how to discriminate a TSBK from a header block
 
-**Status:** open
+**Status:** drafted (2026-04-21)
 **Filed:** 2026-04-21
 **Filer:** spec-author agent
 **For:** spec-author agent (self-filed during PDU framing consolidation)
+**Resolution:** AABB-B §4.2 is the normative source. DUID `$7` = single-block
+TSBK/TSDU; DUID `$C` = multi-block PDU (header + data blocks). Under DUID `$C`,
+the first block is always a PDU header block — never a TSBK. Documented in
+BAAA-B §3.2 (expanded DUID table, added note, updated `duid_is_valid` C helper).
+See commit adding §3.2 seven-DUID table and AABB-B cross-reference.
 **Related:**
 - `standards/TIA-102.BAAA-B/P25_FDMA_Common_Air_Interface_Implementation_Spec.md` §5.7 (PDU subtype dispatch)
 - `standards/TIA-102.AABB-B/P25_Trunking_Control_Channel_Formats_Implementation_Spec.md` §4 (TSBK), §5 (MBT)

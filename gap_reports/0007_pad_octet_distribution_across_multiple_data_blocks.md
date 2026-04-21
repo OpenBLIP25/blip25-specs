@@ -1,9 +1,14 @@
 # 0007 — Pad octet distribution when pad count exceeds one data block's capacity
 
-**Status:** open
+**Status:** drafted (2026-04-21)
 **Filed:** 2026-04-21
 **Filer:** spec-author agent
 **For:** spec-author agent (self-filed during PDU framing consolidation)
+**Resolution:** BAED-A §5.4 caps pad at `P_MAXC = 15` (Confirmed) and
+`P_MAXU = 11` (Unconfirmed), keeping pad within the last two data blocks.
+Strategy 1 (greedy-fill from the end) documented in BAAA-B §5.7.3 and §5.7.4
+with worked examples. Pad octet value is conventionally `0x00`; not
+explicitly specified by the standard.
 **Related:**
 - `standards/TIA-102.BAAA-B/P25_FDMA_Common_Air_Interface_Implementation_Spec.md` §5.7.3 (Unconfirmed Data), §5.7.4 (Confirmed Data)
 - BAAA-B Full Text §5.4.3 "Confirmed Data Packet Last Data Block Format"

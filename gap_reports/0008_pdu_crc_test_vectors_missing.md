@@ -1,9 +1,16 @@
 # 0008 — PDU CRC test vectors missing from derived works
 
-**Status:** open
+**Status:** drafted (2026-04-21)
 **Filed:** 2026-04-21
 **Filer:** spec-author agent
 **For:** spec-author agent (enhancement; not a standard ambiguity)
+**Resolution:** Generated `annex_tables/pdu_crc_test_vectors.csv` with 15
+canonical (input → expected wire CRC) pairs covering CRC-CCITT-16 (80-bit
+header, 7 vectors), CRC-9 (135-bit confirmed data block, 4 vectors), and
+CRC-32 (1/2/3-block unconfirmed payloads, 4 vectors). Implementation
+cross-verified against SDRTrunk `edac.CRCP25` checksum tables on 8 independent
+table entries. Added BAAA-B §13.4 documenting the post-inversion wire format
+and §13.5 pointing implementers at the CSV.
 **Related:**
 - `standards/TIA-102.BAAA-B/P25_FDMA_Common_Air_Interface_Implementation_Spec.md` §13 (CRC polynomials)
 - `standards/TIA-102.BAAA-B/P25_FDMA_Common_Air_Interface_Implementation_Spec.md` §5.7 (PDU subtypes)
