@@ -1,6 +1,6 @@
 # 0016 — pdu_crc_test_vectors.csv CRC values don't reproduce under standard conventions
 
-**Status:** open
+**Status:** drafted (2026-04-21) — fixed by swapping column header names in `annex_tables/pdu_crc_test_vectors.csv` (Option 1 from §0 below). Row values remain valid under the field-validated convention in blip25's `crc_ccitt` (init=0, poly=0x1021, MSB-first, final XOR 0xFFFF), which also empirically passes Header CRC-16 on 81/86 PDUs from the Sachse `.bits` capture. No downstream decoder changes needed.
 **Filed:** 2026-04-21
 **Filer:** spec-author (while drafting resolution of gap 0014)
 **For:** user / implementer
@@ -10,6 +10,46 @@
 - `gap_reports/0014_pdu_crc_test_vectors_pad_and_correction_coverage.md` (wants to extend the CSV)
 - `annex_tables/pdu_crc_test_vectors.csv`
 - `standards/TIA-102.BAAA-B/P25_FDMA_Common_Air_Interface_Implementation_Spec.md` §13 (CRC polynomials)
+
+---
+
+## 0. Implementer diagnostic (2026-04-21)
+
+Ran the Sachse-proven `crc_ccitt` from `crates/blip25-core/src/tsbk.rs`
+(init=0, poly=0x1021, MSB-first, final XOR 0xFFFF) against three rows:
+
+| Row | Message | CSV `raw_remainder_hex` | CSV `wire_crc_hex` | Our impl returns |
+|-----|---------|------------------------|-------------------|------------------|
+| 1 (all-zeros) | `00000000000000000000` | `0xFFFF` | `0x0000` | **`0xFFFF`** |
+| 2 (all-ones) | `FFFFFFFFFFFFFFFFFFFF` | `0xB827` | `0x47D8` | **`0xB827`** |
+| 5 (TGID grant) | `55FD0011223382000000` | `0x7267` | `0x8D98` | **`0x7267`** |
+
+Our impl matches `raw_remainder_hex` on all three. Since the impl is
+empirically correct on 81/86 PDUs from the Sachse `.bits` capture (the
+header CRC comparison is `compute(bits[0..80]) == extracted(bits[80..96])`
+and passes on those 81), the 0x7267-class values **are** the bits on the
+wire.
+
+Conclusion: the CSV's column names are reversed. The `raw_remainder_hex`
+column holds wire-CRC bytes (post-inversion, what's transmitted);
+`wire_crc_hex` holds the pre-inversion register state. XOR of the two is
+0xFFFF as expected (the inversion polynomial I(x) for CRC-16), so the
+data is internally consistent — only the labels are swapped.
+
+**Fix options:**
+
+1. **Rename columns** in `pdu_crc_test_vectors.csv`: swap `raw_remainder_hex`
+   ↔ `wire_crc_hex`. Minimal change; existing row values remain valid.
+2. **Swap values** in place and keep the existing column names. More
+   intrusive; any downstream consumer that already read the CSV under the
+   current labels breaks.
+
+Option 1 is cheaper and keeps already-authored values load-bearing.
+
+Also applies to the CRC-9 and CRC-32 rows by symmetry — both use the
+same "invert with all-ones I(x)" transmission convention per BAAA-B §5.2 /
+§5.3.3 / §5.4.2. If any single row's labels are correct, all rows are; if
+any are swapped, all are.
 
 ---
 

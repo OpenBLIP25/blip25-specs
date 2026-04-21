@@ -1,6 +1,6 @@
 # 0014 — PDU CRC test vectors: extend coverage to pad/multi-block edges and single-bit correction
 
-**Status:** drafted (2026-04-21) — structural fixtures delivered in `annex_tables/pdu_last_block_examples.csv` (pad-boundary layouts), `annex_tables/pdu_crc9_correction_fixtures.md` (single-bit correction bit-position fixtures), and `annex_tables/pdu_reassembly_fixtures/README.md` (cross-copy merge fixture schema). Bit-exact CRC values for new pad-boundary vectors deferred pending resolution of gap report 0016 (`pdu_crc_test_vectors.csv` existing values couldn't be reproduced under standard CRC conventions).
+**Status:** drafted (2026-04-21) — structural fixtures delivered in `annex_tables/pdu_last_block_examples.csv` (pad-boundary layouts), `annex_tables/pdu_crc9_correction_fixtures.md` (single-bit correction bit-position fixtures), and `annex_tables/pdu_reassembly_fixtures/README.md` (cross-copy merge fixture schema). Bit-exact CRC values for the pad-boundary rows can now be generated under the convention pinned down by gap 0016 (init=0, poly=per spec, MSB-first, final XOR with inversion polynomial); that follow-up is a short implementer pass to promote the layout CSV entries into `pdu_crc_test_vectors.csv` rows.
 **Filed:** 2026-04-21
 **Filer:** implementer (p25-decoder / blip25-data)
 **For:** spec-author
