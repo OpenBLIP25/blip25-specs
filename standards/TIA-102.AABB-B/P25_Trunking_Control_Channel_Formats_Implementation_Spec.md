@@ -688,12 +688,13 @@ The Format field (octet 0 bits 4:0) in the header block determines the packet ty
 | 0x15 | `%10101` | Standard Multi-Block Trunking Control |
 | 0x17 | `%10111` | Alternative Multi-Block Trunking Control |
 
-These are distinct from other BAAA-B unconfirmed data packet formats:
+These relate to the BAAA-B Format field enumeration (see BAAA-B Implementation Spec §5.7.2)
+as follows:
 
-| Format Value | Binary | Packet Type (from BAAA-B) |
-|-------------|--------|---------------------------|
-| 0x15 | `%10101` | Reserved in BAAA-B; used by AABB-B for MBT standard |
-| 0x17 | `%10111` | Reserved in BAAA-B; used by AABB-B for MBT alternative |
+| Format Value | Binary | Relationship to BAAA-B |
+|-------------|--------|-------------------------|
+| 0x15 | `%10101` | Same Format value as BAAA-B Unconfirmed Data Packet (§5.6). MBT Standard *is* an Unconfirmed Data Packet whose SAP (octet 1) is set to Trunking Control (`0x3D`) or Protected Trunking Control (`0x3F`). All the BAAA-B unconfirmed-data header fields (BTF, Pad Octet Count, Data Header Offset, CRC-CCITT-16) retain their meanings; AABB-B layers trunking-specific semantics on top. |
+| 0x17 | `%10111` | Not defined in BAAA-B. AABB-B adds `0x17` as a distinct format for messages where carrying the opcode in the header block (octet 7) is preferable to carrying it in the first data block. Still uses rate-½ trellis coding for data blocks like the Unconfirmed Data Packet. |
 
 ### 7.2 Standard vs. Alternative Header Selection
 

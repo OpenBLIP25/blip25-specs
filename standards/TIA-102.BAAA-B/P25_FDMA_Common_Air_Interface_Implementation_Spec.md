@@ -625,22 +625,245 @@ concatenated in a single TSDU.
 
 ### 5.7 Packet Data Unit (PDU)
 
-Variable-length data unit for data services. Structure:
+Variable-length data unit for all non-voice FDMA traffic: user data packets, trunking
+signaling (TSDU/TSBK), and multi-block trunking (MBT). All share DUID `0xC` and the
+same wire-level framing; a 5-bit **Format** field in the header block (or TSBK) octet 0
+selects the subtype.
+
+#### 5.7.1 PDU Frame Structure
 
 | Field | Bits | Description |
 |-------|------|-------------|
 | Frame Sync (FS) | 48 | |
 | Network ID (NID) | 64 | DUID = 0xC |
-| Header Block | 196 | Trellis-coded (rate 1/2) |
-| Data Block 1..N | 196 each | Trellis-coded (rate 1/2 or 3/4) |
-| Null fill | variable | |
-| Status Symbols | variable | |
+| Header Block | 196 | Trellis-coded (rate 1/2), 12 info octets |
+| Data Block 1..N | 196 each | Trellis-coded (rate 1/2 or 3/4 per subtype) |
+| Null fill | variable | Pad to next SS boundary |
+| Status Symbols | variable | 1 SS dibit per 35 info dibits |
 
-**Header block:** 12 octets -> rate-1/2 trellis -> 196 bits (98 dibits).
-**Data blocks (unconfirmed):** 12 octets each, rate-1/2 trellis, 196 bits each.
-**Data blocks (confirmed):** 18 octets each, rate-3/4 trellis, 196 bits each.
+**Trellis input per block:**
+- Rate ½: 12 octets = 96 bits = 48 dibits in → 98 dibits (196 bits) out.
+- Rate ¾: 18 octets = 144 bits = 48 tribits in → 98 dibits (196 bits) out.
 
-See Section 10 for trellis coding details.
+The header block is *always* rate ½. Data blocks follow the rate chosen by the subtype
+dispatch table below. See Section 10 for the trellis FSM and constellation mapping.
+
+#### 5.7.2 Format Field (Subtype Dispatch)
+
+Every PDU header block and every TSBK begins with an 8-bit field in octet 0:
+
+```
+ Bit 7  Bit 6  Bit 5   Bits 4..0
+ ┌────┬───────┬─────┬─────────────┐
+ │  0 │  A/N  │ I/O │   Format    │  <- non-TSBK (header blocks)
+ └────┴───────┴─────┴─────────────┘
+ ┌────┬───────┬─────────────────────┐
+ │ LB │   P   │    Opcode (6 bits)  │  <- TSBK payload (no Format; dispatched by LB/P/Opcode)
+ └────┴───────┴─────────────────────┘
+```
+
+- **A/N** (octet 0 bit 6): ARQ/Non-ARQ. `1` = confirmation desired (confirmed);
+  `0` = no confirmation (unconfirmed or Response).
+- **I/O** (octet 0 bit 5): Outbound (`1` = FNE→SU) vs. inbound (`0` = SU→FNE).
+- **Format** (octet 0 bits 4:0): 5-bit subtype selector.
+
+**Subtype dispatch table:**
+
+| Format | Binary | Name | Data block rate | A/N | Defined in |
+|--------|--------|------|-----------------|-----|------------|
+| `0x03` | `%00011` | Response Packet | ½ | 0 | BAAA-B §5.5 |
+| `0x15` | `%10101` | Unconfirmed Data Packet | ½ | 0 | BAAA-B §5.6 |
+| `0x15` | `%10101` | MBT Standard (Unconfirmed Data + trunking SAP) | ½ | 1 | AABB-B §5 |
+| `0x16` | `%10110` | Confirmed Data Packet | ¾ | 1 | BAAA-B §5.4 |
+| `0x17` | `%10111` | Alternative MBT (AMBT) | ½ | 1 | AABB-B §5 |
+
+All other Format values (0..2, 4..14, 16..20, 24..31) are reserved.
+
+**Implementation note:** Format `0x15` serves dual duty — it is both the Unconfirmed
+Data Packet header *and* the Standard Multi-Block Trunking header. The two are
+distinguished by the SAP ID in octet 1 (trunking SAPs are `0x3D`/`0x3F`; data SAPs
+are everything else) and by the A/N bit. AABB-B §5 layers MBT-specific field
+semantics onto the generic Unconfirmed Data Packet structure.
+
+#### 5.7.3 Unconfirmed Data Packet (Format `0x15`)
+
+Header block (12 octets before trellis coding):
+
+```
+O\B  | 7    6    5    4    3    2    1    0
+-----+----------------------------------------
+  0  | 0   A/N  I/O   1    0    1    0    1    Format = %10101
+  1  | 1    1         SAP Identifier (6 bits)
+  2  |           Manufacturer's ID
+  3  |         Logical Link ID (24 bits,
+  4  |              octets 3-5)
+  5  |
+  6  | 1              Blocks to Follow (7 bits)
+  7  | 0    0    0    Pad Octet Count (5 bits)
+  8  |              Reserved (set to 0)
+  9  | 0    0        Data Header Offset (6 bits)
+ 10  |           Header CRC (CRC-CCITT-16)
+ 11  |
+```
+
+**Data blocks:** 12 octets user data each, rate ½ trellis. No per-block CRC and no
+serial number. The final 4 octets of the last data block carry a 32-bit Packet CRC
+covering all user data + pad. See Section 13 for CRC polynomials.
+
+**Payload capacity:** `user_octets = 12 × BTF − 4 − pad_octets`.
+
+#### 5.7.4 Confirmed Data Packet (Format `0x16`)
+
+Header block adds a re-sync bit, sequence number N(S), and Fragment Sequence Number
+Field (FSNF):
+
+```
+O\B  | 7    6    5    4    3    2    1    0
+-----+----------------------------------------
+  0  | 0   A/N  I/O   1    0    1    1    0    Format = %10110
+  1  | 1    1         SAP Identifier
+  2  |           Manufacturer's ID
+  3  |         Logical Link ID (octets 3-5)
+  4  |
+  5  |
+  6  |FMF             Blocks to Follow (7 bits)
+  7  | 0    0    0    Pad Octet Count (5 bits)
+  8  |Syn        N(S)              FSNF
+  9  | 0    0        Data Header Offset (6 bits)
+ 10  |           Header CRC
+ 11  |
+```
+
+- **FMF** (octet 6 bit 7): Full Message Flag. `1` = header carries every data block
+  of the fragment; `0` = header accompanies a selective retry (only the blocks in
+  the retry list are present). The Revision-B definition of FMF corrects an earlier
+  error that could cause a retransmitted packet to be silently discarded when the
+  receiver missed the original header transmission.
+- **Syn** (octet 8 bit 7): Re-synchronize sequence numbers. Receiver accepts the
+  packet's N(S) and FSNF as authoritative, resetting its V(R). Should only be
+  asserted on registration messages, not normal data.
+- **N(S):** Sequence number mod 8. Receiver tracks V(R) = last valid N(S) accepted;
+  accepts packets where N(S) ∈ {V(R), V(R)+1 mod 8}.
+- **FSNF** (octet 8 bits 3:0): 4-bit field = `[LIC:1 | FSN:3]` for fragmentation
+  across multiple packets. See BAED-A Implementation Spec §4.
+
+**Data blocks:** 18 octets each, rate ¾ trellis. Each block carries a 7-bit serial
+number + 9-bit CRC-9 + 16 octets of user data (last block reserves 4 of those for
+the 32-bit Packet CRC). See §5.7.3 payload formula adjusted for 16-octet blocks:
+`user_octets = 16 × BTF − 4 − pad_octets`.
+
+See §13.2 for CRC-9 polynomial (`x^9 + x^6 + x^4 + x^3 + 1`).
+
+#### 5.7.5 Response Packet (Format `0x03`)
+
+Sent by a confirmed-data receiver back to the sender to ACK, NACK, or request
+selective retry of specific blocks:
+
+```
+O\B  | 7    6    5    4    3    2    1    0
+-----+----------------------------------------
+  0  | 0    0   I/O   0    0    0    1    1    Format = %00011
+  1  | Class      Type            Status
+  2  |           Manufacturer's ID
+  3  |           Destination LLID (octets 3-5)
+  4  |
+  5  |
+  6  | X              Blocks to Follow
+  7  |
+  8  |           Source LLID (when X=0)
+  9  |
+ 10  |           Header CRC
+ 11  |
+```
+
+- **X** (octet 6 bit 7): `1` = response to an asymmetric confirmed packet (Source
+  LLID is null); `0` = response to an Enhanced Address confirmed packet (Source
+  LLID carries the responder's address).
+- **Blocks to Follow:** Number of data blocks carrying selective-retry flag bitmaps
+  (SACK only; ACK/NACK responses have BTF = 0).
+
+**Class / Type / Status dispatch (BAAA-B Table 10):**
+
+| Class | Type | Status | Meaning |
+|-------|------|--------|---------|
+| `%00` | `%001` | N(R) | ACK — all blocks received correctly |
+| `%00` | `%000` | N(R)* | NACK — illegal format (N(R) may be meaningless) |
+| `%01` | `%001` | N(R) | NACK — packet CRC-32 failure |
+| `%01` | `%010` | N(R) | NACK — memory full |
+| `%01` | `%011` | FSN | NACK — out-of-sequence fragment |
+| `%01` | `%100` | N(R) | NACK — undeliverable |
+| `%01` | `%101` | V(R) | NACK — out of sequence *(deprecated in Revision B)* |
+| `%01` | `%110` | N(R) | NACK — invalid user, disallowed by system |
+| `%10` | `%000` | N(R) | SACK — selective retry needed for some blocks |
+
+N(R) echoes the N(S) of the confirmed packet being acknowledged.
+
+**SACK data block format** (one 12-octet block covers up to 64 block flags; two
+blocks cover the full 127-block maximum). Flag bit `fN = 1` means block N was
+received correctly; `fN = 0` means block N must be retransmitted. Unused flag bits
+(beyond the actual packet's BTF) are set to 1.
+
+```
+O\B  | 7    6    5    4    3    2    1    0
+-----+----------------------------------------
+  0  | f7   f6   f5   f4   f3   f2   f1   f0
+  1  | f15  f14  f13  f12  f11  f10  f9   f8
+  ...
+  7  | f63  f62  f61  f60  f59  f58  f57  f56
+  8  |
+  9  |           Packet CRC-32
+ 10  |
+ 11  |
+```
+
+#### 5.7.6 Enhanced Addressing (Symmetric, Formats `0x15` / `0x16` with EA SAP)
+
+Direct Data and Repeated Data configurations require both source and destination
+addresses on every packet. The mechanism reuses the Unconfirmed (`0x15`) or Confirmed
+(`0x16`) Format values but sets the SAP field to the **EA SAP** sentinel
+(`0x1F` per BAAC-D). This signals the receiver that the first data block is not
+user payload but a **Second Header** carrying the source LLID and the real SAP.
+
+```
+HEADER BLOCK           DATA BLOCK 1 (Second Header)       DATA BLOCK 2..N
+┌──────────────┐      ┌──────────────────────────┐       ┌──────────────┐
+│ Dest LLID    │      │ Source LLID              │       │ User data    │
+│ SAP = $1F    │ ───► │ SAP = <real SAP>         │ ───►  │ ...          │
+│ Header CRC   │      │ Header CRC 2             │       │              │
+└──────────────┘      └──────────────────────────┘       └──────────────┘
+```
+
+For Unconfirmed Enhanced Addressing the Second Header is a plain 12-octet block
+(mirrors the Unconfirmed header layout). For Confirmed Enhanced Addressing the
+Second Header is an 18-octet confirmed data block with serial number + CRC-9 and
+the source LLID + real SAP in its data area.
+
+#### 5.7.7 Payload-Family Lens (How This Maps to TSDU, MBT, Data)
+
+Because Format `0x15` is shared between user data and Standard MBT, implementers
+often find it clearer to dispatch on **payload family** first (by examining SAP
+and the Format/TSBK-header choice) before dispatching on subtype:
+
+| Payload family | DUID | Header selector | Payload spec |
+|----------------|------|------------------|--------------|
+| TSDU (1–3 TSBKs) | `0xC` *(some implementations use `0x7`; see §5.6 and AABB-B)* | First block has TSBK layout: octet 0 = `LB/P/Opcode` | TIA-102.AABC-E |
+| MBT Standard (trunking) | `0xC` | Format = `0x15`, SAP = `0x3D`/`0x3F` | TIA-102.AABB-B §5, AABC-E for message content |
+| MBT Alternative (AMBT) | `0xC` | Format = `0x17`, SAP = `0x3D`/`0x3F` | TIA-102.AABB-B §5 |
+| Unconfirmed data | `0xC` | Format = `0x15`, SAP ≠ trunking | TIA-102.BAED-A (LLC), BAEB-C (SNDCP) |
+| Confirmed data | `0xC` | Format = `0x16` | TIA-102.BAED-A (LLC), BAEB-C (SNDCP) |
+| Response | `0xC` | Format = `0x03` | BAAA-B §5.5 (this spec) |
+
+See also the consolidated cross-document view in
+`analysis/fdma_pdu_frame.md`, which walks through end-to-end packet flow with
+worked byte-level examples.
+
+**Cross-references:**
+- TSBK framing (12-octet block, CRC-16, 1–3 per TSDU): AABB-B Implementation Spec §4
+- MBT Standard (`0x15`) and Alternative (`0x17`) headers: AABB-B Implementation Spec §5
+- Full PDU header field semantics + SAP routing + fragmentation: BAED-A Implementation Spec §2–4
+- SNDCP IP encapsulation layered on data PDUs: BAEB-C Implementation Spec
+- Trellis coding (rate ½ and rate ¾ FSMs): this spec §10
+- CRC polynomials (Header CRC-CCITT-16, CRC-9, Packet CRC-32): this spec §13
 
 ---
 
