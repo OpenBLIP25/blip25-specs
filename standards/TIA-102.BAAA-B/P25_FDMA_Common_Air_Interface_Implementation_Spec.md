@@ -2063,13 +2063,54 @@ static int frame_sync_detector_feed(FrameSyncDetector *d, uint8_t bit) {
 
 ## 13. CRC Polynomials (Data Packets)
 
+### 13.0 BAAA-B CRC Convention (All Three PDU CRCs)
+
+BAAA-B §5.2 / §5.3.3 / §5.4.2 define all three PDU CRCs with the same formula:
+
+```
+F(x) = (x^n · M(x)  mod  G(x))  +  I(x)      (mod 2, GF(2))
+```
+
+where `n` is the CRC width (16, 9, or 32), `G(x)` is the generator polynomial,
+and `I(x) = x^(n-1) + x^(n-2) + ... + x + 1` is the all-ones inversion polynomial
+of the same width.
+
+**There is no register "initial fill"** in the BAAA-B formula — it is a plain
+polynomial division of the `x^n`-augmented message, followed by a final XOR with
+all-ones. Expressed algorithmically:
+
+```
+// MSB-first direct CRC, new bit XOR'd into feedback.
+// Equivalent to augmenting the message with n trailing zero bits.
+reg = 0                                // register init is zero, NOT all-ones
+for each message bit b (MSB-first):
+    fb = ((reg >> (n-1)) & 1) XOR b
+    reg = (reg << 1) AND ((1 << n) - 1)
+    if fb: reg ^= G
+wire_crc = reg XOR ((1 << n) - 1)      // final XOR with I(x)
+```
+
+The same algorithm reproduces every row of `annex_tables/pdu_crc_test_vectors.csv`
+across all three CRC widths (verified 2026-04-21 — see §13.5).
+
+**Watch-out.** Some CRC-CCITT-16 library code frames the same math differently:
+"init = 0xFFFF, no XOR-out" instead of "init = 0, XOR-out = 0xFFFF". For
+CRC-CCITT-16 these two framings produce identical wire values because of the
+`x^16` length asymmetry, which is why swapping them works on-air even though
+they are not algorithmically equivalent for all widths. Do **not** carry that
+framing over to CRC-9 or CRC-32 blind-copy — those only reproduce under the
+`init = 0, XOR-out = I(x)` formulation above. `op25` and SDRTrunk's
+`CRCP25.correctCCITT80()` also implement the `init = 0, XOR-out = 0xFFFF`
+framing (residual check `== 0 || == 0xFFFF`).
+
 ### 13.1 Header CRC (CRC-CCITT, 16-bit)
 
 ```c
 /* CRC-CCITT for PDU header blocks.
  * G(x) = x^16 + x^12 + x^5 + 1 */
-#define CRC_CCITT_POLY 0x1021u   /* 16-bit polynomial (bit 16 implicit) */
-#define CRC_CCITT_INIT 0xFFFFu   /* initial value: all 1s */
+#define CRC_CCITT_POLY   0x1021u   /* 16-bit polynomial (bit 16 implicit) */
+#define CRC_CCITT_INIT   0x0000u   /* register init per BAAA-B §5.2 */
+#define CRC_CCITT_XOROUT 0xFFFFu   /* I(x) — XOR with raw remainder on output */
 ```
 
 ### 13.2 CRC-9 (Confirmed Data Blocks)
@@ -2077,9 +2118,13 @@ static int frame_sync_detector_feed(FrameSyncDetector *d, uint8_t bit) {
 ```c
 /* CRC-9 for confirmed data blocks.
  * G(x) = x^9 + x^6 + x^4 + x^3 + 1 */
-#define CRC9_POLY 0x059u  /* 9-bit polynomial (bit 9 implicit): 001011001 */
-#define CRC9_INIT 0x1FFu  /* initial value: all 1s in 9 bits */
+#define CRC9_POLY   0x059u  /* 9-bit polynomial (bit 9 implicit): 001011001 */
+#define CRC9_INIT   0x000u  /* register init per BAAA-B §5.4.2 */
+#define CRC9_XOROUT 0x1FFu  /* I(x) — XOR with raw remainder on output */
 ```
+
+Message for CRC-9 is 7-bit DBSN (MSB-first) concatenated with 128 bits of
+user-data, totaling 135 bits. Transmitted CRC-9 field follows (9 bits).
 
 ### 13.3 Packet CRC (CRC-32)
 
@@ -2087,15 +2132,16 @@ static int frame_sync_detector_feed(FrameSyncDetector *d, uint8_t bit) {
 /* CRC-32 for packet integrity.
  * G(x) = x^32 + x^26 + x^23 + x^22 + x^16 + x^12 + x^11 + x^10
  *              + x^8 + x^7 + x^5 + x^4 + x^2 + x + 1 */
-#define CRC32_POLY 0x04C11DB7u  /* 32-bit polynomial (bit 32 implicit) */
-#define CRC32_INIT 0xFFFFFFFFu  /* initial value: all 1s */
+#define CRC32_POLY   0x04C11DB7u  /* 32-bit polynomial (bit 32 implicit) */
+#define CRC32_INIT   0x00000000u  /* register init per BAAA-B §5.3.3 */
+#define CRC32_XOROUT 0xFFFFFFFFu  /* I(x) — XOR with raw remainder on output */
 ```
 
-### 13.4 Wire-Format CRC (Post-Inversion)
+### 13.4 Wire-Format CRC (Post-Inversion) and Receiver Residual
 
 All three PDU CRCs use the BAAA-B inversion polynomial `I(x) = x^(n-1) + ... + 1`
-(all-ones of width n). The raw polynomial remainder is XORed with `I(x)` before
-being placed on the wire:
+(all-ones of width n) as XOR-out. The raw polynomial remainder is XORed with
+`I(x)` before being placed on the wire:
 
 ```
 wire_crc = raw_remainder XOR ((1 << crc_width) - 1)
@@ -2104,17 +2150,39 @@ wire_crc = raw_remainder XOR ((1 << crc_width) - 1)
 Equivalently, the receiver computes the remainder over the received message AND
 the CRC field; the expected result is the all-ones pattern of CRC width (e.g.
 `0xFFFF` for CRC-16). This matches SDRTrunk's `CRCP25.correctCCITT80()` accept
-condition `residual == 0 || residual == 0xFFFF`.
+condition `residual == 0 || residual == 0xFFFF` and blip25's
+`crc9_residual(block) ∈ {0, 0x1FF}` pattern.
 
 ### 13.5 Test Vectors
 
 Canonical (input → expected wire CRC) pairs for all three PDU CRCs are in
-`annex_tables/pdu_crc_test_vectors.csv`. Vectors were generated from a
-self-contained MSB-first polynomial-division implementation and cross-verified
-against SDRTrunk `edac.CRCP25` checksum tables for all three CRCs. Run a new
-CRC implementation against these vectors before exposing it on-air — P25's
-MSB-first, initial-fill-of-all-ones, inversion-on-output convention differs
-from the LSB-first convention in most consumer modem / file-integrity CRC
+`annex_tables/pdu_crc_test_vectors.csv` (header columns:
+`xor_out_hex`, `wire_crc_hex` = post-inversion, `raw_remainder_hex` =
+pre-inversion register state).
+
+All 15 rows reproduce bit-exactly under the §13.0 convention (init=0,
+MSB-first, direct feedback-XOR, final XOR with `xor_out_hex`). Verification:
+
+```python
+# Reproduce all CRC-9 rows (serial in low 7 bits of a byte, MSB-first; 128-bit data).
+POLY, XOROUT, W = 0x059, 0x1FF, 9
+def crc(bits, poly=POLY, w=W):
+    reg = 0
+    for b in bits:
+        fb = ((reg >> (w-1)) & 1) ^ (b & 1)
+        reg = (reg << 1) & ((1 << w) - 1)
+        if fb: reg ^= poly
+    return reg
+# Row 12: serial=0x05, canonical 16-byte pattern
+msg = [int(b) for b in f"{0x05 & 0x7F:07b}"] + \
+      [int(b) for h in "0011223344556677889900AABBCCDDEE" for b in f"{int(h,16):04b}"]
+assert crc(msg) == 0x180            # raw_remainder_hex
+assert crc(msg) ^ XOROUT == 0x07F   # wire_crc_hex
+```
+
+Run a new CRC implementation against these vectors before exposing it on-air —
+P25's MSB-first, init=0, final-XOR-with-I(x) convention differs from the
+LSB-first, init=all-ones convention in most consumer modem / file-integrity CRC
 libraries, and the bugs are silent.
 
 ---

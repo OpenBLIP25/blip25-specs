@@ -1,4 +1,4 @@
-crc_type,polynomial,initial_fill,message_bits,message_hex,wire_crc_hex,raw_remainder_hex,description
+crc_type,polynomial,xor_out_hex,message_bits,message_hex,wire_crc_hex,raw_remainder_hex,description
 CRC-CCITT-16,x^16+x^12+x^5+1,0xFFFF,80,00000000000000000000,0xFFFF,0x0000,all zeros (10 octets)
 CRC-CCITT-16,x^16+x^12+x^5+1,0xFFFF,80,FFFFFFFFFFFFFFFFFFFF,0xB827,0x47D8,all ones (10 octets)
 CRC-CCITT-16,x^16+x^12+x^5+1,0xFFFF,80,80000000000000000000,0x1BCB,0xE434,MSB only (octet 0 = 0x80)

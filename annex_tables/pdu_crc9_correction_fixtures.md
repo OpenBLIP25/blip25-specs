@@ -46,14 +46,16 @@ gives you a known-good 144-bit block. Flip one or two bits per the table
 above to generate the test input; the expected corrected output (for
 single-bit cases) is the original reference block.
 
-**Note on test-vector consistency:** `pdu_crc_test_vectors.csv` (delivered
-under gap 0008) contains rows claiming specific CRC-9 values for the
-canonical pattern. As of 2026-04-21 I was unable to reproduce those values
-under standard CRC-9 conventions while drafting gap 0014; implementers
-should validate their CRC-9 output against a second reference (e.g.,
-SDRTrunk's `edac/CRC9` or OP25) before depending on the gap-0008 vectors.
-That discrepancy is a separate question from the layout/correction
-fixtures documented here.
+**Note on test-vector consistency (resolved 2026-04-21):** all four CRC-9
+rows in `pdu_crc_test_vectors.csv` reproduce bit-exactly under the uniform
+BAAA-B convention (`init=0`, MSB-first, direct feedback-XOR, final XOR with
+`xor_out_hex = 0x1FF`) — same convention used by the CRC-CCITT-16 and
+CRC-32 rows. Earlier drafts of this note flagged the vectors as potentially
+irreproducible; that was the spec-author failing to try the `init=0`
+framing (BAAA-B §5.4.2 defines `F_9(x) = x^9 M(x) mod G_9(x) + I_9(x)` with
+no register pre-load). See
+`standards/TIA-102.BAAA-B/P25_FDMA_Common_Air_Interface_Implementation_Spec.md`
+§13.0 and §13.5 for the algorithm and a one-row Python reproduction.
 
 ## Scope
 

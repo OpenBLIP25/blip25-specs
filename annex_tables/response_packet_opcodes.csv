@@ -1,5 +1,5 @@
 class_bits,type_bits,status_field,octet1_pattern,octet1_when_status_zero_hex,shorthand,meaning,source
-%00,%001,N(R),01001nnn,0x08,ACK,All blocks received correctly. Status = N(R) echoing N(S) of the confirmed packet.,BAAA-B Table 10 row 1
+%00,%001,N(R),00001nnn,0x08,ACK,All blocks received correctly. Status = N(R) echoing N(S) of the confirmed packet.,BAAA-B Table 10 row 1
 %01,%000,N(R)*,01000nnn,0x40,NACK_ILLEGAL_FORMAT,Illegal format received. N(R) may be meaningless (Table 10 footnote *).,BAAA-B Table 10 row 2
 %01,%001,N(R),01001nnn,0x48,NACK_PACKET_CRC,Packet CRC-32 check failed across assembled data blocks.,BAAA-B Table 10 row 3
 %01,%010,N(R),01010nnn,0x50,NACK_MEMORY_FULL,Receiver has no reassembly buffer available.,BAAA-B Table 10 row 4

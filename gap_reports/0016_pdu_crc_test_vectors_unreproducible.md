@@ -1,6 +1,16 @@
 # 0016 — pdu_crc_test_vectors.csv CRC values don't reproduce under standard conventions
 
 **Status:** resolved (2026-04-21) — fixed by swapping column header names in `annex_tables/pdu_crc_test_vectors.csv` (Option 1 from §0 below). Row values remain valid under the field-validated convention in blip25's `crc_ccitt` (init=0, poly=0x1021, MSB-first, final XOR 0xFFFF), which also empirically passes Header CRC-16 on 81/86 PDUs from the Sachse `.bits` capture. No downstream decoder changes needed.
+
+**Addendum (2026-04-21, second pass — CRC-9 + CRC-32 coverage):** implementer noted that CRC-9 tests stayed blocked on "per-row encoding appears to differ from CRC-CCITT-16". Confirmed by re-verification: **all 15 rows (7 × CRC-16 + 4 × CRC-9 + 4 × CRC-32) reproduce under the same convention** — `init=0`, MSB-first, direct feedback-XOR, final XOR with `xor_out_hex`. The earlier "I couldn't reproduce CRC-9" finding was the spec-author omitting `init=0` from the candidate conventions in §2 (all three tried variants assumed `init=all-ones`, following the misleading `CRC9_INIT 0x1FF` define in BAAA-B impl spec §13.2 rather than the plain BAAA-B §5.4.2 formula `F_9(x) = x^9 M(x) mod G_9(x) + I_9(x)`).
+
+Follow-up fixes in the same pass:
+
+1. CSV column `initial_fill` renamed to `xor_out_hex` (the values 0xFFFF/0x1FF/0xFFFFFFFF are `I(x)`, not register init).
+2. BAAA-B impl spec §13 restructured: added §13.0 convention block with a reproducible pseudocode, split `_INIT` and `_XOROUT` defines, and added a one-row Python reproduction in §13.5.
+3. Stale "vectors may be irreproducible" disclaimer in `annex_tables/pdu_crc9_correction_fixtures.md` replaced with a positive reproducibility statement.
+
+**Result:** implementer can wire CRC-9 and CRC-32 vector tests using the same algorithm as `crc_ccitt` (change poly + width + xor_out constants per §13.1–§13.3). No more pending CRC clarification.
 **Filed:** 2026-04-21
 **Filer:** spec-author (while drafting resolution of gap 0014)
 **For:** user / implementer
