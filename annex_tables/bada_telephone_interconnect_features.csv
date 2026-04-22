@@ -1,0 +1,40 @@
+role,feature,trunked_composite,conventional,note,source
+SU,Send Telephone Interconnect Request — Buffered Mode,Mandatory,See note A.3.2,A.3.1,BADA-1 Table A.1
+SU,Send Telephone Interconnect Request — Live Key Mode,Optional,See note A.3.2,A.3.3,BADA-1 Table A.1
+SU,Send Telephone Interconnect Request — List Mode,Optional,See note A.3.2,A.3.1,BADA-1 Table A.1
+SU,Send Telephone Interconnect Request — Implicit Dialing,Standard Option,Optional,A.3.1,BADA-1 Table A.1
+SU,Accept Telephone Interconnect Voice Channel Grant,Mandatory,Not Applicable,A.3.1,BADA-1 Table A.1
+SU,Accept Acknowledge Response from RFSS,Not Applicable,Optional,,BADA-1 Table A.1 (new in BADA-1)
+SU,Accept Deny Response from RFSS,Mandatory,Optional,A.3.1,BADA-1 Table A.1
+SU,Accept Queued Response from RFSS,Mandatory,Optional,A.3.1,BADA-1 Table A.1
+SU,Accept Telephone Interconnect Answer Request,Standard Option,Optional,A.3.1,BADA-1 Table A.1 (new in BADA-1)
+SU,Send Telephone Interconnect Answer Response,Standard Option,Optional,A.3.1,BADA-1 Table A.1
+SU,Send Cancel Service Request,Mandatory,Optional,A.3.1,BADA-1 Table A.1
+SU,Dialing Sidetone,Optional,Optional,,BADA-1 Table A.1
+SU,34 Digit Dialed Number Buffer,Standard Option,Optional,A.3.4,BADA-1 Table A.1
+SU,Individually Targeted Incoming Call,Mandatory,Optional,,BADA-1 Table A.1
+SU,Group Incoming Call,Standard Option,Mandatory,,BADA-1 Table A.1
+SU,Generate Hookflash Signaling,Standard Option,Mandatory,,BADA-1 Table A.1
+SU,Display Call Status,Optional,Optional,,BADA-1 Table A.1
+RFSS,Per-subscriber Class of Service enabling,Standard Option,See Note 5,,BADA-1 Table A.2
+RFSS,Restrict Toll Calls,Standard Option,Mandatory,A.3.6,BADA-1 Table A.2
+RFSS,Speed Dialing,Standard Option,Mandatory,A.3.6,BADA-1 Table A.2
+RFSS,Outgoing Only,Standard Option,Mandatory,A.3.6,BADA-1 Table A.2
+RFSS,Incoming Only,Standard Option,Mandatory,A.3.6,BADA-1 Table A.2
+RFSS,Speed Dial Override,Standard Option,Mandatory,A.3.6,BADA-1 Table A.2
+RFSS,Hookflash,Standard Option,Mandatory,A.3.6,BADA-1 Table A.2
+RFSS,Accept Telephone Interconnect Request — Explicit Dialing,Mandatory,Mandatory,A.3.1,BADA-1 Table A.2
+RFSS,Accept Telephone Interconnect Request — Implicit Dialing,Standard Option,Optional,A.3.1,BADA-1 Table A.2
+RFSS,Send Telephone Interconnect Voice Channel Grant,Mandatory,Not Applicable,A.3.1,BADA-1 Table A.2
+RFSS,Send Acknowledge in response to Telephone Interconnect Request,Not Applicable,Optional,,BADA-1 Table A.2 (new in BADA-1)
+RFSS,Send Telephone Interconnect Answer Request,Standard Option,Optional,A.3.1,BADA-1 Table A.2 (new in BADA-1)
+RFSS,Send Deny Response or Queued Response,Mandatory,Optional,A.3.1,BADA-1 Table A.2
+RFSS,Accept Cancel Service Request,Mandatory,Optional,A.3.1,BADA-1 Table A.2
+RFSS,2-wire loop start at Et point,Standard Option,Mandatory,,BADA-1 Table A.2
+RFSS,2-wire ground start at Et point,Standard Option,Optional,,BADA-1 Table A.2
+RFSS,Other analog (incl. DID) or ISDN at Et point,Optional,Optional,,BADA-1 Table A.2
+RFSS,Generate Overdial Outbound,Standard Option,Mandatory,,BADA-1 Table A.2
+RFSS,Accept Overdial Inbound,Optional,Optional,,BADA-1 Table A.2
+RFSS,Individually targeted incoming calls,Mandatory,Optional,,BADA-1 Table A.2
+RFSS,Group Incoming Call,Standard Option,Mandatory,,BADA-1 Table A.2
+RFSS,Telephone Call Time-out Timer,Optional,Optional,,BADA-1 Table A.2

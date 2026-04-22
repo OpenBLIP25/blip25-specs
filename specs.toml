@@ -838,17 +838,36 @@ published = "2009-10"
 # =============================================================================
 
 [specs."TIA-102.BADA-1"]
-title = "P25 Telephone Interconnect — Addendum 1"
+title = "P25 Telephone Interconnect — Addendum 1 (Conventional Individual Calls)"
 classification = ["protocol"]
-status = "pending"
+status = "processed"
 current_revision = "BADA-1"
+published = "2006-05"
+processed_date = "2026-04-22"
+notes = "Normative addendum to the TIA/EIA-102.BADA baseline. Adds availability checking, call-progress signaling, and structured call termination for conventional channels. Processed together with TSB-102.BADA-A in a single combined implementation spec — see standards/TIA-102.BADA-A/P25_Telephone_Interconnect_Implementation_Spec.md."
+
+[specs."TIA-102.BADA-1".extracted_files]
+full_text           = "standards/TIA-102.BADA-1/TIA-102-BADA-1_Full_Text.md"
+summary             = "standards/TIA-102.BADA-1/TIA-102-BADA-1_Summary.txt"
+related_resources   = "standards/TIA-102.BADA-1/TIA-102-BADA-1_Related_Resources.md"
+implementation_spec = "standards/TIA-102.BADA-A/P25_Telephone_Interconnect_Implementation_Spec.md"  # combined with BADA-A
+features_csv        = "annex_tables/bada_telephone_interconnect_features.csv"
 
 [specs."TIA-102.BADA-A"]
 title = "P25 Telephone Interconnect Requirements and Definitions (Voice Services)"
-classification = ["protocol"]
-status = "pending"
+classification = ["protocol", "overview"]
+status = "processed"
 current_revision = "BADA-A"
 published = "2012-06"
+processed_date = "2026-04-22"
+notes = "Informative TSB (not normative) establishing architecture, dialing modes, duplex modes, Et interface access methods, class-of-service catalog. Processed together with BADA-1 addendum in a single combined impl spec."
+
+[specs."TIA-102.BADA-A".extracted_files]
+full_text           = "standards/TIA-102.BADA-A/TIA-102-BADA-A_Full_Text.md"
+summary             = "standards/TIA-102.BADA-A/TIA-102-BADA-A_Summary.txt"
+related_resources   = "standards/TIA-102.BADA-A/TIA-102-BADA-A_Related_Resources.md"
+implementation_spec = "standards/TIA-102.BADA-A/P25_Telephone_Interconnect_Implementation_Spec.md"
+features_csv        = "annex_tables/bada_telephone_interconnect_features.csv"
 
 # =============================================================================
 # Data Services (BAE series)
