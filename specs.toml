@@ -254,16 +254,24 @@ notes = "29 CPs for TDMA trunked voice CAI conformance. Covers group, unit-to-un
 [specs."TIA-102.AAAB-A"]
 title = "P25 Digital Land Mobile Radio — Security Services Overview (original)"
 classification = ["overview"]
-status = "pending"
+status = "not_required"
 current_revision = "Superseded by AAAB-B"
 withdrawn = true
+notes = "Superseded by AAAB-B (processed 2026-04-22). No separate derivation needed."
 
 [specs."TIA-102.AAAB-B"]
 title = "P25 Digital Land Mobile Radio — Security Services Overview"
 classification = ["overview"]
-status = "pending"
+status = "processed"
 current_revision = "AAAB-B"
 published = "2019-02"
+processed_date = "2026-04-22"
+
+[specs."TIA-102.AAAB-B".extracted_files]
+full_text           = "standards/TIA-102.AAAB-B/TIA-102-AAAB-B_Full_Text.md"
+summary             = "standards/TIA-102.AAAB-B/TIA-102-AAAB-B_Summary.txt"
+related_resources   = "standards/TIA-102.AAAB-B/TIA-102-AAAB-B_Related_Resources.md"
+implementation_spec = "standards/TIA-102.AAAB-B/P25_Security_Services_Overview_Implementation_Spec.md"
 
 [specs."TIA-102.AAAD-A"]
 title = "P25 Digital Land Mobile Radio Block Encryption Protocol (original)"
