@@ -961,9 +961,17 @@ snmp_mib_oids_csv    = "annex_tables/baee_snmp_mib_oids.csv"
 [specs."TIA-102.BAEF"]
 title = "P25 Packet Data Host Network Interface"
 classification = ["protocol", "data"]
-status = "pending"
-current_revision = "BAEF"
-notes = "Current is BAEF-A (Feb-19)."
+status = "processed"
+current_revision = "BAEF (original 2013); BAEF-A is the current external revision but not in corpus"
+published = "2013-11"
+processed_date = "2026-04-22"
+notes = "Targeted BAEF (original 2013) as the best-available corpus copy. A BAEF-A revision (Feb-2019) exists externally but is not in the repo. BAEF is a minimal 20-page profile; the architectural model (IPv4 over Ethernet / IEEE 802.3 on the Ed interface) is expected stable across revisions."
+
+[specs."TIA-102.BAEF".extracted_files]
+full_text           = "standards/TIA-102.BAEF/TIA-102-BAEF_Full_Text.md"
+summary             = "standards/TIA-102.BAEF/TIA-102-BAEF_Summary.txt"
+related_resources   = "standards/TIA-102.BAEF/TIA-102-BAEF_Related_Resources.md"
+implementation_spec = "standards/TIA-102.BAEF/P25_Packet_Data_Host_Network_Interface_Implementation_Spec.md"
 
 [specs."TIA-102.BAEG"]
 title = "P25 Mobile Data Peripheral Interface (original)"
