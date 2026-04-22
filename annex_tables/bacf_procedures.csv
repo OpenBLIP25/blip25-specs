@@ -1,0 +1,11 @@
+procedure,section,initiated_by,annex_a_figure,notes,source
+SU Initiated Activation,§6.3.1,SU,A.1,"SU requests data service; Serving RFSS sends MIPv4 RegReq to Home",BACF
+Home RFSS Initiated Activation,§6.3.2,Home RFSS,A.2,"Network-side trigger to activate SNDCP context on behalf of SU",BACF
+SU Initiated Deactivation,§6.3.3,SU,A.3,"SU tears down context; Serving RFSS sends MIPv4 Deregistration (Lifetime=0)",BACF
+Serving RFSS Initiated Deactivation,§6.3.4,Serving RFSS,A.4,"e.g. MRC Standby Timer expiry; sends Deregistration to Home",BACF
+Home RFSS Initiated Deactivation,§6.3.5,Home RFSS,A.5,"Uses SIP REGISTER to signal Serving RFSS, which then deregisters",BACF
+Home RFSS Context Query,§6.3.6,Home RFSS,,"Home queries Serving for current context state",BACF
+Serving RFSS Context Query,§6.3.7,Serving RFSS,,"Serving queries Home for current context state",BACF
+SNDCP Context Transfer,§6.3.8,New Serving RFSS,A.6,"Subscriber roams to new Serving RFSS; new RFSS registers (S=0) with Home; Home tears down old Forward Tunnel; old RFSS receives SIP REGISTER-deregister and sends Lifetime=0. After transfer first IP packet in each direction MUST use full uncompressed header (header compression resync).",BACF
+Registration Renewal,§6.3.9,Serving RFSS,A.7,"S=1; retains simultaneous binding during exchange",BACF
+Race Condition (old RFSS renewal during transfer),Annex A.8,Old Serving RFSS,A.8,"Old RFSS renewal (S=1) arrives during context transfer; Home briefly holds simultaneous bindings to both old and new; resolves when old RFSS sends Deregistration (Lifetime=0) after receiving SIP REGISTER-deregister",BACF

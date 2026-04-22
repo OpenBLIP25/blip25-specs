@@ -1,0 +1,13 @@
+reply_code,meaning,applicable_over_issi,source
+0,accepted,yes,BACF §4
+1,"accepted; simultaneous bindings unsupported",yes,BACF §4
+64-88,"(various RFC 3344 codes)","NOT applicable over ISSI",BACF §4
+128,reason unspecified,yes,BACF §4
+129,administratively prohibited,yes,BACF §4
+130,insufficient resources,yes,BACF §4
+131,HA (Home Agent) failed,yes,BACF §4
+132,not applicable over ISSI,yes,BACF §4
+133,registration identification mismatch,yes,BACF §4
+134,poorly formed request,yes,BACF §4
+135,too many simultaneous bindings,yes,BACF §4
+136,unknown HA address,yes,BACF §4

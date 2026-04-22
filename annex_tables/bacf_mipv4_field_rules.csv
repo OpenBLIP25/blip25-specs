@@ -1,0 +1,12 @@
+field,value_rule,scope,source
+T bit (Reverse Tunneling),"Always 1 — reverse tunneling is mandatory over ISSI",All Registration Requests,BACF §4 / RFC 3024
+S bit (Simultaneous Bindings),"0 for new context activation and context transfer (tear down prior bindings)",New activation + transfer,BACF §4
+S bit (Simultaneous Bindings),"1 for renewal (retain current Forward Tunnel)",Renewal,BACF §4
+Lifetime,"Non-zero for registration and renewal; 0 for deregistration",All,BACF §4
+Lifetime,"0xFFFF (infinity) SHALL NOT be used",All,BACF §4
+Care-of Address (CoA),"Serving PDIG's IP address",Registration + renewal,BACF §4
+Care-of Address (CoA),"Mobile Host Address",Deregister-all-bindings,BACF §4
+Authentication,"HMAC-MD5 (RFC 2104) with SPI=1000 MANDATORY",All Registration messages,BACF §4 / RFC 2104
+Authentication,"No other extensions present",All Registration messages,BACF §4
+Identification field,"NTP timestamp format (RFC 1305)",All,BACF §4 / RFC 1305
+Identification field clock tolerance,"Default 7 seconds for replay protection",Receiver validation,BACF §4
