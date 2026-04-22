@@ -1,0 +1,7 @@
+pdu_name,direction,delivery,sap,rt_value,rt_bits,length_octets,notes,source
+Packet Data Registration Request – Connect,Inbound (SU→FNE),Confirmed,Registration and Authorization,%0000,0x0,12,"Common PDU format (RT/RO/LLID/IP). Required if Dynamic Registration supported. SU sends on entry to packet data operational mode.",BAEJ-A Table 2 / §4.2.1
+Packet Data Registration Request – Disconnect,Inbound (SU→FNE),Unconfirmed,Registration and Authorization,%0001,0x1,8,"Disconnect format — no IP address field. Sent unconfirmed at de-registration.",BAEJ-A Table 2 / §4.2.4 / Figure 7
+Packet Data Registration Response – Accepted,Outbound (FNE→SU),Confirmed,Registration and Authorization,%0100,0x4,12,"Common PDU format. FNE assigns IP address and confirms Scan Mode negotiation.",BAEJ-A Table 2 / §4.2.2
+Packet Data Registration Response – Denied,Outbound (FNE→SU),Confirmed,Registration and Authorization,%0101,0x5,12,"Common PDU format. SU returns to Closed state on receipt.",BAEJ-A Table 2 / §4.2.3
+Scan Preamble,Outbound (FNE→SU),Unconfirmed,Packet Data Scan Preamble,(none — empty PDU),,0,"Empty CAI Unconfirmed Data Packet Header Block with NO data blocks. Signals pending outbound data to a scanning SU.",BAEJ-A Table 2 / §4.3.1
+Unable to Decrypt,Inbound (SU→FNE),Unconfirmed,Packet Data Encryption Support,(not RT-addressed — SEI MT=0x01),,7,"Sent when SU cannot decrypt a received encrypted CAI data packet. Carries KEY_ID / ALG_ID / CI / EC.",BAEJ-A Table 2 / §4.4.1 / Figure 8

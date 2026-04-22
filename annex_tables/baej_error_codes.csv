@@ -1,0 +1,19 @@
+field,value_hex,meaning,source
+SEI_MT,0x00,reserved,BAEJ-A Table 5
+SEI_MT,0x01,Unable to Decrypt,BAEJ-A Table 5
+SEI_MT,0x02,reserved,BAEJ-A Table 5
+EC,0x00,Received Key ID not matched or received Algorithm ID not recognized,BAEJ-A Table 6
+EC,0x01,reserved,BAEJ-A Table 6
+EC,0x02,"Encryption failure — hardware failure; encryption function offline (key-load mode or out of service); received MI is all zeros; encryption disabled via radio config",BAEJ-A Table 6
+EC,0x03,reserved,BAEJ-A Table 6
+RT,0x0,Registration Request – Connect (inbound),BAEJ-A Table 3
+RT,0x1,Registration Request – Disconnect (inbound),BAEJ-A Table 3
+RT,0x2,reserved,BAEJ-A Table 3
+RT,0x3,reserved,BAEJ-A Table 3
+RT,0x4,Registration Response – Accepted (outbound),BAEJ-A Table 3
+RT,0x5,Registration Response – Denied (outbound),BAEJ-A Table 3
+RT,0x6,reserved,BAEJ-A Table 3
+RO_bit,b0,"CMS Scan Mode (1=enabled). Must be %0 when IP+SNDCP on Conventional FNE — SNDCP owns scan mode",BAEJ-A Table 4
+RO_bit,b1,reserved (must be %0),BAEJ-A Table 4
+RO_bit,b2,reserved (must be %0),BAEJ-A Table 4
+RO_bit,b3,reserved (must be %0),BAEJ-A Table 4
