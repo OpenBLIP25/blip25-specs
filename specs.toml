@@ -154,11 +154,11 @@ part5 = "standards/TIA-102.BBAD-A/LLM Processing/Part5_MAC_Fields_Annex.md"
 [specs."TIA-102.BBAD"]
 title = "Phase 2 Two-Slot TDMA MAC Layer Control Channel (original)"
 classification = ["message_format", "protocol"]
-status = "pending"
+status = "not_required"
 current_revision = "Superseded by BBAD-A"
 published = "2017-08"
 withdrawn = true
-notes = "Original combined document. Revision A split this into BBAD-A (messages) + BBAE (procedures)."
+notes = "Original combined document explicitly cancelled and replaced by BBAD-A (2019). Content split across BBAC-A (bursts+coding), BBAD-A (MAC messages), and BBAE (procedures) — all processed. No separate derivation needed."
 
 [specs."TIA-102.BBAD-A-1"]
 title = "Phase 2 TDMA MAC Layer Messages — Addendum 1: Location on PTT and User Alias"
@@ -391,15 +391,25 @@ notes = "May be a draft or recent revision."
 [specs."TIA-102.AABA-B"]
 title = "P25 Trunking Overview"
 classification = ["overview"]
-status = "pending"
-current_revision = "Superseded by AABA-C"
-notes = "Current approved is AABA-C (Dec-19)."
+status = "processed"
+current_revision = "Superseded by AABA-C (Dec-19, not in corpus)"
+published = "2011-04"
+processed_date = "2026-04-22"
+notes = "Best-available trunking overview in corpus. AABA-C superseded this in 2020 but its PDF has not been acquired; the architectural model (trunking definition, FDMA/TDMA split, RFSS topology, resource allocation, service taxonomy, CCC) is expected stable across the revision."
+
+[specs."TIA-102.AABA-B".extracted_files]
+pdf                 = "standards/TIA-102.AABA-B/TIA-102.AABA-B Final for Publication.pdf"
+full_text           = "standards/TIA-102.AABA-B/TIA-102-AABA-B_Full_Text.md"
+summary             = "standards/TIA-102.AABA-B/TIA-102-AABA-B_Summary.txt"
+related_resources   = "standards/TIA-102.AABA-B/TIA-102-AABA-B_Related_Resources.md"
+implementation_spec = "standards/TIA-102.AABA-B/P25_Trunking_Overview_Implementation_Spec.md"
 
 [specs."TIA-102.AABB-A"]
 title = "P25 Trunking Control Channel Formats (original)"
 classification = ["message_format"]
-status = "pending"
+status = "not_required"
 current_revision = "Superseded by AABB-B"
+notes = "Original (2005) revision. AABB-B is already processed and is the normative reference for trunking control channel formats. No separate derivation needed."
 
 [specs."TIA-102.AABB-B"]
 title = "P25 Trunking Control Channel Formats"
@@ -462,9 +472,9 @@ trunking_spec  = "standards/TIA-102.AABC-E/P25_Trunking_Control_Channel_Messages
 [specs."TIA-102.AABD-A"]
 title = "P25 Trunking Procedures (revision A, original)"
 classification = ["protocol"]
-status = "pending"
+status = "not_required"
 current_revision = "Superseded by AABD-B"
-notes = "Directory has 3 PDFs (original, A-1, A-2)."
+notes = "Revision A (2008) and its addenda. AABD-B is already processed and is the normative reference for trunking procedures. Directory has 3 PDFs (original, A-1, A-2); kept for historical reference. No separate derivation needed."
 
 [specs."TIA-102.AABD-B"]
 title = "P25 Trunking Procedures"
