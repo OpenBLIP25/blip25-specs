@@ -1,19 +1,28 @@
-# Motorola SNDCP N-PDU Preamble (Trunked IV&D): LLC + SNDCP Layering
+# Motorola SNDCP N-PDU Preamble (Trunked IV&D): SNDCP Layering and Unexplained Pre-IP Bytes
 
-**Scope:** Bytes observed *between* the standard BAEB-C 2-byte SNDCP
-header and the IPv4 header `0x45` on live Motorola P25 Unconfirmed Data
-traffic. Explains the layering a passive decoder sees, what it means,
-and the heuristic blip25 uses today.
+**Scope:** Bytes observed *between* the BAEB-C reassembled-payload
+boundary and the IPv4 header `0x45` on live Motorola P25 Unconfirmed
+Data traffic. Explains what TIA-102 *does* specify, what it *does not*
+specify, the heuristic blip25 uses today, and why the bytes remain
+unexplained under the standard.
 
 **Mode:** Trunked IV&D only. For conventional IV&D, the preamble is
 not SNDCP at all — it's SCEP (Motorola proprietary) riding on BAEB-A.
 See `analysis/motorola_conventional_scep_vs_trunked_sndcp.md` for the
 mode split.
 
-**Not a TIA spec amendment.** The bytes surrounding the SNDCP header
-belong to the TIA-102.BAED-A LLC user-plane layer, which is defined
-but not drawn at byte-offset granularity in the existing derived
-works.
+**Correction (2026-04-22).** An earlier version of this note (and
+gap 0018's first resolution) asserted that the bytes surrounding the
+SNDCP header are "LLC user-plane bytes per TIA-102.BAED-A." A full
+re-read of BAED-A does **not** support that claim: BAED-A defines a
+stop-and-wait ARQ, carries all LLC state variables (V(S), V(R),
+N(S), N(R), FSNF, SYN) in the Header-CRC-16-protected PDU header
+block (BAAA-B format), and chains **only** Auxiliary Header(s)
+(AAAD-B, encryption only) or a Second Header (Enhanced Addressing,
+Direct/Repeated Data only) into the logical message fragment. No
+"LLC user-plane" wire-format bytes are defined. The observed bytes
+are therefore **unexplained under TIA standards**; see §§3–4 and §8
+for candidate explanations and what would resolve them.
 
 **Related:**
 - `analysis/motorola_conventional_scep_vs_trunked_sndcp.md` — the
@@ -21,7 +30,11 @@ works.
   captures look different.
 - `gap_reports/0013_motorola_sndcp_npdu_header_variants.md` — resolved.
 - `gap_reports/0018_trunked_ivd_llc_plus_sndcp_plus_rfc2507.md` —
-  resolved; established the LLC+SNDCP layering.
+  re-opened 2026-04-22; earlier "LLC user-plane" resolution
+  withdrawn.
+- `standards/TIA-102.BAED-A/P25_Packet_Data_LLC_Implementation_Spec.md`
+  §13 — explicit statement of what BAED-A does and does not specify
+  about the first data block.
 
 ---
 
@@ -58,117 +71,134 @@ Two details matter for the preamble question:
 
 ---
 
-## 2. The Layering on the Wire (Trunked IV&D)
+## 2. The Layering on the Wire (Trunked IV&D, TIA-defined portion)
 
 Motorola's `MN005155A01-A` Trunked Data Services Feature Guide
 §2.1.3 (p. 30) quantifies the full-uncompressed preamble as 30 bytes
-across IPv4 + UDP + SNDCP. But that 30-byte figure does *not* include
-the LLC user-plane layer, which sits between the BAEB-C PDU
-reassembly boundary and the SNDCP header and has its own bytes on the
-wire.
+across IPv4 + UDP + SNDCP. That matches what TIA-102 specifies:
 
 ```
 ┌────────────────────────────────────────────────────────────┐
 │  CAI PDU (TIA-102.BAEB-C blocks, reassembled payload)      │
-│  └── LLC user-plane PDU (TIA-102.BAED-A)                   │
-│      • sequence / window fields                            │
-│      • ACK / SACK (message-level, distinct from BAAA-B     │
-│        packet-level SACK)                                  │
-│      └── SNDCP header (~2 bytes per BAEB-C §6.4)           │
-│          • PDU Type + NSAPI + PCOMP + DCOMP                │
-│          └── IPv4 (20 B) + UDP (8 B) + app payload         │
+│  • Logical message fragment after LLC block reassembly.    │
+│  • Per BAEB-C §1.3 / §2.3 for SN-Data / SN-UData:          │
+│    Data Header Offset = 2, so the fragment layout is       │
+│    [SNDCP 2B][network PDU...] with no other TIA-defined    │
+│    bytes in between.                                       │
+│                                                            │
+│  └── SNDCP header (2 bytes per BAEB-C §6.4)                │
+│      • PDU Type + NSAPI + PCOMP + DCOMP                    │
+│      └── Network PDU:                                      │
+│          • If PCOMP = 0: raw IPv4 (20 B) + UDP (8 B) + app │
+│          • If PCOMP ≠ 0 (V3 only): RFC 2507 compressed     │
+│            header of variable length, then raw / compressed │
+│            network-layer payload                            │
 └────────────────────────────────────────────────────────────┘
 
-Total pre-payload bytes (no compression) ≈ 30 B of IPv4+UDP+SNDCP
-plus the LLC user-plane header (not separately quantified by
-MN005155A01-A).
+Total pre-payload bytes, no compression: 30 B (IPv4 20 + UDP 8 +
+SNDCP 2). TIA-102 does not define any additional bytes on the
+payload side of the BAEB-C block-reassembly boundary for trunked
+IV&D data PDUs.
 ```
 
-So the "extra bytes" historically observed between the BAEB-C 2-byte
-SNDCP header and the IPv4 `0x45` — the mystery that motivated gap
-0013 — are **LLC user-plane** bytes per TIA-102.BAED-A, not a
-Motorola-proprietary extension and not a PCOMP/DCOMP
-misinterpretation.
+**What the implementer observation actually is.** The `0x40 0x06 ...`
+bytes seen at the start of some trunked IV&D reassembled payloads,
+before the first `0x45` IPv4 version nibble, are **not** accounted
+for by BAED-A, by BAEB-C, or by any other TIA document in this
+working set. See §§3–4 and §8 for candidate explanations.
 
 ---
 
-## 3. The `0x40 0x06 ...` bytes are LLC, not SNDCP
+## 3. The `0x40 0x06 ...` bytes — status as of 2026-04-22
 
-**Correction (2026-04-21, implementer feedback from `blip25-data`):**
-earlier drafts of this note and the BAEB-B impl spec §9 tried to
-decode the observed `0x40 0x06 ...` bytes as the start of the SNDCP
-header (PDU Type / NSAPI in Octet 0, PCOMP/DCOMP or Reserved/DCOMP
-in Octet 1). That was mis-scoping. Those bytes belong to the
-**LLC user-plane** layer (TIA-102.BAED-A), which sits *before* SNDCP
-in the wire layering per §2 of this note.
+Two earlier framings have been withdrawn:
 
-**Real SNDCP on trunked Motorola captures is at `ip_offset - 2`** —
-i.e., two octets immediately preceding the IPv4 version nibble
-`0x45`. At that location the SNDCP header decodes cleanly under
-standard BAEB-B / BAEB-C Figure 26 / 27 / 28 semantics: Octet 0 =
-`PDU Type | NSAPI` with plausible values (PDU Type 4 = SN-UData or
-5 = SN-Data, NSAPI in the user-context range 1–14); Octet 1 =
-`PCOMP | DCOMP` with PCOMP = 0 (no compression) and DCOMP = 0 (no
-compression). No reserved-bit emission, no `DCOMP = 6` mystery —
-those "reserved values" only appeared to exist because the wrong
-bytes were being inspected.
+1. **Framing A (withdrawn 2026-04-21 after `blip25-data` feedback).**
+   The bytes were originally decoded as the start of the SNDCP
+   header (PDU Type / NSAPI in Octet 0, PCOMP/DCOMP or
+   Reserved/DCOMP in Octet 1). This produced implausible values
+   (NSAPI = 0, DCOMP = 6) and does not match clean SNDCP decoding at
+   the expected offset.
+2. **Framing B (withdrawn 2026-04-22).** The bytes were then
+   reframed as "LLC user-plane bytes per TIA-102.BAED-A." A full
+   re-read of BAED-A does not support that framing: BAED-A is a
+   stop-and-wait ARQ whose LLC state (V(S), V(R), N(S), N(R), FSNF,
+   SYN) lives in the Header-CRC-protected PDU header block, not on
+   the payload side. The only payload-side items BAED-A §3.2.5 step
+   2.2 chains in are Auxiliary Header(s) (AAAD-B, encryption only)
+   and a Second Header (Enhanced Addressing, Direct/Repeated Data
+   only — not trunked IV&D). See BAED-A impl spec §13 for the
+   load-bearing statement.
 
-**Consequence for a passive decoder:**
+**Heuristic still in use.** The scan-for-`0x45` in §6 below is
+unchanged — it remains the fastest way to get passive-decoder
+coverage on broadcast Motorola CAD traffic, where compression is
+disallowed and a clean [SNDCP 2B][IPv4] fragment is emitted. At
+`ip_offset - 2` the two bytes decode cleanly as a BAEB-C Figure 26
+SNDCP header (PDU Type = 4/5, NSAPI in the user-context range,
+PCOMP = 0, DCOMP = 0). What this heuristic does **not** do is
+explain what the bytes ahead of `ip_offset - 2` are.
 
-- Locate IPv4 `0x45` first (the scan-for-version-nibble heuristic in
-  §6 below is the right way to do this under current tooling).
-- SNDCP header = `payload[ip_offset - 2 : ip_offset]`. Decode under
-  BAEB-C Figure 26 semantics.
-- Everything between the BAEB-C reassembled-payload boundary and
-  `ip_offset - 2` is the LLC user-plane frame (sequence number,
-  window/flow control, ACK/SACK book-keeping per BAED-A).
+**Candidate explanations for the pre-`ip_offset-2` bytes** (none
+concluded; each requires implementer-side experimentation):
 
-**What this retires:**
+| # | Hypothesis | How to test |
+|---|------------|-------------|
+| a | RFC 2507 compressed header on SNDCPv3 (PCOMP ≠ 0). The SNDCP header is at the BEGINNING of the fragment, not at `ip_offset - 2`; the "network PDU" slot holds a variable-length RFC 2507 compressed frame; the scan-for-`0x45` is landing on coincidental bytes inside the compressed or decompressed payload. | Decode the first two bytes as SNDCP. If PDU Type ∈ {4, 5}, NSAPI ∈ 1–14, PCOMP ∈ 3–6, this is V3 RFC 2507. Implement an RFC 2507 decompressor (SDRTrunk has one) or feed these bytes through a standalone RFC 2507 library. |
+| b | Encryption Auxiliary Header (AAAD-B) with SAP = Encrypted User Data. Pre-IP bytes are ALGID + KID + MI. | Check the PDU header SAP field. If SAP = Encrypted User Data ($01), the payload is ciphertext and no IPv4 `0x45` should appear inside it — so if `0x45` is found, this isn't it. |
+| c | Motorola-proprietary pre-IP wrapper not defined by any TIA document in this working set. | Cross-check against SDRTrunk's `UnconfirmedDataPacket`→`IPPacket` dispatch and Motorola source reference material (`~/blip25-motospec/`). |
+| d | Block-reassembly boundary off-by-one: the "extra" bytes are actually the tail of the preceding CRC-protected structure or a stray pad octet, not payload at all. | Re-derive the first-data-block boundary from BTF / Pad Octet Count / Data Header Offset in the PDU header and confirm it matches the position the parser is treating as "start of logical message fragment." |
 
-- The three "candidate explanations" for `0x40 0x06` that earlier
-  drafts speculated about (swapped nibble order / pre-standard
-  Motorola variant / reserved-DCOMP-with-proprietary-wrapper) were
-  all variations on the same mis-scoping. None of them apply; the
-  real SNDCP bytes decode normally.
-- The "DCOMP = 6 is outside the standard" observation was looking
-  at LLC bytes and calling them DCOMP. With the correction, DCOMP
-  on Motorola trunked captures is 0, as expected.
-- The "NSAPI = 0 on a data flow" anomaly similarly relaxes — the
-  `0x40` nibble was an LLC field, not SNDCP. Actual NSAPI on the
-  real SNDCP header sits at a user-context value.
+**What this retires** (still valid from the 2026-04-21 pass):
 
-**What remains:**
-
-- The exact LLC user-plane byte layout is still an open question.
-  BAED-A §2 describes the fields semantically but the byte offsets
-  of the sequence / window / ACK fields in the first data block
-  need SDRTrunk-source confirmation or a clean context-activation
-  capture to pin down.
+- The "DCOMP = 6 is outside the standard" observation — the bytes
+  being inspected were not necessarily the SNDCP header.
+- The "NSAPI = 0 on a data flow" anomaly — same reason.
 
 ---
 
-## 4. Where the LLC Header and the PDU-Header LLC Fields Differ
+## 4. What BAED-A Actually Specifies (and What It Doesn't)
 
-Two distinct sets of LLC-related fields exist:
+The "LLC user-plane" framing relied on a reading of BAED-A that does
+not hold up on a full read of the document. Concretely:
 
-- **PDU-header LLC fields** (N(S), FSNF, Data Header Offset) — per
-  BAED-A §2.1 and the Confirmed/Unconfirmed PDU header figures in
-  BAAA-B (see `analysis/fdma_pdu_frame.md` §4.3 / §4.4). These live in
-  the Header block and are Header-CRC-16 protected; they do not
-  consume payload bytes in the first data block.
-- **LLC user-plane bytes** — the sliding-window sequence, window, and
-  ACK/SACK mechanics per BAED-A. These *do* live on the user-payload
-  side of the PDU boundary, sitting between BAEB-C reassembled
-  payload and the SNDCP header.
+- **BAED-A is stop-and-wait**, not sliding-window (§3.2 opening). One
+  data packet is in flight at a time. There is no "window" to carry
+  on the wire.
+- **All LLC state variables — V(S), V(R), N(S), N(R), FSNF
+  (LIC + FSN), SYN** — are carried in the **PDU header block** per
+  BAAA-B, not on the payload side. The header block is
+  Header-CRC-16 protected; none of these fields consume bytes in
+  the first data block.
+- **Only two things ever chain onto the payload side** per BAED-A
+  §3.2.5 step 2.2: (a) Auxiliary Header(s) per AAAD-B, present only
+  when the logical message fragment is encrypted; (b) a Second
+  Header, present only for Enhanced Addressing (Direct Data /
+  Repeated Data — both symmetric-addressing configurations).
+  **Neither applies to trunked IV&D data PDUs from an unencrypted
+  user-data SAP.**
+- **BAED-A §3.2.4 Table 4 SACK** is the response-packet-level SACK
+  (Class = %10, Type = %000, Status = N(R), selective-retry flags),
+  i.e., the same SACK as BAAA-B §5.7.5. There is not a second,
+  message-level SACK layer riding in data-block bytes.
 
-What this means for the preamble question: **the SNDCP header sits
-at `ip_offset - 2`**, directly in front of the IPv4 `0x45` version
-nibble. Everything between the BAEB-C reassembled-payload boundary
-and `ip_offset - 2` is LLC user-plane overhead. `MN005155A01-A`
-§3.1.8 (p. 58) enumerates the RNG-side user-plane LLC config knobs
+**What about the Motorola `LLC User Plane Window Size` tunable?**
+`MN005155A01-A` §3.1.8 enumerates RNG-side LLC config knobs
 (`LLC Number of Attempts`, `LLC Timer (sec)`, `LLC User Plane
-Response Timer`, `LLC User Plane Window Size`), which confirms the
-layer is real and config-tunable on a live system.
+Response Timer`, `LLC User Plane Window Size`). These are
+**sender-behavior** parameters: retry counts, inter-retry timers,
+and the number of *messages* an infrastructure endpoint will hold
+pending at once for a given SU. They tune how the LLC state machine
+runs; they do not imply additional bytes on the wire beyond what
+BAED-A specifies.
+
+**Net:** for a trunked IV&D SN-Data / SN-UData PDU carrying an
+unencrypted IP datagram, the reassembled logical message fragment
+per BAEB-C §1.3 / §2.3 is exactly `[SNDCP 2B][network PDU]`, with
+Data Header Offset = 2. Any bytes the implementer sees between the
+BAEB-C block-reassembly boundary and the start of a decodable SNDCP
+header are **outside what TIA-102 specifies for that configuration**
+and must be explained by one of the candidates in §3 above.
 
 ---
 
@@ -257,27 +287,35 @@ user-plane byte layout falls in the latter category.
 
 Recorded so a future investigator doesn't start from zero:
 
-1. **LLC user-plane byte layout.** BAED-A describes the layer
-   semantically; the exact byte positions of sequence / window /
-   ACK fields in the first data block still need confirmation
-   against either SDRTrunk source or a live SN-Context Activation
-   capture. This is the *new* top priority now that SNDCP itself
-   is no longer mysterious — the remaining unknowns all live in
-   the LLC layer.
+1. **Identity of the pre-`ip_offset-2` bytes.** Per §3, this is
+   currently unexplained under TIA standards in this working set.
+   Candidate hypotheses and their tests are enumerated in §3's
+   table. This is the top priority for a conformant trunked-IV&D
+   parser; it requires implementer-side experimentation (RFC 2507
+   decompressor, SDRTrunk source read, Motorola-proprietary
+   investigation, or re-derivation of the first-data-block
+   boundary), not further spec-author work. Gap 0018 is re-opened
+   on this basis.
 2. **SNDCPv3 wire shape on Motorola.** BAEB-B Figures 18/21 show
    V3's variable-length Request/Accept (IPv4 Address conditional
    on NAT). Motorola trunked APX radios emit both V1 and V3; we
    don't yet have a Motorola capture that clearly exercises the
-   V3 variable-length PDU shape. SN-Data / SN-UData at
-   `ip_offset - 2` decode identically in V1/V2/V3 so this only
-   matters at context activation.
+   V3 variable-length PDU shape. Independent of the §3 question.
+3. **Priority ordering of §3 candidates.** RFC 2507 (§3 row a) is
+   the most likely single explanation because it predicts exactly
+   the observed symptom (compressed header of variable length
+   ahead of coincidental bytes that happen to start with `0x45`)
+   and because Motorola's own documentation (`MN005155A01-A`
+   §2.1.3 pp. 30–31) confirms RFC 2507 is active on trunked IV&D
+   after the first datagram of a session. A short experiment —
+   pointing an RFC 2507 library at the bytes from the start of
+   the reassembled fragment — would either confirm or rule it
+   out quickly.
 
-**Retired by the `ip_offset - 2` correction:**
-- ~~NSAPI = 0 on a data flow~~ — we were looking at LLC bytes,
-  not the SNDCP header. Real SNDCP NSAPI on Motorola trunked
-  captures sits at a user-context value.
-- ~~DCOMP = 6 emission~~ — same misattribution. Real DCOMP
-  decodes to 0 at `ip_offset - 2`.
+**Still retired** (from the 2026-04-21 pass, independent of the
+2026-04-22 withdrawal): concerns that earlier drafts's raw
+interpretation of `0x40 0x06` as the SNDCP header produced
+implausible NSAPI / DCOMP values.
 
 ---
 

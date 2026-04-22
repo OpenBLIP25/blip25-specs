@@ -1649,4 +1649,115 @@ decoding approach described in this specification.
 
 ---
 
+## 13. What BAED-A Does and Does Not Specify About the First Data Block
+
+This section exists to prevent a recurring mis-framing: that TIA-102.BAED-A defines
+"LLC user-plane bytes" between the data-block reassembly boundary and the SNDCP
+header. It does not. The following statements are load-bearing for any parser of
+trunked IV&D packet data.
+
+**Source:** TIA-102.BAED-A §§2, 3.2, 3.2.1, 3.2.3, 3.2.4, 3.2.5, 3.3.
+
+### 13.1 LLC State Lives in the PDU Header Block, Not the Payload
+
+BAED-A is a **stop-and-wait** ARQ (BAED-A §3.2 opening): exactly one data packet
+is in flight per session. All LLC state variables are carried in the BAAA-B PDU
+**header block** (format `0x15` unconfirmed, `0x16` confirmed; see BAAA-B impl
+spec §5.7.2 / §5.7.3 / §5.7.4):
+
+| LLC state variable | Header-block field | Section |
+|--------------------|-------------------|---------|
+| V(S) / V(R) (3-bit, mod 8) | N(S) in header (confirmed only) | BAED-A §3.2.1 |
+| Fragment chaining | FSNF (4 bits: LIC + FSN) | BAED-A §3.2.3 |
+| Resync flag | SYN (1 bit) | BAED-A §3.2.2 |
+| Full-vs-selective retry | FMF (1 bit) | BAED-A §3.2.5 step 2.6.4 |
+| N(R) in responses | Status field of response PDU | BAED-A §3.2.4 |
+
+These fields are Header-CRC-16 protected and do not consume bytes in the data
+blocks. No separate "LLC header" sits in the first data block.
+
+### 13.2 Only Two Things Chain onto the Payload Side
+
+BAED-A §3.2.5 step 2.2 enumerates exactly what can precede the user payload inside
+the logical message fragment:
+
+1. **Auxiliary Header(s) per AAAD-B.** Present only when the logical message
+   fragment is encrypted. Carries ALGID + KID + MI. The PDU-header SAP field is
+   set accordingly (Encrypted User Data, or Encrypted Key Management Message,
+   etc., per BAAC-D).
+2. **Second Header (Enhanced Addressing).** Present only when symmetric
+   addressing is used — i.e., Direct Data or Repeated Data configurations.
+   The PDU-header SAP is the Extended Address sentinel (`0x1F`), and the Second
+   Header carries the source LLID and the real SAP. **Not used on Conventional
+   FNE Data or Trunked FNE Data** (both asymmetric, both carry a single LLID in
+   the PDU header block).
+
+Nothing else chains on. BAED-A defines no sequence, window, or SACK bytes on the
+payload side of the PDU.
+
+### 13.3 SACK Is a Response-Packet Meaning, Not a Data-Block Field
+
+BAED-A §3.2.4 Table 4 SACK (Class = %10, Type = %000, Status = N(R)) is a
+**response-packet** meaning — it rides in the 12-octet response PDU defined by
+BAAA-B §5.7.5, not in the data blocks of the original data packet. The selective
+retry flags (one bit per block) are carried in the response PDU's data area,
+again per BAAA-B. There is not a second SACK mechanism operating at a higher
+layer.
+
+### 13.4 `Data Header Offset` Pins the User-Payload Start
+
+The **Data Header Offset** field in the PDU header block (6 bits) tells the
+receiver how many octets into the logical-message-fragment the user payload
+begins. Per BAEB-C §1.3:
+
+| SAP / content | Data Header Offset | Meaning |
+|---------------|--------------------|---------|
+| Packet Data (SCEP IP datagram) | 0 | User payload starts at byte 0 of the fragment |
+| ARP | 0 | User payload starts at byte 0 |
+| SNDCP Packet Data Control (context mgmt PDU) | 0 | Context mgmt PDU starts at byte 0 |
+| Unencrypted User Data (SN-Data / SN-UData carrying IP) | 2 | 2-byte SNDCP header precedes the network PDU |
+
+For trunked IV&D data PDUs (SN-Data, SN-UData), the reassembled fragment is
+therefore exactly `[SNDCP 2B][network PDU]`. No TIA-defined bytes sit between
+the data-block reassembly boundary and the SNDCP header.
+
+### 13.5 "LLC User Plane" Motorola Tunables Are Sender-Behavior Knobs
+
+`MN005155A01-A` §3.1.8 (Motorola RNG config) lists several tunables whose names
+contain "LLC" or "LLC User Plane":
+
+- LLC Number of Attempts (retry count — maps to BAED-A `TX_MAX`)
+- LLC Timer (sec) (retry wait — maps to BAED-A `T_RETRY`)
+- LLC User Plane Response Timer
+- LLC User Plane Window Size
+
+These are **sender-side behavior parameters** that govern how the LLC state
+machine runs. They do not imply additional on-wire bytes beyond what BAED-A and
+BAAA-B specify. "Window Size" here means "number of logical messages an
+infrastructure endpoint will hold pending at once" (implementation behavior),
+not a sliding-window sequence header on the wire.
+
+### 13.6 Unexplained Pre-IP Bytes Are Not BAED-A's Domain
+
+If a passive parser observes bytes between the data-block reassembly boundary
+and the first decodable SNDCP header or IPv4 version nibble on a trunked IV&D
+capture, those bytes are **not explained by BAED-A**. Investigation paths:
+
+1. RFC 2507 compressed header on SNDCPv3 (PCOMP ≠ 0): the SNDCP header is at
+   the start of the fragment, and the "network PDU" slot holds a variable-length
+   compressed frame. An IPv4 scan-for-`0x45` lands on coincidental bytes.
+   See BAEB-C §2.3.1 / §2.3.2 and the RFC 2507 sub-field semantics in BAEB-B
+   impl spec §7.
+2. Auxiliary Header (encryption) when the PDU-header SAP = Encrypted User Data.
+   But the payload is ciphertext in that case; IPv4 should not be observable
+   inside it.
+3. Motorola-proprietary pre-IP wrapper not defined by any TIA document in this
+   working set.
+4. Block-reassembly boundary off-by-one in the parser.
+
+See `analysis/motorola_sndcp_npdu_preamble.md` §3 for the candidate table and
+`gap_reports/0018_trunked_ivd_llc_plus_sndcp_plus_rfc2507.md` for the history.
+
+---
+
 *End of implementation specification -- TIA-102.BAED-A Packet Data LLC*
