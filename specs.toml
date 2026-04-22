@@ -37,16 +37,17 @@ fetch the originals from TIA's public library.
 [specs."TSB-102.BBAA"]
 title = "P25 Two-Slot TDMA Overview"
 classification = ["overview"]
-status = "extracted"
+status = "processed"
 current_revision = "BBAA"
 published = "2010-03"
-processed_date = "2026-04-12"
-notes = "Architecture overview of the TDMA suite. Non-normative. No impl specs needed."
+processed_date = "2026-04-22"
+notes = "Informative TSB; architectural overview of the Phase 2 TDMA suite. Ships as a navigation-hub impl spec pointing at BBAB/BBAC-A/BBAD-A/BBAE for normative detail."
 
 [specs."TSB-102.BBAA".extracted_files]
-full_text = "standards/TSB-102.BBAA/TSB-102-BBAA_full_text.md"
-summary   = "standards/TSB-102.BBAA/TSB-102-BBAA_summary.txt"
-context   = "standards/TSB-102.BBAA/TSB-102-BBAA_context.md"
+full_text           = "standards/TSB-102.BBAA/TSB-102-BBAA_full_text.md"
+summary             = "standards/TSB-102.BBAA/TSB-102-BBAA_summary.txt"
+context             = "standards/TSB-102.BBAA/TSB-102-BBAA_context.md"
+implementation_spec = "standards/TSB-102.BBAA/P25_Phase2_TDMA_Overview_Implementation_Spec.md"
 
 [specs."TIA-102.BBAB"]
 title = "Phase 2 Two-Slot TDMA Physical Layer Protocol Specification"
@@ -653,12 +654,15 @@ fdma_spec  = "standards/TIA-102.BAAA-B/P25_FDMA_Common_Air_Interface_Implementat
 [specs."TIA-102.BAAB-B"]
 title = "P25 Common Air Interface Conformance Test"
 classification = ["conformance"]
-status = "complete"
+status = "done"
 current_revision = "BAAB-B"
 published = "2013-03"
-full_text  = "standards/TIA-102.BAAB-B/TIA-102-BAAB-B_Full_Text.md"
-summary    = "standards/TIA-102.BAAB-B/TIA-102-BAAB-B_Summary.txt"
-context    = "standards/TIA-102.BAAB-B/TIA-102-BAAB-B_Related_Resources.md"
+notes = "Conformance test spec — classification: CONFORMANCE. No implementation code is derivable; Phase 3 impl spec not applicable per the processing prompt (conformance and measurement docs stop at Phase 2)."
+
+[specs."TIA-102.BAAB-B".extracted_files]
+full_text         = "standards/TIA-102.BAAB-B/TIA-102-BAAB-B_Full_Text.md"
+summary           = "standards/TIA-102.BAAB-B/TIA-102-BAAB-B_Summary.txt"
+related_resources = "standards/TIA-102.BAAB-B/TIA-102-BAAB-B_Related_Resources.md"
 
 [specs."TIA-102.BAAC-C"]
 title = "P25 CAI Reserved Values (revision C)"
@@ -825,14 +829,15 @@ context   = "standards/TIA-102.BABG/TIA-102-BABG_Related_Resources.md"
 [specs."TIA-102.BACA"]
 title = "P25 ISSI Messages and Procedures for Voice and Mobility"
 classification = ["message_format", "protocol"]
-status = "extracted"
+status = "processed"
 current_revision = "BACA-B (multiple addenda; BACA-C in draft)"
 published = "2012-11"
-processed_date = "2026-04-13"
+processed_date = "2026-04-22"
 rust_modules = ["p25_issi"]
-notes = "506-page base spec. Full text, summary, and related resources extracted. Covers SU-to-SU calls, group calls, mobility management (REGISTER), in-call roaming, vocoder mode negotiation (PT 100/101/102), PTT floor control (11 types), RFSS capability polling (OPTIONS), and console functionality."
+notes = "Core normative ISSI spec covering SU-to-SU calls, group calls, mobility management (REGISTER), in-call roaming, vocoder mode negotiation (PT 100/101/102), PTT floor control, RFSS capability polling. Parent of the BACA-B-3 IWF addendum (processed as delta) and BACE (conventional ISSI, reuses Block Type 5) and BACF (packet data ISSI, delegates SIP REGISTER here)."
 
 [specs."TIA-102.BACA".extracted_files]
+implementation_spec = "standards/TIA-102.BACA/P25_ISSI_Voice_and_Mobility_Implementation_Spec.md"
 full_text = "standards/TIA-102.BACA/TIA-102-BACA_Full_Text.md"
 summary   = "standards/TIA-102.BACA/TIA-102-BACA_Summary.txt"
 context   = "standards/TIA-102.BACA/TIA-102-BACA_Related_Resources.md"
@@ -1172,10 +1177,11 @@ scalability_csv           = "annex_tables/baj_tier1_scalability.csv"
 [specs."TIA-102.BAJC-A"]
 title = "P25 Tier 2 Location Services (revision A)"
 classification = ["protocol", "location"]
-status = "extracted"
+status = "not_required"
 current_revision = "Superseded by BAJC-B"
 published = "2015-04"
 ansi = true
+notes = "Superseded by BAJC-B. BAJC-B's PDF is not in the corpus; Tier 2 (LRRP over UDP/IP) is cross-referenced from the Location Services impl spec (based on BAJB-B + TSB-102.BAJA-B) as deferred future work. No separate derivation of BAJC-A's older rev needed."
 pdf = "standards/TIA-102.BAJC-A/8.5_ANSI-TIA-102.BAJC-A_Final Published Document_2015_04_10.pdf"
 summary = "standards/TIA-102.BAJC-A/TIA-102-BAJC-A_Summary.txt"
 full_text = "standards/TIA-102.BAJC-A/TIA-102-BAJC-A_Full_Text.md"
@@ -1479,16 +1485,18 @@ notes = "Superseded by TSB-102-D (status: complete). No separate derivation need
 [specs."TSB-102-D"]
 title = "P25 Documentation Suite Overview"
 classification = ["overview"]
-status = "complete"
+status = "processed"
 current_revision = "TSB-102-D"
 published = "2020-04"
-pdf_path = "standards/TSB-102-D/8.10_TSB-102-D_Final Published Document_2020_03_20.pdf"
-outputs = [
-  "TSB-102-D/TSB-102-D_Full_Text.md",
-  "TSB-102-D/TSB-102-D_Summary.txt",
-  "TSB-102-D/TSB-102-D_Related_Resources.md",
-]
-notes = "Master index and architectural overview of the entire TIA-102 (P25) standards suite. Informative TSB only — no Phase 3 impl spec needed."
+processed_date = "2026-04-22"
+notes = "Master index and architectural overview of the entire TIA-102 (P25) standards suite. Informative TSB. Ships as the top-level navigation-hub impl spec linking to every area-specific hub (trunking, data, security, TDMA, location, NMI, ISSI) and the document-to-area quick-reference table."
+
+[specs."TSB-102-D".extracted_files]
+pdf                 = "standards/TSB-102-D/8.10_TSB-102-D_Final Published Document_2020_03_20.pdf"
+full_text           = "standards/TSB-102-D/TSB-102-D_Full_Text.md"
+summary             = "standards/TSB-102-D/TSB-102-D_Summary.txt"
+related_resources   = "standards/TSB-102-D/TSB-102-D_Related_Resources.md"
+implementation_spec = "standards/TSB-102-D/P25_Documentation_Suite_Overview_Implementation_Spec.md"
 
 [specs."TSB-102.CAAC"]
 title = "P25 Mobile Radio PTT and Audio Interface — Definitions and Measurement"
