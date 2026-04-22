@@ -1,0 +1,152 @@
+TIA-102.AABD-C — Project 25 Trunking Procedures (Revision C Draft)
+Summary — TR8.10-25-018 DRAFT, November 2025
+Extracted 2026-04-22
+
+DOCUMENT OVERVIEW
+
+TIA-102.AABD-C is the normative behavioral specification for P25 trunked operation.
+It governs what subscriber units (SUs) and fixed network equipment (FNE/RFSS) must
+do at every stage of a trunked call: control channel acquisition, registration and
+affiliation, call setup and teardown, supplementary services, emergency procedures,
+system status broadcasts, extended functions, composite control channel operation,
+conventional fallback, and inter-system roaming. The document does not define
+air interface frame formats or message encoding (those live in AABC-E, AABB-B,
+and BAAA-B); it defines the state machines and message sequences that sit on top
+of those formats.
+
+This is a draft revision relative to the published AABD-B. The document carries
+approximately 43 editor's comments (tagged [JL]) flagging open issues and proposed
+changes; text rendered in red throughout the PDF represents new or modified material
+proposed for Revision C.
+
+CONTROL CHANNEL ACQUISITION (§2–5)
+
+SUs acquire the control channel by decoding a Frame Sync + NID and validating the
+NAC. Once acquired, they monitor RFSS_STS_BCST and NET_STS_BCST to determine the
+site identity (RFSS ID, Site ID, System ID, WACN ID). If signal quality falls below
+manufacturer-set thresholds (E/Te for error rate, S/Ts for signal strength), the SU
+re-enters a hunt sequence: short hunt (compressed channel list), extended hunt (full
+list), and maximum extended hunt before entering conventional fallback.
+
+Key parameters: T_ctrl (default 300 ms, no-NID timeout); T_rec (35 ms, tune time).
+Adjacent site broadcasts (ADJ_STS_BCST, ≤ 10-sec interval) build a neighboring site
+list that guides roaming decisions.
+
+REGISTRATION AND AFFILIATION (§6)
+
+The SU registers by sending U_REG_REQ; the RFSS assigns a 24-bit Working Unit ID
+(WUID) valid for T_wuid_validity (default 4 hours). Location registration
+(LOC_REG_REQ) re-confirms the WUID when the SU moves to a new site without changing
+the RFSS. The SU affiliates to a talkgroup via GRP_AFF_REQ, receiving a 16-bit
+Working Group ID (WGID). RFSS_REFUSED responses cause the SU to mark the site
+"access denied" and hunt elsewhere. De-registration (U_DE_REG_REQ) occurs at
+power-down.
+
+CALL PROCEDURES (§7–9)
+
+Group Voice: SU sends GRP_V_REQ; RFSS responds with GRP_V_CH_GRANT or QUE_RSP or
+DENY_RSP. On grant, the SU tunes to the traffic channel and begins voice transmission.
+Two call continuation methods govern floor requests: the Direct Method (status symbols
+on traffic channel; tracking RFSSs only) and the Control Channel Method (SU returns
+to control channel for each new floor; both tracking and non-tracking).
+
+Unit-to-Unit: UU_V_REQ → RFSS sends UU_ANS_REQ to destination → destination responds
+Proceed/Wait/Deny → RFSS grants UU_V_CH_GRANT or DENY_RSP. Optional availability
+check before committing resources.
+
+PSTN Interconnect: SU uses TELE_INT_DIAL_REQ or TELE_INT_PSTN_REQ; RFSS grants
+TELE_INT_V_CH_GRANT after PSTN setup. Inbound PSTN calls use TELE_INT_ANS_REQ to the
+destination SU.
+
+Wide Area Calls (§9) span multiple LRAs transparently; the FNE handles LRA address
+mapping and cross-site resource allocation.
+
+SUPPLEMENTARY SERVICES (§10)
+
+Call Alert, Short Message, Status Update (STS_UPDT_REQ → STS_UPDT to target),
+Status Query (STS_Q_REQ → STS_Q → target returns STS_Q_RSP → STS_UPDT to initiator),
+Radio Unit Monitor (dispatcher-initiated call: RAD_MON_REQ → RAD_MON_CMD → target SU
+initiates UU call back; TX duration set by Transmit Multiplier × SU configured time,
+or TX Time field in newer SUs; Silent Mode bit controls user indication), Enhanced
+Radio Unit Monitor (RAD_MON_ENH_REQ/CMD; can request group call; Secure Mode allows
+specifying Key ID + Algorithm ID).
+
+LoPTT (§7.9): GPS location embedded in group voice stream. Two manufacturer-specific
+implementations: MFIDA4 (L3Harris, two-part Part A + Part B GPS update alternating
+with GVCU LCWs) and MFID90 (Motorola Solutions, LC_MOT_PTT_LOC_HDR +
+LC_MOT_PTT_PAYLD alternating with LC_GRP_V_CH_USR; RFSS converts to GVCU LCs for
+repeat). Location is not forwarded over ISSI/CSSI.
+
+User Alias (§7.10): Up to 14-character talker ID. Phase 1 two-part (Part A + Part B
+in odd/even conveyance slots); Phase 2 single MAC message in SACCH per BBAD-A-1.
+
+EMERGENCY PROCEDURES (§11)
+
+Two services: Emergency Alarm (EMRG_ALRM_REQ from SU; RFSS acknowledges and notifies
+consoles) and Emergency Call (group or UU call with E bit set in Service Options).
+
+Emergency Alarm Cancellation uses CAN_SRV_REQ with AIV=1, Service Type = %100111,
+Reason $00, Additional Info echoing original alarm opcode with E bit and group address.
+
+Group Emergency State: tracking RFSSs maintain a talkgroup emergency state (set by
+first GRP_V_REQ with E bit; cancelled by CAN_SRV_REQ with Service Type = %000000).
+Non-tracking RFSSs follow each SU's E bit on a per-transmission basis. Emergency
+calls may ruthlessly preempt lower-priority calls.
+
+Registration in Emergency Mode: SU may register/affiliate with E bit set to gain
+temporary access at a denied site. Temporary access grants emergency-only services.
+
+Remotely Activated Emergency (RAE, §11.2.4): initiating SU or console sends RAE_REQ;
+RFSS delivers RAE_CMD to target; target SU sends EMRG_ALRM_REQ with RAE bit set.
+
+Silent Emergency Activation (§11.2.5): suppresses all SU UI indications during
+emergency; targeted at bus-driver safety and undercover surveillance scenarios.
+
+SYSTEM STATUS BROADCASTS (§12)
+
+NET_STS_BCST (≤ 3-sec interval, §12.1): WACN ID; triggers channel hunt if nominated
+channel changes. RFSS_STS_BCST (≤ 3-sec, §12.2): System/RFSS/Site IDs; composite
+mode bit. IDEN_UP/IDEN_UP_TDMA (§12.3): channel parameters per channel identifier.
+ADJ_STS_BCST (≤ 10-sec, §12.6): adjacent site list; after N_adj_asb_acc (default 50)
+broadcasts following site switch, non-adjacent entries invalidated. SCCB (§12.7): up
+to 2 secondary control channels. SYNC_BCST (§12.8): FDMA time reference for TDMA
+traffic channel synchronization.
+
+EXTENDED FUNCTIONS AND COMPOSITE CONTROL CHANNELS (§13–14)
+
+Extended Functions (§13): Radio Check (EXT_FNCT_CMD → EXT_FNCT_RSP), Radio Inhibit
+(SU appears powered off, persists through power cycling, conditionally accepts OTAR
+zeroize), Radio Uninhibit, Radio Detach, Alert Tones (under development).
+
+CCC (§14): two mutually exclusive states (control / traffic bearer). Composite mode
+bit in System Service Class (Octet 9, bit 0) of status broadcasts. Direct Method call
+continuation only (R bit = 0). Single-channel CCC may drop queued requests during
+traffic channel state transition. T_CCC = 3 superframes (default), 9 (max).
+
+ADDRESSING (ANNEX A)
+
+Hierarchical: Network (WACN, 20-bit) → System (12-bit) → RFSS (8-bit) → Site (8-bit)
+SUID = WACN (20) + System (12) + Unit ID (24) = 56 bits
+WUID = 24-bit local alias assigned at registration; home SU WUID = Unit ID portion of SUID
+SGID = WACN (20) + System (12) + Group ID (16) = 48 bits
+WGID = 16-bit local alias assigned at affiliation; home group WGID = Group ID portion of SGID
+Special WUIDs: $FFFFFC (FNE radio control), $FFFFFD (System Default), $FFFFFE
+(Registration Default), $FFFFFF (ALL UNIT broadcast)
+Special WGIDs: $0000 (null/inhibited), $FFFF (ALL SYSTEM call)
+
+CONVENTIONAL FALLBACK (§16)
+
+When trunking fails, repeaters broadcast LC_CONV_FALLBACK LCW containing up to 6
+Fallback Channel IDs. SUs scan for matching ID + NAC (wildcard = ID 0). Interval
+T_Conv_Fallback_LC = 10 sec. SU exits fallback after missing N_Conv_Fallback_LC
+(default 2) consecutive LC_CONV_FALLBACKs or on finding a control channel.
+
+DRAFT STATUS AND CHANGES
+
+This Revision C draft adds: Remotely Activated Emergency procedures (§11.2.4), Silent
+Emergency Activation (§11.2.5), several ISSI-aware emergency extensions (tracking vs
+non-tracking RFSS disambiguation), LoPTT MFID90 sequence diagram (Figure 18-11), RAE
+call sequence diagram (Figure 18-12), clarification of home/serving RFSS roles
+throughout emergency and call procedures, Composite Control Channel material promoted
+from Annex G to normative §14, and Packet Data Procedures promoted from Annex H to
+normative §8. Alert Tones (§13.6) remains under development.

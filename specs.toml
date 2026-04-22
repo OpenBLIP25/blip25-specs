@@ -480,17 +480,33 @@ notes = "Revision A (2008) and its addenda. AABD-B is already processed and is t
 title = "P25 Trunking Procedures"
 classification = ["protocol"]
 status = "processed"
-current_revision = "AABD-B"
+current_revision = "Superseded by AABD-C draft (TR8.10-25-018), approved"
 published = "2014-11"
 processed_date = "2026-04-12"
 rust_modules = ["p25_trunking::procedures"]
-notes = "Has 4 PDFs (B, B-1 LOP, B-2 UA, B-3 RAE). Current work: AABD-C in draft."
+notes = "Has 4 PDFs (B, B-1 LOP, B-2 UA, B-3 RAE). AABD-C draft approved in TR-8.10 meeting minutes; see specs.TIA-102.AABD-C."
 
 [specs."TIA-102.AABD-B".extracted_files]
 full_text        = "standards/TIA-102.AABD-B/TIA-102-AABD-B_Full_Text.md"
 summary          = "standards/TIA-102.AABD-B/TIA-102-AABD-B_Summary.txt"
 context          = "standards/TIA-102.AABD-B/TIA-102-AABD-B_Related_Resources.md"
 procedures_spec  = "standards/TIA-102.AABD-B/P25_Trunking_Procedures_Implementation_Spec.md"
+
+[specs."TIA-102.AABD-C"]
+title = "P25 Trunking Procedures (revision C, DRAFT)"
+classification = ["protocol"]
+status = "processed"
+current_revision = "AABD-C (draft, to be published)"
+published = "draft (2025-11)"
+processed_date = "2026-04-22"
+notes = "DRAFT revision C, submission TR8.10-25-018. Approved per TR-8.10 meeting minutes but not yet published as a TIA standard. Treat as pre-publication reference — cite 'AABD-C draft' rather than 'AABD-C' until published. Supersedes AABD-B + AABD-B-1 + AABD-B-2 + AABD-B-3 when finalized. Phase 3 spec is a delta-focused companion to the AABD-B impl spec — covers only what changed from AABD-B (§8 Packet Data + §14 CCC promotions, §11.2.4 RAE integration, §11.2.5 Silent Emergency Activation, home/serving RFSS split in emergency procedures, §7.9 MFID90 LoPTT figure, §13.6 Alert Tones under development). ~43 [JL] editor comments in the draft enumerate open issues that must be revalidated at publication time."
+
+[specs."TIA-102.AABD-C".extracted_files]
+pdf                 = "standards/TIA-102.AABD-C/TR8.10-25-018_AABD-C_Draft.pdf"
+full_text           = "standards/TIA-102.AABD-C/TIA-102-AABD-C_Full_Text.md"
+summary             = "standards/TIA-102.AABD-C/TIA-102-AABD-C_Summary.txt"
+related_resources   = "standards/TIA-102.AABD-C/TIA-102-AABD-C_Related_Resources.md"
+implementation_spec = "standards/TIA-102.AABD-C/P25_Trunking_Procedures_AABD_C_Draft_Implementation_Spec.md"
 
 [specs."TIA-102.AABD-B-3"]
 title = "P25 Trunking Procedures — RAE Addendum 3"
