@@ -983,10 +983,18 @@ notes = "Superseded by BAEG-A (targeted for processing). No separate derivation 
 [specs."TIA-102.BAEG-A"]
 title = "P25 Mobile Data Peripheral Interface"
 classification = ["protocol", "data"]
-status = "pending"
+status = "processed"
 current_revision = "BAEG-A"
 published = "2019-03"
+processed_date = "2026-04-22"
 ansi = true
+
+[specs."TIA-102.BAEG-A".extracted_files]
+full_text                 = "standards/TIA-102.BAEG-A/TIA-102-BAEG-A_Full_Text.md"
+summary                   = "standards/TIA-102.BAEG-A/TIA-102-BAEG-A_Summary.txt"
+related_resources         = "standards/TIA-102.BAEG-A/TIA-102-BAEG-A_Related_Resources.md"
+implementation_spec       = "standards/TIA-102.BAEG-A/P25_Mobile_Data_Peripheral_Interface_Implementation_Spec.md"
+protocol_combinations_csv = "annex_tables/baeg_protocol_combinations.csv"
 
 [specs."TIA-102.BAEJ"]
 title = "P25 Conventional Management Service for Packet Data (original)"

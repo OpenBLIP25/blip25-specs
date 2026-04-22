@@ -1,0 +1,8 @@
+combination,physical,point_to_point,network,new_in_rev_a,su_role,mdp_role,ip_binding_typical,source
+IPv4 over SLIP/TIA-232,TIA-232,SLIP,IPv4,No,DCE,DTE,Static or Passive,BAEG-A Table 1 / Figure 1
+IPv4 over PPP/TIA-232,TIA-232,PPP,IPv4,No,DCE,DTE,Dynamic (PPP IPCP) or Static,BAEG-A Table 1 / Figure 2
+IPv4 over SLIP/USB,USB,SLIP,IPv4,No,USB Device,USB Host,Static or Passive,BAEG-A Table 1 / Figure 3
+IPv4 over PPP/USB,USB,PPP,IPv4,No,USB Device,USB Host,Dynamic (PPP IPCP),BAEG-A Table 1 / Figure 4
+IPv4 over RNDIS/USB,USB,RNDIS,IPv4,Yes,RNDIS Device,RNDIS Host,Dynamic (DHCP — SU is DHCP server),BAEG-A Table 1 / Figure 5
+IPv4 over Ethernet (RFC 894),Ethernet,(none),IPv4,Yes,—,—,Local policy,BAEG-A Table 1 / Figure 6
+IPv4 over IEEE 802.3 (RFC 1042),IEEE 802.3,(none),IPv4,Yes,—,—,Local policy,BAEG-A Table 1 / Figure 7
