@@ -1076,7 +1076,7 @@ notes = "Console-to-RFSS interface. IWF addendum in progress."
 [specs."TIA-102.BAJB-A"]
 title = "P25 Tier 1 Location Services (revision A)"
 classification = ["protocol", "location"]
-status = "processed"
+status = "not_required"
 current_revision = "Superseded by BAJB-B"
 processed_date = "2026-04-13"
 files = [
@@ -1084,16 +1084,26 @@ files = [
   "TIA-102-BAJB-A_Summary.txt",
   "TIA-102-BAJB-A_Related_Resources.md",
 ]
-phase3_needed = ["P25_Tier1_Location_Protocol_Implementation_Spec"]
+notes = "Superseded by BAJB-B (processed 2026-04-22). No separate phase-3 derivation needed — the combined Location Services impl spec (BAJB-B + TSB-102.BAJA-B) covers Tier 1."
 
 [specs."TIA-102.BAJB-B"]
 title = "P25 Tier 1 Location Services"
 classification = ["protocol", "location"]
-status = "pending"
+status = "processed"
 current_revision = "BAJB-B"
 published = "2019-12"
+processed_date = "2026-04-22"
 ansi = true
 rust_modules = ["p25_location::tier1"]
+notes = "Processed together with TSB-102.BAJA-B in a single combined Location Services implementation spec."
+
+[specs."TIA-102.BAJB-B".extracted_files]
+full_text                 = "standards/TIA-102.BAJB-B/TIA-102-BAJB-B_Full_Text.md"
+summary                   = "standards/TIA-102.BAJB-B/TIA-102-BAJB-B_Summary.txt"
+related_resources         = "standards/TIA-102.BAJB-B/TIA-102-BAJB-B_Related_Resources.md"
+implementation_spec       = "standards/TIA-102.BAJB-B/P25_Location_Services_Implementation_Spec.md"
+nmea_sentences_csv        = "annex_tables/baj_tier1_nmea_sentences.csv"
+scalability_csv           = "annex_tables/baj_tier1_scalability.csv"
 
 [specs."TIA-102.BAJC-A"]
 title = "P25 Tier 2 Location Services (revision A)"
@@ -1422,15 +1432,24 @@ published = "2002-09"
 [specs."TSB-102.BAJA-A"]
 title = "P25 Location Services Overview (revision A)"
 classification = ["overview", "location"]
-status = "pending"
+status = "not_required"
 current_revision = "Superseded by BAJA-B"
+notes = "Superseded by TSB-102.BAJA-B (processed 2026-04-22). No separate derivation needed."
 
 [specs."TSB-102.BAJA-B"]
 title = "P25 Location Services Overview"
 classification = ["overview", "location"]
-status = "pending"
+status = "processed"
 current_revision = "BAJA-B"
 published = "2017-11"
+processed_date = "2026-04-22"
+notes = "Informative TSB. Processed together with TIA-102.BAJB-B in a single combined Location Services implementation spec."
+
+[specs."TSB-102.BAJA-B".extracted_files]
+full_text           = "standards/TSB-102.BAJA-B/TSB-102-BAJA-B_Full_Text.md"
+summary             = "standards/TSB-102.BAJA-B/TSB-102-BAJA-B_Summary.txt"
+related_resources   = "standards/TSB-102.BAJA-B/TSB-102-BAJA-B_Related_Resources.md"
+implementation_spec = "standards/TIA-102.BAJB-B/P25_Location_Services_Implementation_Spec.md"  # combined with BAJB-B
 
 # =============================================================================
 # Compliance Assessment Program (CB series)

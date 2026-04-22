@@ -1,0 +1,8 @@
+sentence,description,tx_conformance,rx_conformance,source
+GGA,"GPS Fix Data (position, time, altitude, quality)",Mandatory,Mandatory,BAJB-B
+GLL,"Geographic position (latitude/longitude)",Optional,Mandatory,BAJB-B
+GSA,"Dilution of Precision and active satellites",Optional,Mandatory,BAJB-B
+GSV,"Satellites in view",Optional,Mandatory,BAJB-B
+RMA,"Recommended Minimum Loran-C Data",Optional,Mandatory,BAJB-B
+RMC,"Recommended Minimum GPS/TRANSIT Data",Optional,Mandatory,BAJB-B
+VTG,"Track made good and speed over ground",Optional,Mandatory,BAJB-B

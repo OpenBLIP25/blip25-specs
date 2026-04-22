@@ -1,0 +1,6 @@
+interval_seconds,max_users_at_80_percent_reliability,source
+3,2,BAJB-B scalability table
+10,5,BAJB-B scalability table
+50,18,BAJB-B scalability table
+100,34,BAJB-B scalability table
+200,100,BAJB-B scalability table
