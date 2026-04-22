@@ -268,10 +268,11 @@ published = "2019-02"
 [specs."TIA-102.AAAD-A"]
 title = "P25 Digital Land Mobile Radio Block Encryption Protocol (original)"
 classification = ["algorithm"]
-status = "pending"
+status = "not_required"
 current_revision = "Superseded by AAAD-B"
 withdrawn = true
 rust_modules = ["p25_crypto::block_encryption"]
+notes = "Superseded by AAAD-B (processed as P25_Block_Encryption_Protocol_Implementation_Spec.md). No separate derivation needed."
 
 [specs."TIA-102.AAAD-B"]
 title = "P25 Digital Land Mobile Radio Block Encryption Protocol"
@@ -295,9 +296,10 @@ encryption_spec = "standards/TIA-102.AAAD-B/P25_Block_Encryption_Protocol_Implem
 [specs."TIA-102.AACE"]
 title = "P25 Link Layer Authentication (original)"
 classification = ["algorithm", "protocol"]
-status = "pending"
+status = "not_required"
 current_revision = "Superseded by AACE-A"
 withdrawn = true
+notes = "Superseded by AACE-A (processed as P25_Link_Layer_Authentication_Implementation_Spec.md). No separate derivation needed."
 
 [specs."TIA-102.AACE-A"]
 title = "P25 Link Layer Authentication"
@@ -328,8 +330,9 @@ phase3_pending = ["TIA-102-AACA-B_Message_Parsing_Spec.md", "TIA-102-AACA-B_OTAR
 [specs."TIA-102.AACA-C"]
 title = "P25 OTAR Protocol (revision C)"
 classification = ["protocol"]
-status = "pending"
+status = "not_required"
 current_revision = "Superseded by AACA-D"
+notes = "Superseded by AACA-D (processed). No separate derivation needed."
 
 [specs."TIA-102.AACA-D"]
 title = "P25 Over-the-Air Rekeying (OTAR) Protocol"
@@ -634,8 +637,9 @@ context    = "standards/TIA-102.BAAB-B/TIA-102-BAAB-B_Related_Resources.md"
 [specs."TIA-102.BAAC-C"]
 title = "P25 CAI Reserved Values (revision C)"
 classification = ["message_format"]
-status = "pending"
+status = "not_required"
 current_revision = "Superseded by BAAC-D"
+notes = "Superseded by BAAC-D (processed as P25_Reserved_Values_Implementation_Spec.md). No separate derivation needed."
 
 [specs."TIA-102.BAAC-D"]
 title = "P25 Common Air Interface Reserved Values"
@@ -660,8 +664,9 @@ reserved_values = "standards/TIA-102.BAAC-D/P25_Reserved_Values_Implementation_S
 [specs."TIA-102.BAAD-A"]
 title = "P25 Conventional Procedures (revision A)"
 classification = ["protocol"]
-status = "pending"
+status = "not_required"
 current_revision = "Superseded by BAAD-B"
+notes = "Superseded by BAAD-B (processed as P25_Conventional_Procedures_Implementation_Spec.md). No separate derivation needed."
 
 [specs."TIA-102.BAAD-B"]
 title = "P25 Conventional Procedures"
@@ -899,8 +904,9 @@ ip_bearer_spec  = "standards/TIA-102.BAEB-C/P25_IP_Data_Bearer_Implementation_Sp
 [specs."TIA-102.BAED"]
 title = "P25 Packet Data Logical Link Control Procedures (original)"
 classification = ["protocol", "data"]
-status = "pending"
+status = "not_required"
 current_revision = "Superseded by BAED-A"
+notes = "Superseded by BAED-A (processed as P25_Packet_Data_LLC_Implementation_Spec.md). No separate derivation needed."
 
 [specs."TIA-102.BAED-A"]
 title = "P25 Packet Data Logical Link Control Procedures"
@@ -1053,8 +1059,9 @@ phase3_pending = ["P25_LRRP_Protocol_State_Machine_Implementation_Spec.md", "P25
 [specs."TIA-102.BAJD"]
 title = "P25 TCP/UDP Port Number Assignments (original)"
 classification = ["message_format"]
-status = "pending"
+status = "not_required"
 current_revision = "Superseded by BAJD-A"
+notes = "Superseded by BAJD-A (processed 2026-04-21 as P25_Port_Number_Assignments_Implementation_Spec.md). No separate derivation needed."
 
 [specs."TIA-102.BAJD-A"]
 title = "P25 TCP/UDP Port Number Assignments"
@@ -1079,8 +1086,9 @@ port_assignments_csv = "annex_tables/baj_port_assignments.csv"
 [specs."TIA-102.BAKA"]
 title = "P25 KMF to KMF Interface (original)"
 classification = ["protocol"]
-status = "pending"
+status = "not_required"
 current_revision = "Superseded by BAKA-A"
+notes = "Superseded by BAKA-A (processed). No separate derivation needed."
 
 [specs."TIA-102.BAKA-A"]
 title = "P25 KMF to KMF Interface"
@@ -1316,8 +1324,9 @@ published = "2024-12"
 [specs."TSB-102-C"]
 title = "P25 Documentation Suite Overview (revision C)"
 classification = ["overview"]
-status = "pending"
+status = "not_required"
 current_revision = "Superseded by TSB-102-D"
+notes = "Superseded by TSB-102-D (status: complete). No separate derivation needed."
 
 [specs."TSB-102-D"]
 title = "P25 Documentation Suite Overview"
