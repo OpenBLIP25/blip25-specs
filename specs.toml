@@ -840,17 +840,34 @@ context   = "standards/TIA-102.BACA/TIA-102-BACA_Related_Resources.md"
 [specs."TIA-102.BACA-B-3"]
 title = "P25 ISSI — Addendum 3: Interworking with IWF"
 classification = ["protocol"]
-status = "pending"
+status = "processed"
 current_revision = "BACA-B-3"
-published = "2021-01"
+published = "2021-04"
+processed_date = "2026-04-22"
 depends_on = ["TIA-102.BACA"]
+notes = "Normative addendum to BACA-B adding a single new Annex J for 3GPP MCPTT Interworking Function (IWF) support. All other BACA-B sections carried forward unchanged."
+
+[specs."TIA-102.BACA-B-3".extracted_files]
+full_text           = "standards/TIA-102.BACA-B-3/TIA-102-BACA-B-3_Full_Text.md"
+summary             = "standards/TIA-102.BACA-B-3/TIA-102-BACA-B-3_Summary.txt"
+related_resources   = "standards/TIA-102.BACA-B-3/TIA-102-BACA-B-3_Related_Resources.md"
+implementation_spec = "standards/TIA-102.BACA-B-3/P25_ISSI_IWF_Interworking_Implementation_Spec.md"
 
 [specs."TIA-102.BACE"]
 title = "P25 ISSI Messages and Procedures for Conventional Operations"
 classification = ["protocol"]
-status = "pending"
+status = "processed"
 current_revision = "BACE"
 published = "2008-06"
+processed_date = "2026-04-22"
+notes = "Conventional ISSI (Ec interface) — wireline IP protocol between Console Subsystems and Conventional Access Radios. Reaffirmed January 2013; no subsequent revision identified."
+
+[specs."TIA-102.BACE".extracted_files]
+full_text           = "standards/TIA-102.BACE/TIA-102-BACE_Full_Text.md"
+summary             = "standards/TIA-102.BACE/TIA-102-BACE_Summary.txt"
+related_resources   = "standards/TIA-102.BACE/TIA-102-BACE_Related_Resources.md"
+implementation_spec = "standards/TIA-102.BACE/P25_ISSI_Conventional_Implementation_Spec.md"
+block_types_csv     = "annex_tables/bace_block_types.csv"
 
 [specs."TIA-102.BACF"]
 title = "P25 ISSI Messages and Procedures for Packet Data Services"
