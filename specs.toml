@@ -399,11 +399,19 @@ implementation_spec = "standards/TIA-102.AACD-A/P25_KFD_Interface_Protocol_Imple
 kmm_catalog_csv     = "annex_tables/aacd_kmm_catalog.csv"
 
 [specs."TIA-102.AACD-B"]
-title = "P25 KFD Interface Protocol (revision B — in progress)"
+title = "P25 KFD Interface Protocol (revision B)"
 classification = ["protocol"]
-status = "pending"
+status = "processed"
 current_revision = "AACD-B"
-notes = "May be a draft or recent revision."
+published = "2025-10"
+processed_date = "2026-04-22"
+notes = "Published October 2025; supersedes AACD-A. Adds KMM Forwarding, paired/unpaired authentication procedures, OTAR provisioning over KFD, Warm Start WSTEK transport security, expanded status code table. Delivered as a delta impl spec on top of AACD-A."
+
+[specs."TIA-102.AACD-B".extracted_files]
+full_text           = "standards/TIA-102.AACD-B/TIA-102-AACD-B_Full_Text.md"
+summary             = "standards/TIA-102.AACD-B/TIA-102-AACD-B_Summary.txt"
+related_resources   = "standards/TIA-102.AACD-B/TIA-102-AACD-B_Related_Resources.md"
+implementation_spec = "standards/TIA-102.AACD-B/P25_KFD_Interface_Protocol_AACD_B_Delta_Implementation_Spec.md"
 
 # =============================================================================
 # Trunking / Control Channel / Link Control (AAB series)
