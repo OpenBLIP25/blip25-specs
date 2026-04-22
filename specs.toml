@@ -1089,15 +1089,24 @@ cms_error_codes_csv  = "annex_tables/baej_error_codes.csv"
 [specs."TSB-102.BAFA (APCO)"]
 title = "P25 Network Management Interface Overview (APCO version)"
 classification = ["overview", "infrastructure"]
-status = "pending"
-current_revision = "BAFA"
+status = "not_required"
+current_revision = "Superseded by BAFA-A"
+notes = "December 1994 preliminary TSB. Superseded by TSB-102.BAFA-A (July 1999, reaffirmed 2013); the CMIP/GOSIP alternative it proposed was dropped by BAFA-A v1.3 (Dec 1997). No separate derivation needed; historical context captured in the BAFA-A impl spec."
 
 [specs."TSB-102.BAFA-A"]
 title = "P25 Network Management Interface Overview"
 classification = ["overview", "infrastructure"]
-status = "pending"
+status = "processed"
 current_revision = "BAFA-A"
 published = "1999-07"
+processed_date = "2026-04-22"
+notes = "Informative TSB (not normative). Reaffirmed January 2013. SNMP/MIB-II only (CMIP dropped). Combined impl spec covers both BAFA (APCO) and BAFA-A."
+
+[specs."TSB-102.BAFA-A".extracted_files]
+full_text           = "standards/TSB-102.BAFA-A/TSB-102-BAFA-A_Full_Text.md"
+summary             = "standards/TSB-102.BAFA-A/TSB-102-BAFA-A_Summary.txt"
+related_resources   = "standards/TSB-102.BAFA-A/TSB-102-BAFA-A_Related_Resources.md"
+implementation_spec = "standards/TSB-102.BAFA-A/P25_Network_Management_Interface_Overview_Implementation_Spec.md"
 
 # =============================================================================
 # Fixed Station Interface (BAH series)
@@ -1106,11 +1115,20 @@ published = "1999-07"
 [specs."TIA-102.BAHA-A"]
 title = "P25 Fixed Station Interface Messages and Procedures"
 classification = ["message_format", "protocol", "infrastructure"]
-status = "pending"
+status = "processed"
 current_revision = "BAHA-A"
 published = "2017-06"
+processed_date = "2026-04-22"
 rust_modules = ["p25_fsi"]
-notes = "Console-to-RFSS interface. IWF addendum in progress."
+notes = "Conventional Fixed Station Interface (CFSI): AFSI (analog 4-wire + E&M + TRC) and DFSI (IP/UDP with Control port 50006, Voice Conveyance RTP, Data Conveyance PV2). PV1 vs PV2 split with expanded receiver/TX control and dedicated Data Conveyance in PV2."
+
+[specs."TIA-102.BAHA-A".extracted_files]
+full_text                = "standards/TIA-102.BAHA-A/TIA-102-BAHA-A_Full_Text.md"
+summary                  = "standards/TIA-102.BAHA-A/TIA-102-BAHA-A_Summary.txt"
+related_resources        = "standards/TIA-102.BAHA-A/TIA-102-BAHA-A_Related_Resources.md"
+implementation_spec      = "standards/TIA-102.BAHA-A/P25_Fixed_Station_Interface_Implementation_Spec.md"
+control_messages_csv     = "annex_tables/baha_dfsi_control_messages.csv"
+block_types_csv          = "annex_tables/baha_dfsi_block_types.csv"
 
 # =============================================================================
 # Location Services (BAJ series)
@@ -1222,12 +1240,20 @@ related_resources = "standards/TIA-102.BAKA-A/TIA-102-BAKA-A_Related_Resources.m
 phase3_needed = ["P25_IKMF_Message_Format_Implementation_Spec", "P25_IKMF_Protocol_State_Machine_Implementation_Spec", "P25_IKMF_Crypto_Layer_Implementation_Spec"]
 
 [specs."TIA-102.BAKA-A-1"]
-title = "P25 KMF to KMF Interface — Addendum 1"
+title = "P25 KMF to KMF Interface — Addendum 1 (TLS 1.3)"
 classification = ["protocol"]
-status = "pending"
+status = "processed"
 current_revision = "BAKA-A-1"
 published = "2024-12"
+processed_date = "2026-04-22"
 depends_on = ["TIA-102.BAKA-A"]
+notes = "Narrow addendum to BAKA-A adding TLS 1.3 (TLS_AES_128_GCM_SHA256 with RSA-4096) as a second optional transport security suite alongside existing TLS 1.2. Modifies only transport sections; KMM formats unchanged. TCP port 49199."
+
+[specs."TIA-102.BAKA-A-1".extracted_files]
+full_text           = "standards/TIA-102.BAKA-A-1/TIA-102-BAKA-A-1_Full_Text.md"
+summary             = "standards/TIA-102.BAKA-A-1/TIA-102-BAKA-A-1_Summary.txt"
+related_resources   = "standards/TIA-102.BAKA-A-1/TIA-102-BAKA-A-1_Related_Resources.md"
+implementation_spec = "standards/TIA-102.BAKA-A-1/P25_KMF_to_KMF_Addendum_1_TLS_1_3_Implementation_Spec.md"
 
 # =============================================================================
 # Transceiver Measurement / Performance — C4FM/CQPSK (CAA series)
@@ -1631,10 +1657,17 @@ published = "2015-06"
 [specs."J-STD-200"]
 title = "Study of Interworking Between LMR and 3GPP"
 classification = ["overview"]
-status = "pending"
+status = "processed"
 current_revision = "J-STD-200"
-published = "2025-03"
-notes = "Not a TIA-102 doc. Interworking study between P25 and 3GPP/LTE."
+published = "2025-02"
+processed_date = "2026-04-22"
+notes = "Joint ATIS/TIA study (not normative). Architectural reference for LMR (TIA-102 trunking + digital conv + TIA-603 analog) to 3GPP MC (MCPTT/MCData/MCVideo) interworking via IWF. ~80 message-sequence scenarios in §9 informative. Wire-level detail deferred to 3GPP TS 23.283 and TIA-102 companion specs (AABD-B/C, AACA-D, AACD-A/B, BAKA-A/A-1, BACA-B-3)."
+
+[specs."J-STD-200".extracted_files]
+full_text           = "standards/J-STD-200/J-STD-200_Full_Text.md"
+summary             = "standards/J-STD-200/J-STD-200_Summary.txt"
+related_resources   = "standards/J-STD-200/J-STD-200_Related_Resources.md"
+implementation_spec = "standards/J-STD-200/P25_LMR_3GPP_MC_Interworking_Study_Implementation_Spec.md"
 
 # =============================================================================
 # Processing Priority Queue

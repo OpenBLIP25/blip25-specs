@@ -1,0 +1,18 @@
+message,id_hex,pv1,pv2,purpose,source
+FSC_CONNECT,0x00,yes,yes,"Establish a connection; negotiates connection type (Control $10 / Voice Conveyance $20 / Data Conveyance $40 PV2-only), Protocol Version, Max_CAI_Data_Blocks",BAHA-A §5.5
+FSC_HEARTBEAT,0x01,yes,yes,"Periodic liveness; default every 30s; connection lost after 2 missed periods",BAHA-A §5.6
+FSC_ACK,0x02,yes,yes,"Response: CONTROL_ACK or one of 11 NAK codes (already-connected, unsupported version, bad parameters, busy, connection failure, …)",BAHA-A §5.7
+FSC_SBC,0x03,yes,yes,"Site Busy Control",BAHA-A §5.8
+FSC_MAN_EXT,0x04,yes,yes,"Manufacturer Extension container",BAHA-A §5.9
+FSC_SEL_CHAN,0x05,yes,yes,"Select Channel",BAHA-A §5.10
+FSC_SEL_RPT,0x06,yes,yes,"Select Repeater",BAHA-A §5.11
+FSC_SEL_SQUELCH,0x07,yes,yes,"Select Squelch mode (digital, analog CTCSS code, etc.)",BAHA-A §5.12
+FSC_REPORT_SEL,0x08,yes,yes,"Report current selection state",BAHA-A §5.13
+FSC_DISCONNECT,0x09,yes,yes,"Explicit session teardown",BAHA-A §5.14
+FSC_SCAN,0x0A,no,yes,"PV2 — scan control",BAHA-A §5.15
+FSC_RCV_CNTRL,0x0B,no,yes,"PV2 — receiver control (REPORT/NORMAL/SELECT/DISABLE/ENABLE); replaces PV1 in-band Voter Control (PT=13); receiver 0 = all",BAHA-A §5.16
+FSC_TX_CNTRL,0x0C,no,yes,"PV2 — transmitter control (analogous to RCV_CNTRL)",BAHA-A §5.17
+FSC_MBC,0x0D,no,yes,"PV2 — Multicast/Broadcast Control",BAHA-A §5.18
+FSC_START_DATA,0x0E,no,yes,"PV2 — arbitrate CAI between voice and data (start data)",BAHA-A §5.19
+FSC_STOP_DATA,0x0F,no,yes,"PV2 — arbitrate CAI between voice and data (stop data)",BAHA-A §5.19
+FSC_CAI_BUSY_BITS,0x10,no,yes,"PV2 — CAI busy status",BAHA-A §5.20

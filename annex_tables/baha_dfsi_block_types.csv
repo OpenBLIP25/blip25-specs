@@ -1,0 +1,18 @@
+pt,name,pv1,pv2,size_octets,notes,source
+0,CAI Voice (IMBE),yes,yes,14,"One IMBE vocoder frame: U0-U7 (U0-U6 Golay/Hamming corrected, U7 unprotected) + error counts (Et/Er/E4/E1) + mute (M) + lost (L) + super-frame counter (SF, 2b) + CAI busy (B)",BAHA-A §6.4 / Figures §6.4
+0,PCM Audio (G.711 μ-law),yes,yes,160,"Analog transparent voice; 20 ms per block; E=0 (PCMU per RFC 3551)",BAHA-A §6.4 / §7.7
+2,Decoded Link Control Word,no,yes,variable,"PV2+ — full 12 code words decoded into constituent fields (LCO-specific)",BAHA-A §6.6 / Figure 51
+3,Decoded Encryption Sync Word,no,yes,variable,"PV2+ — 80-bit MI + AlgID + KID",BAHA-A §6.7 / Figure 54
+4,Decoded Low Speed Data,no,yes,variable,"PV2+ — 16-bit LSD + LDU indicator",BAHA-A §6.8 / Figure 55
+5,Decoded Header Word,no,yes,variable,"PV2+ — 72-bit MI + AlgID + KID + MFID + TGID + NID",BAHA-A §6.9 / Figure 56
+6,Voice Header Part 1,yes,yes,variable,"First 18 Golay code words G0-G17 with status",BAHA-A §6.10 / Figure 57
+7,Voice Header Part 2,yes,yes,variable,"Last 18 Golay code words G18-G35",BAHA-A §6.11 / Figure 58
+8,Analog Start of Stream,no,yes,variable,"PV2+ — analog streams with CTCSS or CDCSS squelch codes",BAHA-A §6.12 / Figure 59
+9,Start of Stream with NID,yes,yes,variable,"16-bit NID (NAC+DUID) + 4-bit error count; sent repeatedly with each LDU1 until PT=14 StrAck received",BAHA-A §6.13 / Figure 60
+10,End of Stream,yes,yes,variable,"Stream termination; sent 4× spaced 100 ms apart; station de-keys on EoS or after timeout (typ 4 s)",BAHA-A §6.14 / §7.8
+11,PTT Control Word,yes,yes,variable,"PTT control",BAHA-A §6.15
+12,Receiver Report,yes,yes,variable,"Per-receiver status: NO_SIGNAL / SELECTED / GOOD_P25 / GOOD_FM / BAD_P25 / BAD_FM / NOT_EQUIPPED / FAILED; multiple receivers per packet; sent on change + periodic (default 10 s)",BAHA-A §6.16 / Figure 61
+13,Voter Control,yes,no,variable,"PV1-only; superseded by PV2 FSC_RCV_CNTRL",BAHA-A §6.17 / Figure 62
+14,Stream Acknowledge,yes,yes,variable,"ACK for SoS; ensures reliable NID delivery",BAHA-A §6.18
+20,Transmitter Report,no,yes,variable,"PV2+ optional; per-transmitter status codes",BAHA-A §6.19 / Figure 63
+"63-127",Manufacturer Specific,yes,yes,variable,"Vendor-proprietary extensions (MFID + Length + data)",BAHA-A §6.20 / Figure 64
