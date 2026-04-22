@@ -872,9 +872,12 @@ block_types_csv     = "annex_tables/bace_block_types.csv"
 [specs."TIA-102.BACF"]
 title = "P25 ISSI Messages and Procedures for Packet Data Services"
 classification = ["protocol"]
-status = "pending"
+status = "processed"
 current_revision = "BACF"
 published = "2009-10"
+full_text           = "standards/TIA-102.BACF/TIA-102-BACF_Full_Text.md"
+summary             = "standards/TIA-102.BACF/TIA-102-BACF_Summary.txt"
+related_resources   = "standards/TIA-102.BACF/TIA-102-BACF_Related_Resources.md"
 
 # =============================================================================
 # Telephone Interconnect (BAD series)

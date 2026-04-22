@@ -1,0 +1,204 @@
+TIA-102.BACF — Project 25 Inter-RF Subsystem Interface (ISSI) Messages and
+Procedures for Packet Data Services
+
+DOCUMENT STATUS: Active standard, TIA TR8.19, published October 2009.
+Re-affirmed January 2013. Not superseded. Companion to TIA-102.BACA-A (ISSI
+voice/control) and the other ISSI family documents (BACC-B, BACD-B, BACE,
+BACG).
+
+CLASSIFICATION: Protocol specification. Defines MIPv4-based tunneling
+procedures for IP packet data over the ISSI, state machines, and message
+sequence procedures. Companion implementation spec should cover: PD-SAP state
+machine tables, MIPv4 Registration Request/Reply field rules, 9 procedure
+types, and Annex A message sequences.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+SCOPE
+
+TIA-102.BACF defines messages and procedures for packet data services over the
+P25 Inter-RF Subsystem Interface (ISSI). The ISSI is the IP-transport boundary
+between two P25 Radio Frequency Sub-Systems (RFSSs) — the link that lets a
+roaming subscriber unit get packet data service from a Serving RFSS while its
+home registration lives in a Home RFSS.
+
+Scope is explicitly limited to **FNE Data** (Radio-to-Fixed Network Equipment)
+in trunked P25 systems. Repeated Data (repeater-assisted) and Direct Data
+(subscriber-to-subscriber) configurations are out of scope. The standard
+addresses a single scenario: a subscriber unit with an active SNDCP context
+being served across an ISSI link to its home system.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ARCHITECTURE
+
+Each RFSS contains a **Packet Data ISSI Gateway (PDIG)** — the functional
+entity that bridges the air-interface SNDCP world to the IP-roaming world. The
+PDIG provides SNDCP protocol termination, and Home/Foreign Agent functions
+(per MIPv4).
+
+When a subscriber roams to a foreign RFSS, a **Packet Data ISSI Link** is
+established between two PDIGs: the Serving PDIG (in the visited RFSS, acting
+as Foreign Agent) and the Home PDIG (in the home RFSS, acting as Home Agent).
+A Packet Data ISSI Link consists of two IP-over-IP tunnels paired for a single
+SNDCP context:
+
+- **Forward Tunnel** (Home PDIG → Serving PDIG): carries IP datagrams destined
+  for the subscriber unit.
+- **Reverse Tunnel** (Serving PDIG → Home PDIG): carries IP datagrams
+  originating from the subscriber unit. Reverse tunneling (RFC 3024, direct
+  delivery style) is mandatory; the T bit is always 1.
+
+The **PD-SAP** (Packet Data Service Access Point) is the internal interface
+between the Controlling Function and the MIPv4 protocol element within each
+RFSS. It is the state machine boundary: all BACF state machine definitions
+are expressed in terms of PD-SAP primitives.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PROTOCOL STACK
+
+Over the ISSI, packet data uses:
+
+  SIP (from TIA-102.BACA-A) — SNDCP context mobility management (Register,
+  Deregister, Query) carried as SIP REGISTER messages between Serving and Home
+  RFSS.
+
+  MIPv4 (RFC 3344 + RFC 3024) — Registration Request and Reply messages
+  carried over UDP port 434 between Serving PDIG and Home PDIG.
+
+  IP-over-IP (RFC 2003) — datagram encapsulation through both Forward and
+  Reverse tunnels.
+
+  UDP/IPv4 — underlying transport for all ISSI signaling and tunnel traffic.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+KEY MIPV4 FIELD RULES
+
+The standard imposes specific constraints on RFC 3344 Registration messages:
+
+- **T bit**: Always 1 (reverse tunneling required, no exceptions).
+- **S bit (Simultaneous Bindings)**:
+  - 0 for new context activation and context transfer (tear down all prior
+    bindings at Home PDIG).
+  - 1 for renewal (retain existing binding; Home PDIG retains the current
+    Forward Tunnel).
+- **Lifetime**: Non-zero for registration and renewal; 0 for deregistration.
+  The value 0xFFFF (infinity) SHALL NOT be used.
+- **Care-of Address (CoA)**: Serving PDIG's IP address for registration and
+  renewal; set to the Mobile Host Address for deregister-all-bindings.
+- **Authentication**: HMAC-MD5 (RFC 2104) with SPI=1000 is mandatory. It is
+  the only extension present in Registration messages over ISSI.
+- **Identification field**: Uses NTP timestamp format (RFC 1305). Default
+  clock tolerance for replay protection is 7 seconds.
+
+Reply codes that are valid over ISSI: 0 (accepted), 1 (accepted; simultaneous
+bindings unsupported), 128 (reason unspecified), 129 (administratively
+prohibited), 130 (insufficient resources), 131 (HA failed), 132 (not
+applicable over ISSI), 133 (registration identification mismatch), 134 (poorly
+formed request), 135 (too many simultaneous bindings), 136 (unknown HA
+address). Reply codes 64-88 are "not applicable over ISSI."
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PD-SAP STATE MACHINES (Section 5)
+
+Each RFSS maintains a 4-state PD-SAP state machine per SNDCP context:
+
+**Serving RFSS states**: Initial → Registering → Registered → DeRegistering
+→ (Final/Initial)
+
+**Home RFSS states**: Initial → Registering → Registered → DeRegistering
+→ (Final/Initial)
+
+The state machine tables (Tables 1-8 in the standard) enumerate the complete
+set of PD-SAP functions (primitives), then for each state: a summary of system
+context, the list of valid incoming events, and the required actions for each
+event. The machine handles: registration requests and replies, SIP REGISTER
+indications (for context mobility), deregistration events from all three
+initiators (SU, Serving RFSS, Home RFSS), context transfer, renewal, and error
+conditions (identification mismatch, resource failure, timer expiry).
+
+The **MRC Standby Timer** (from TIA-102.BAEB) is the inactivity mechanism:
+when it expires at the Serving RFSS, the Serving RFSS initiates context
+deactivation.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PROCEDURES (Section 6)
+
+Nine procedure types are defined (§6.3.1–6.3.9):
+
+1. **SU Initiated Activation** — Subscriber unit requests data service;
+   Serving RFSS sends MIPv4 Registration Request to Home RFSS.
+2. **Home RFSS Initiated Activation** — Home RFSS initiates the context on
+   behalf of the subscriber (network-side trigger).
+3. **SU Initiated Deactivation** — Subscriber unit tears down its data context;
+   Serving RFSS sends MIPv4 Deregistration (Lifetime=0).
+4. **Serving RFSS Initiated Deactivation** — Serving RFSS tears down (e.g.,
+   MRC Standby Timer expiry); sends Deregistration to Home RFSS.
+5. **Home RFSS Initiated Deactivation** — Home RFSS initiates teardown; uses
+   SIP REGISTER to signal Serving RFSS, which then deregisters.
+6. **Home RFSS Context Query** — Home RFSS queries Serving RFSS for current
+   context state.
+7. **Serving RFSS Context Query** — Serving RFSS queries Home RFSS for current
+   context state.
+8. **SNDCP Context Transfer** — Subscriber roams to a new Serving RFSS; new
+   Serving RFSS registers (S=0) with Home RFSS; Home RFSS tears down Forward
+   Tunnel to previous Serving RFSS; previous Serving RFSS receives SIP
+   REGISTER-deregister and sends Lifetime=0. After transfer, first IP packet
+   in each direction MUST use full uncompressed header (header compression
+   resync).
+9. **Registration Renewal** — Serving RFSS renews binding before Lifetime
+   expires (S=1, retains simultaneous binding during the exchange).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ANNEX A — MESSAGE SEQUENCE DIAGRAMS
+
+Annex A provides eight normative message sequence diagrams (A.1–A.8) with
+every step numbered and labeled, covering the same procedure space as Section
+6 plus a race condition scenario:
+
+  A.1  SU Initiated Activation
+  A.2  Home RFSS Initiated Activation
+  A.3  SU Initiated Deactivation
+  A.4  Serving RFSS Initiated Deactivation
+  A.5  Home RFSS Initiated Deactivation
+  A.6  SNDCP Context Transfer (includes header compression resync note)
+  A.7  Registration Renewal
+  A.8  Race Condition — previous Serving RFSS renewal (S=1) arriving during
+       context transfer; Home RFSS briefly holds simultaneous bindings to both
+       old and new Serving RFSS; resolves when old Serving RFSS sends
+       Deregistration (Lifetime=0) upon receiving its SIP REGISTER-deregister.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+NORMATIVE DEPENDENCIES
+
+  TIA-102.BACA-A — P25 ISSI messages and procedures (SIP REGISTER for context
+    mobility management; this document delegates Section 4 to BACA-A entirely)
+  TIA-102.BAEB-C — P25 SNDCP (SNDCP context protocol, MRC Standby Timer,
+    APN structure, header compression)
+  RFC 3344     — Mobile IPv4 (Registration Request/Reply base specification)
+  RFC 3024     — Reverse Tunneling for Mobile IP (T bit, direct delivery style)
+  RFC 2003     — IP Encapsulation within IP (tunnel datagram format)
+  RFC 2104     — HMAC (authentication extension construction)
+  RFC 1305     — NTP timestamp format (Identification field)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PHASE 3 NOTE (for future processing run)
+
+An implementation spec for TIA-102.BACF should cover:
+- PD-SAP state machine tables (Tables 1-8) in code-ready form, with events
+  and actions enumerated for both Serving and Home RFSS
+- MIPv4 Registration Request and Reply field encoding rules (complete field
+  table with SHALL/SHOULD annotations and ISSI-specific constraints)
+- All 9 procedure types as sequential step lists
+- Annex A race condition (A.8) documented as an implementation pitfall
+- Header compression resync requirement on context transfer
+- Reply code dispatch table (valid vs. not-applicable over ISSI)
+- Cross-references to TIA-102.BAEB-C (SNDCP) and TIA-102.BACA-A (SIP) for
+  the interfaces this spec relies on
