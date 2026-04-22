@@ -377,16 +377,26 @@ ansi = true
 [specs."TIA-102.AACD"]
 title = "P25 Key Fill Device Interface Protocol (original)"
 classification = ["protocol"]
-status = "pending"
+status = "not_required"
 current_revision = "Superseded by AACD-A"
+notes = "Original 2003 edition. Superseded by AACD-A (processed 2026-04-22) which adds the IP transport path and corrects field widths; further superseded by AACD-B draft (2025). No separate derivation of the original needed."
 
 [specs."TIA-102.AACD-A"]
 title = "P25 Key Fill Device (KFD) Interface Protocol"
 classification = ["protocol"]
-status = "pending"
+status = "processed"
 current_revision = "AACD-A"
 published = "2014-09"
+processed_date = "2026-04-22"
 rust_modules = ["p25_crypto::kfd"]
+notes = "Supersedes original AACD (2003) — adds IP transport path. Further superseded by AACD-B (October 2025) which adds KMM Forwarding, paired/unpaired auth procedures, OTAR provisioning over KFD, and Warm Start WSTEK. AACD-B content delivered as a delta impl spec."
+
+[specs."TIA-102.AACD-A".extracted_files]
+full_text           = "standards/TIA-102.AACD-A/TIA-102-AACD-A_Full_Text.md"
+summary             = "standards/TIA-102.AACD-A/TIA-102-AACD-A_Summary.txt"
+related_resources   = "standards/TIA-102.AACD-A/TIA-102-AACD-A_Related_Resources.md"
+implementation_spec = "standards/TIA-102.AACD-A/P25_KFD_Interface_Protocol_Implementation_Spec.md"
+kmm_catalog_csv     = "annex_tables/aacd_kmm_catalog.csv"
 
 [specs."TIA-102.AACD-B"]
 title = "P25 KFD Interface Protocol (revision B — in progress)"
