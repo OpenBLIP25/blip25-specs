@@ -857,16 +857,25 @@ published = "2012-06"
 [specs."TIA-102.BAEA-B"]
 title = "P25 Data Overview (revision B)"
 classification = ["overview", "data"]
-status = "pending"
+status = "not_required"
 current_revision = "Superseded by BAEA-C"
+notes = "Superseded by BAEA-C (targeted for processing). No separate derivation of the B revision needed."
 
 [specs."TIA-102.BAEA-C"]
 title = "P25 Data Overview"
 classification = ["overview", "data"]
-status = "pending"
+status = "processed"
 current_revision = "BAEA-C"
 published = "2015-12"
+processed_date = "2026-04-22"
 ansi = true
+
+[specs."TIA-102.BAEA-C".extracted_files]
+pdf                 = "standards/TIA-102.BAEA-C/8.5_TIA-102.BAEA-C_Final Published Document_2015_12_11.pdf"
+full_text           = "standards/TIA-102.BAEA-C/TIA-102-BAEA-C_Full_Text.md"
+summary             = "standards/TIA-102.BAEA-C/TIA-102-BAEA-C_Summary.txt"
+related_resources   = "standards/TIA-102.BAEA-C/TIA-102-BAEA-C_Related_Resources.md"
+implementation_spec = "standards/TIA-102.BAEA-C/P25_Data_Overview_Implementation_Spec.md"
 
 [specs."TIA-102.BAEB-B"]
 title = "P25 IP Data Bearer Service Specification (revision B)"
@@ -927,8 +936,9 @@ llc_spec   = "standards/TIA-102.BAED-A/P25_Packet_Data_LLC_Implementation_Spec.m
 [specs."TIA-102.BAEE-B"]
 title = "P25 Radio Management Controls (revision B)"
 classification = ["protocol", "data"]
-status = "pending"
+status = "not_required"
 current_revision = "Superseded by BAEE-C"
+notes = "Superseded by BAEE-C (targeted for processing). No separate derivation of the B revision needed."
 
 [specs."TIA-102.BAEE-C"]
 title = "P25 Radio Management Controls"
@@ -948,8 +958,9 @@ notes = "Current is BAEF-A (Feb-19)."
 [specs."TIA-102.BAEG"]
 title = "P25 Mobile Data Peripheral Interface (original)"
 classification = ["protocol", "data"]
-status = "pending"
+status = "not_required"
 current_revision = "Superseded by BAEG-A"
+notes = "Superseded by BAEG-A (targeted for processing). No separate derivation of the original needed."
 
 [specs."TIA-102.BAEG-A"]
 title = "P25 Mobile Data Peripheral Interface"
@@ -962,8 +973,9 @@ ansi = true
 [specs."TIA-102.BAEJ"]
 title = "P25 Conventional Management Service for Packet Data (original)"
 classification = ["protocol", "data"]
-status = "pending"
+status = "not_required"
 current_revision = "Superseded by BAEJ-A"
+notes = "Superseded by BAEJ-A (targeted for processing). No separate derivation of the original needed."
 
 [specs."TIA-102.BAEJ-A"]
 title = "P25 Conventional Management Service Specification for Packet Data"
