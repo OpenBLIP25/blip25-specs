@@ -1,0 +1,14 @@
+sdu_class,operator_name,operator_value,ascii,operand_label,operand_value,response_len_octets,response_payload,source
+RQST,GET_INFO,0x47,G,INFO_BLOCK,0x43,25,"SW_version(4)+RadioMan(1)+CAI_LLI(3)+SU_MTU(2)+SerialNumber(10)+RegStatus(1)+ChanQual(1)+SigStrength(1)+BatteryLevel(1)",BAEE-C Table 1 / Figure 13
+RQST,GET_CONFG,0x33,3,CONFIG_BLOCK,0x39,4,"POWER_MODE(1)+DATA_DELIVERY(1)+ENCRYPTION(1)+DATA_CONFIG(1)",BAEE-C Table 1 / Figure 14
+RQST,RST_DFLT,0x34,4,CONFIG_BLOCK,0x39,0,SUCCESS/FAIL only,BAEE-C Table 1 / Figure 17
+RQST,SET_CONF,0x35,5,CONFIG_BLOCK values,0x39,0,SUCCESS/FAIL only,BAEE-C Table 1 / Figure 18
+RQST,SAVE_DFLT,0x36,6,CONFIG_BLOCK,0x39,0,SUCCESS/FAIL only,BAEE-C Table 1 / Figure 19
+RQST,RESET_STATS,0x4C,L,STATS_BLOCK,0x4B,0,SUCCESS/FAIL only,BAEE-C Table 1 / Figure 15
+RQST,GET_STATS,0x4D,M,STATS_BLOCK,0x4B,8,"TOTAL_NUM_SENT_PACKETS(4)+TOTAL_NUM_RCVD_PACKETS(4)",BAEE-C Table 1 / Figure 16
+RESP,SUCCESS,0x53,S,,,,Result code — successful request,BAEE-C Table 3
+RESP,FAIL,0x46,F,,,,Result code — failed request,BAEE-C Table 3
+RESP,UNKNOWN,0x55,U,,,,Appended after FAIL when the operator is unrecognized,BAEE-C §3.4.2.8 / Figure 20
+RPRT,POWER_UP,0x50,P,,,1,Radio has powered up (no status octet),BAEE-C Table 7 / Figure 22
+RPRT,RADIO_REGISTRATION,0x4E,N,,,2,"Registration status octet: REGISTERED=0x41 / NOT_REGISTERED=0x42",BAEE-C Table 7 / Figure 23
+RPRT,DATA_SVC_AVAILABILITY,0x44,D,,,2,"Data service status octet: SERVICE_NOT_AVAILABLE=0x30 / SERVICE_AVAILABLE=0x31",BAEE-C Table 7 / Figure 24

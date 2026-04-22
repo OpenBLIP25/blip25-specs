@@ -1,0 +1,15 @@
+parameter_name,value_name,value_hex,ascii,notes,source
+POWER_MODE,High,0x30,0,RF power output mode — high,BAEE-C Table 5
+POWER_MODE,Low,0x31,1,RF power output mode — low,BAEE-C Table 5
+POWER_MODE,Adaptive,0x32,2,RF power output mode — adaptive per link conditions,BAEE-C Table 5
+DATA_DELIVERY,Confirmed,0x33,3,"Confirmed delivery (per BAAA-B §5.3 Confirmed Data PDU with per-block CRC-9 + packet CRC-32 + Response/ACK). Annex B flags this as 'future support' at publication.",BAEE-C Table 5
+DATA_DELIVERY,Unconfirmed,0x34,4,"Unconfirmed delivery (no per-block CRC-9; whole-packet CRC-32 only)",BAEE-C Table 5
+ENCRYPTION,Disabled,0x35,5,Clear (non-encrypted) data mode,BAEE-C Table 5
+ENCRYPTION,Enabled,0x36,6,Encrypted data mode per AAAD-B,BAEE-C Table 5
+DATA_CONFIG,Repeated,0x37,7,Repeated Data configuration (BAEA-C §5.2),BAEE-C Table 5
+DATA_CONFIG,FNE,0x38,8,"FNE Data configuration (conventional or trunked — BAEA-C §5.3 / §5.4)",BAEE-C Table 5
+DATA_CONFIG,Direct,0x39,9,Direct Data configuration (BAEA-C §5.1),BAEE-C Table 5
+Registration_Status,REGISTERED,0x41,A,Radio is registered with FNE (FNE Data configuration only),BAEE-C Table 8
+Registration_Status,NOT_REGISTERED,0x42,B,"Radio is not registered with FNE. Note: spec spelling is 'NOT_REGISTERD' (typo in Table 8).",BAEE-C Table 8
+Data_Service_Status,SERVICE_NOT_AVAILABLE,0x30,0,Radio is in a mode that prohibits data operation,BAEE-C Table 9
+Data_Service_Status,SERVICE_AVAILABLE,0x31,1,Radio is in a data-capable mode,BAEE-C Table 9

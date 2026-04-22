@@ -1,0 +1,29 @@
+node,mib_object,oid,type,access,range,notes,source
+TR8dot5,(root),1.3.6.1.4.1.17405,,,,"TIA TR8dot5 IANA Private Enterprise Number",BAEE-C §4.2.1
+TR8dot5Generic,,1.3.6.1.4.1.17405.1,,,,"Generic TR8.5 subtree",BAEE-C §4.2.3
+TR8dot5RmpMIB,,1.3.6.1.4.1.17405.1.1,,,,"RMP MIB root",BAEE-C §4.2.3
+TR8dot5RmpEvents,,1.3.6.1.4.1.17405.1.1.1.0,,,,"Trap notifications subtree",BAEE-C Table 11
+TR8dot5RmpInfoObjs,,1.3.6.1.4.1.17405.1.1.1.1,,,,"Read-only info objects subtree",BAEE-C Table 11
+TR8dot5RmpConfigObjs,,1.3.6.1.4.1.17405.1.1.1.2,,,,"Read-write config objects subtree",BAEE-C Table 11
+TR8dot5RmpStatsObjs,,1.3.6.1.4.1.17405.1.1.1.3,,,,"Packet-counter subtree",BAEE-C Table 11
+TR8dot5RmpInfoObjs,rmpSwVersion,1.3.6.1.4.1.17405.1.1.1.1.1,OctetString,Read-only,4 characters,Radio software version (ASCII),BAEE-C Table 12
+TR8dot5RmpInfoObjs,rmpRadioMan,1.3.6.1.4.1.17405.1.1.1.1.2,Unsigned32,Read-only,1 octet,"Radio manufacturer (CAI MFID values per BAAC-D)",BAEE-C Table 12
+TR8dot5RmpInfoObjs,rmpLlid,1.3.6.1.4.1.17405.1.1.1.1.3,Unsigned32,Read-only,3 octets,"CAI Logical Link ID (hex)",BAEE-C Table 12
+TR8dot5RmpInfoObjs,rmpMtu,1.3.6.1.4.1.17405.1.1.1.1.4,Unsigned32,Read-only,<=2028,"Maximum Transfer Unit; MSB first; includes IP+UDP headers",BAEE-C Table 12
+TR8dot5RmpInfoObjs,rmpRadioSn,1.3.6.1.4.1.17405.1.1.1.1.5,OctetString,Read-only,10 characters,Radio serial number (ASCII),BAEE-C Table 12
+TR8dot5RmpInfoObjs,rmpRegStatus,1.3.6.1.4.1.17405.1.1.1.1.6,Integer,Read-only,-1 to 100,"0=registered; 1-100=error code; -1=unknown",BAEE-C Table 12
+TR8dot5RmpInfoObjs,rmpChanQual,1.3.6.1.4.1.17405.1.1.1.1.7,Integer,Read-only,-1 to 100,"0=no contact; 100=perfect; -1=unknown",BAEE-C Table 12
+TR8dot5RmpInfoObjs,rmpSigStrength,1.3.6.1.4.1.17405.1.1.1.1.8,Integer,Read-only,-1 to 100,"0=no indication; 100=perfect; -1=unknown",BAEE-C Table 12
+TR8dot5RmpInfoObjs,rmpBattLevel,1.3.6.1.4.1.17405.1.1.1.1.9,Integer,Read-only,-1 to 100,"0=empty; 100=full; -1=unknown",BAEE-C Table 12
+TR8dot5RmpInfoObjs,rmpDataService,1.3.6.1.4.1.17405.1.1.1.1.10,Enumerated,Read-only,"Available,Unavailable","Data service availability state",BAEE-C Table 12
+TR8dot5RmpConfigObjs,rmpPowerMode,1.3.6.1.4.1.17405.1.1.1.2.1,Enumerated,Read-write,"High,Low,Adaptive",RF power mode,BAEE-C Table 13
+TR8dot5RmpConfigObjs,rmpDataDelivery,1.3.6.1.4.1.17405.1.1.1.2.2,Enumerated,Read-write,"Confirmed,Unconfirmed",Data delivery mode,BAEE-C Table 13
+TR8dot5RmpConfigObjs,rmpEncryption,1.3.6.1.4.1.17405.1.1.1.2.3,Enumerated,Read-write,"Enabled,Disabled",Encryption on/off,BAEE-C Table 13
+TR8dot5RmpConfigObjs,rmpDataMode,1.3.6.1.4.1.17405.1.1.1.2.4,Enumerated,Read-write,"FNE,Direct,Repeated",Data configuration,BAEE-C Table 13
+TR8dot5RmpConfigObjs,rmpConfigStatusMode,1.3.6.1.4.1.17405.1.1.1.2.5,Enumerated,Read-write,"Default,Modified,Stored","Controls NV-memory commit; set to Stored to persist volatile config; set to Default to restore from NV",BAEE-C Table 13 / §4.3.3
+TR8dot5RmpStatsObjs,rmpTotalNumRcvdPackets,1.3.6.1.4.1.17405.1.1.1.3.1,Unsigned32,Read,0-2^32-1,Total IPv4 datagrams received over CAI,BAEE-C Table 14
+TR8dot5RmpStatsObjs,rmpTotalNumSentPackets,1.3.6.1.4.1.17405.1.1.1.3.2,Unsigned32,Read,0-2^32-1,Total IPv4 datagrams sent over CAI,BAEE-C Table 14
+TR8dot5RmpStatsObjs,rmpStatisticsState,1.3.6.1.4.1.17405.1.1.1.3.9,Enumerated,Read-write,"Cleared,Active","Set to Cleared to zero both counters",BAEE-C Table 14
+TR8dot5RmpEvents,rmpPowerUpEvent,1.3.6.1.4.1.17405.1.1.1.0.1,Trap,,,"Sent when radio powers up; carries rmpPowerMode",BAEE-C Table 15
+TR8dot5RmpEvents,rmpRegistrationEvent,1.3.6.1.4.1.17405.1.1.1.0.2,Trap,,,"Sent when registration status changes; carries rmpRegStatus",BAEE-C Table 15
+TR8dot5RmpEvents,rmpDataServiceEvent,1.3.6.1.4.1.17405.1.1.1.0.3,Trap,,,"Sent when data service state changes; carries rmpDataService",BAEE-C Table 15

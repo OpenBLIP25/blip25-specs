@@ -941,12 +941,22 @@ current_revision = "Superseded by BAEE-C"
 notes = "Superseded by BAEE-C (targeted for processing). No separate derivation of the B revision needed."
 
 [specs."TIA-102.BAEE-C"]
-title = "P25 Radio Management Controls"
+title = "P25 Radio Management Protocols"
 classification = ["protocol", "data"]
-status = "pending"
+status = "processed"
 current_revision = "BAEE-C"
 published = "2015-12"
+processed_date = "2026-04-22"
 ansi = true
+
+[specs."TIA-102.BAEE-C".extracted_files]
+full_text            = "standards/TIA-102.BAEE-C/TIA-102-BAEE-C_Full_Text.md"
+summary              = "standards/TIA-102.BAEE-C/TIA-102-BAEE-C_Summary.txt"
+related_resources    = "standards/TIA-102.BAEE-C/TIA-102-BAEE-C_Related_Resources.md"
+implementation_spec  = "standards/TIA-102.BAEE-C/P25_Radio_Management_Protocols_Implementation_Spec.md"
+rcp_operators_csv    = "annex_tables/baee_rcp_operators.csv"
+config_block_csv     = "annex_tables/baee_config_block_values.csv"
+snmp_mib_oids_csv    = "annex_tables/baee_snmp_mib_oids.csv"
 
 [specs."TIA-102.BAEF"]
 title = "P25 Packet Data Host Network Interface"
