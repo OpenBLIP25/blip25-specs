@@ -1108,6 +1108,134 @@ that was overlooked during initial extraction.
 
 ---
 
+## 14. Annex L L-Column Is Single-Floor, Not Eq. 31 Double-Floor
+
+**Source:** BABA-A page 127 (Annex L); §5.1.5 Eq. 31 (page 17, full-rate
+encoder `L̂`); §6.2 Eq. 47 (page 22, full-rate decoder `L̃`); §13.1
+pages 58–59 (half-rate `b̂₀ ↔ ω̃₀, L̃` procedure).
+
+**The mismatch.** Annex L's L column lists `L̃` for each of the 120
+half-rate pitch codewords. It is tempting to assume the column is
+derived via the same formula as full-rate Eq. 31:
+
+```
+Eq. 31 / Eq. 47 (full-rate):  L = ⌊ 0.9254 · ⌊ π/ω + 0.25 ⌋ ⌋       (double floor, +0.25 offset)
+```
+
+It isn't. The L column is matched **exactly (120/120 rows)** by the
+simpler single-floor rule:
+
+```
+Annex L rule:                 L = ⌊ 0.9254 · π / ω₀ ⌋                (single floor, no offset)
+```
+
+with `ω₀` in rad/sample (the CSV's `omega_0` multiplied by `2π` per §13).
+Eq. 31's double-floor form disagrees with the table on **36/120** rows —
+all of them at L-plateau boundaries where the `+0.25` inner-round
+offset shifts the `π/ω` integer step one `b₀` index in either
+direction.
+
+**Boundary sample (first few disagreements):**
+
+| b̂₀ | L_table | ω₀ (rad/sample) | L_Eq31 (double-floor) | L_Annex_L (single-floor) |
+|----|--------:|----------------:|----------------------:|-------------------------:|
+|  5 |       9 |         0.29090 |                    10 |                        9 |
+| 11 |      10 |         0.26544 |                    11 |                       10 |
+| 16 |      11 |         0.24597 |                    12 |                       11 |
+| 23 |      13 |         0.22115 |                    12 |                       13 |
+| 28 |      14 |         0.20505 |                    13 |                       14 |
+
+Full distribution across all 120 rows:
+
+| Comparison               | Count |
+|--------------------------|------:|
+| `L_table == L_Eq31`      |    84 |
+| `L_table  >  L_Eq31`     |    29 |
+| `L_table  <  L_Eq31`     |     7 |
+
+**Why the two rules differ at all.** Eq. 31's inner-floor `⌊π/ω + 0.25⌋`
+is a "round pitch-period estimate to the nearest integer" step
+(0.25 offset shifts the break from n+0.5 to n+0.75 → stable integer at
+the refinement's quarter-sample resolution). It is meaningful for
+full-rate where `ω̂₀` is continuous out of pitch refinement. Annex L's
+`ω₀` values are already on a fixed 120-point grid, so the inner-round
+step is redundant; the table designer dropped it and used a single-floor
+form. The two forms happen to agree 84/120 times because most grid
+points sit in the middle of an L-plateau, far from an integer-period
+boundary where the rounding matters.
+
+**Implications for the implementer.**
+
+1. **Half-rate analysis encoder must derive `L̂` from the table, not
+   Eq. 31.** The correct sequence on the half-rate path is:
+
+   ```
+   1. Refine ω̂₀ (same as full-rate, §0.4 of the addendum)
+   2. b̂₀ = argmin_{b ∈ [0, 119]}  | annex_l[b].ω₀_rad − ω̂₀ |     (§13.1 prose)
+   3. L̂   = annex_l[b̂₀].L                                        (table lookup)
+   ```
+
+   Do **not** substitute step 3 with `L̂ = ⌊0.9254 · ⌊π/ω̂₀ + 0.25⌋⌋`.
+   It will produce the wrong `L̂` for ω̂₀ values near any plateau
+   boundary, and the bit-allocation tables keyed on `L̂` (Annex N
+   block sizes, Annex R HOC sizes, Annex P/Q PRBA sizing) will
+   disagree with what the decoder derives from the same `b̃₀ = b̂₀`
+   via table lookup.
+
+2. **Full-rate path is unaffected.** Full-rate has no table — it uses
+   Eq. 31 on the refined continuous `ω̂₀` and Eq. 47 on the decoded
+   continuous `ω̃₀`. Both double-floor forms remain as §1.3.1 /
+   §0.4.3 of the impl spec and addendum prescribe. Do not
+   "standardize" the two rates onto a single formula; the rates
+   genuinely differ here.
+
+3. **Conformance-harness comparison basis.** When comparing
+   encoder-emitted `enc_L` against a chip-emitted `chip_L` on the
+   half-rate path, both should be derived from Annex L at the
+   selected `b₀` — not via Eq. 31 applied to the respective `ω`
+   values. If one side uses the table and the other uses Eq. 31,
+   the harness will over-report mismatches (~30% of pitch-close
+   frames) that are pure rule-divergence artifacts rather than
+   true encoder errors. See gap report
+   `gap_reports/0019_annex_l_l_column_vs_eq31.md` for the
+   conformance-run diagnostic that surfaced this.
+
+4. **Full-rate-to-half-rate cross-rate conversion.** When converting a
+   full-rate frame to half-rate (per BABA-A §17.2), the conversion's
+   step 2 is "quantize `ω̃₀` using half-rate Annex L table → `b₀`,"
+   and `L̃` for the half-rate side comes from the table at that `b₀`,
+   **not** by re-running Eq. 31 with the post-quantization ω. The
+   cross-rate converter implementation in the wire path (e.g.
+   `p25_halfrate::quantize`) correctly does table lookup; the
+   analysis encoder needs to match.
+
+**Fix applied.**
+
+1. `standards/TIA-102.BABA-A/P25_Vocoder_Implementation_Spec.md` §12.8 —
+   new paragraph documenting the single-floor rule, the 36/120 row
+   divergence from Eq. 31, and the implementation rule that the
+   half-rate encoder must derive `L̂` from the table at `b̂₀`, not via
+   Eq. 31.
+2. This note (§14) — the derivation audit and the 120/120 match
+   against the single-floor form, preserved against pipeline reruns.
+
+**Verification recipe (for future pipeline re-extractions).**
+
+```python
+import math, csv
+with open('annex_tables/annex_l_pitch_table.csv') as f:
+    rows = [r for r in csv.reader(l for l in f if not l.startswith('#'))][1:]
+for b, L, w in rows:
+    omega = float(w) * 2 * math.pi
+    expected = math.floor(0.9254 * math.pi / omega)   # single floor
+    assert int(L) == expected, f'row {b}: table={L} single-floor={expected}'
+```
+
+Must pass on all 120 rows. If this ever fails after an Annex L
+re-extraction, the CSV extraction is suspect — not the rule.
+
+---
+
 ## Provenance
 
 Every disambiguation above is traceable to a specific PDF equation number or

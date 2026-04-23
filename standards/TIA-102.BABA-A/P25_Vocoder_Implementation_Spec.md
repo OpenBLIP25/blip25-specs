@@ -3197,6 +3197,51 @@ See `analysis/vocoder_decode_disambiguations.md` §13 for the full
 reconciliation, including the matching `1/T_samples` pitch-period
 interpretation and the cross-rate-converter regression that surfaced it.
 
+**The L column is tabulated data, not `Eq. 31(ω₀)`.** Eq. 31 (§5.1.5,
+page 17) and its decoder twin Eq. 47 (§6.2, page 22) are **full-rate**
+equations that compute `L̂` / `L̃` from the **continuous** refined or
+decoded fundamental using a double-floor form with a `+0.25` inner-round
+offset:
+
+```
+L̂ = ⌊ 0.9254 · ⌊ π / ω̂₀ + 0.25 ⌋ ⌋                          (Eq. 31, Eq. 47)
+```
+
+The half-rate path does **not** apply Eq. 31. Per §13.1 (pages 58–59)
+both encoder and decoder derive `L̃` by **table lookup at the selected
+7-bit pitch index `b̂₀`** — i.e. `L̃ = annex_l[b̂₀].L`. The table's L
+column is authored as primary data.
+
+Empirically, the Annex L L column is exact to all 120 rows under the
+**single-floor** rule:
+
+```
+L̃ = ⌊ 0.9254 · π / ω̃₀ ⌋                                      (Annex L column)
+```
+
+with `ω̃₀` in rad/sample (i.e. the CSV's `omega_0 × 2π`). The
+double-floor Eq. 31 form disagrees with Annex L on **36/120** rows at
+the L-transition boundaries (asymmetry: 29 rows where
+`L_table > L_Eq31`, 7 rows where `L_table < L_Eq31`; the `+0.25`
+inner-round offset shifts the transition point one `b₀` index in
+either direction). The two rules agree on 84/120 rows — i.e. in the
+middle of each L-plateau.
+
+**Implementation rule (half-rate):** the encoder's quantization step
+picks `b̂₀` by finding the Annex L row whose ω₀ is closest to ω̂₀
+(§13.1 prose), then derives `L̂ = annex_l[b̂₀].L`. Do **not** compute
+`L̂ = Eq31(ω̂₀)` on the half-rate path. If the two are computed
+independently they can disagree by ±1 for any ω̂₀ near an L-transition
+boundary — and the decoder will always use the table, so the encoder
+must too, or the two sides will pack/unpack different bit-allocation
+tables (Annex N block sizes, Annex R HOC sizes) for the same frame.
+
+The full-rate path keeps Eq. 31/47 as specified — it has no equivalent
+table, and the continuous-`ω̂₀` double-floor form is what §5.1.5 and
+§6.2 prescribe. See `analysis/vocoder_decode_disambiguations.md` §14
+for the detailed rule-divergence audit and the history behind gap
+report 0019.
+
 ```c
 /* Typical consumer signature. Note the convention below returns ω̃₀ in
  * rad/sample — callers should apply the 2π multiplication at load time
