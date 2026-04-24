@@ -533,380 +533,282 @@ impl IspOpcode {
 
 ### 4.3 ISP Message Field Layouts (Abbreviated TSBK)
 
-#### GRP_V_REQ (0x00) -- Group Voice Service Request
+> **Authority note** (same as §5.3). Bit ranges below come from the
+> TIA-102.AABC-E §4.x / §5.x / §6.x / §8.x message-format figures. Earlier
+> octet-oriented pseudo-layouts in this spec routinely truncated 24-bit
+> addresses to 16 bits — see gap 0020. Always trust the bit-indexed table.
+>
+> Conventions: same as §5.3 — 0-based bit indices from TSBK start, octets 10-11
+> hold CRC-16, bits 0-15 are always `LB | P | Opcode[5:0] | MFID[7:0]`.
 
-```
-Oct 0: LB|P|000000    Oct 1: MFID
-Oct 2: Service Options
-Oct 3: reserved
-Oct 4: reserved
-Oct 5: Group Address[23:16]
-Oct 6: Group Address[15:8]
-Oct 7: Group Address[7:0]
-Oct 8: Source Address[23:16]
-Oct 9: Source Address[7:0]     (NOTE: 16-bit abbreviated in some readings)
-```
+#### GRP_V_REQ (0x00) -- Group Voice Service Request  (PDF §4.3.x)
 
-#### UU_V_REQ (0x04) -- Unit-to-Unit Voice Service Request
+| Bits  | Field           | Width | Notes |
+|-------|-----------------|------:|-------|
+| 16-23 | Service Options |     8 | |
+| 24-39 | reserved        |    16 | |
+| 40-55 | Group Address   |    16 | WGID (abbreviated) |
+| 56-79 | Source Address  |    24 | **24 bits** — the requesting SU |
 
-```
-Oct 0: LB|P|000100    Oct 1: MFID
-Oct 2: Service Options
-Oct 3: reserved
-Oct 4: Target Address[23:16]
-Oct 5: Target Address[15:8]
-Oct 6: Target Address[7:0]
-Oct 7: reserved
-Oct 8: Source Address[23:16]
-Oct 9: Source Address[7:0]
-```
+**Pitfall:** Source Address is 24 bits, not 16. The same correction applies to
+nearly every ISP below.
 
-Extended (MBT, Blocks=1): Header carries Source Address + Opcode. Data Block carries
-target WACN ID (20-bit), System ID (12-bit), Target Unit ID (24-bit).
+#### UU_V_REQ (0x04) -- Unit-to-Unit Voice Service Request  (PDF §4.3.x)
 
-#### UU_ANS_RSP (0x05) -- Unit-to-Unit Answer Response
+| Bits  | Field           | Width | Notes |
+|-------|-----------------|------:|-------|
+| 16-23 | Service Options |     8 | |
+| 24-31 | reserved        |     8 | |
+| 32-55 | Target ID       |    24 | Callee WUID |
+| 56-79 | Source Address  |    24 | Caller WUID |
 
-```
-Oct 0: LB|P|000101    Oct 1: MFID
-Oct 2: Service Options
-Oct 3: reserved
-Oct 4: Target Address[23:16]
-Oct 5: Target Address[15:8]
-Oct 6: Target Address[7:0]
-Oct 7: reserved
-Oct 8: Source Address[23:16]
-Oct 9: Source Address[7:0]
-```
+**Extended (MBT, 1 data block):** Header carries Source Address and opcode; Data
+Block carries Target WACN (20) + System (12) + Target Unit ID (24) for
+cross-system calls.
+
+#### UU_ANS_RSP (0x05) -- Unit-to-Unit Answer Response  (PDF §4.3.x)
+
+| Bits  | Field                | Width | Notes |
+|-------|----------------------|------:|-------|
+| 16-23 | Service Options      |     8 | |
+| 24-31 | Answer Response      |     8 | See Annex (PROCEED, DENY, WAIT) |
+| 32-55 | Target Address       |    24 | Original requesting SU |
+| 56-79 | Source Address       |    24 | Answering SU |
 
 #### TELE_INT_DIAL_REQ (0x08) -- Telephone Interconnect Explicit Dial
 
-Extended format only (MBT, 1-2 data blocks). Carries up to 34 DTMF digits at 4 bits each.
+Extended (MBT) only. Header + 1-2 data blocks carry up to 34 DTMF digits
+(4 bits/digit) plus caller/callee identifiers.
 
-#### TELE_INT_PSTN_REQ (0x09) -- Telephone Interconnect PSTN Request
+#### TELE_INT_PSTN_REQ (0x09) -- Telephone Interconnect PSTN Request  (PDF §4.3.x)
 
-```
-Oct 0: LB|P|001001    Oct 1: MFID
-Oct 2: Service Options
-Oct 3-7: reserved
-Oct 8-9: Source Address (abbreviated)
-```
+| Bits  | Field                  | Width | Notes |
+|-------|------------------------|------:|-------|
+| 16-23 | Service Options        |     8 | |
+| 24-47 | reserved               |    24 | |
+| 48-55 | PSTN Address           |     8 | Abbreviated phone-number reference |
+| 56-79 | Source Address         |    24 | |
 
-#### SN_DATA_CHN_REQ (0x12) -- SNDCP Data Channel Request
+#### SN_DATA_CHN_REQ (0x12) -- SNDCP Data Channel Request  (PDF §5.3.x)
 
-```
-Oct 0: LB|P|010010    Oct 1: MFID
-Oct 2: Service Options
-Oct 3-7: reserved / data service info
-Oct 8-9: Source Address (abbreviated)
-```
+| Bits  | Field                  | Width | Notes |
+|-------|------------------------|------:|-------|
+| 16-23 | Data Service Options   |     8 | |
+| 24-39 | Data Access Control    |    16 | DAC identifier |
+| 40-55 | reserved               |    16 | |
+| 56-79 | Source Address         |    24 | Requesting SU |
 
-#### STS_UPDT_REQ (0x18) -- Status Update Request
+#### STS_UPDT_REQ (0x18) -- Status Update Request  (PDF §6.3.x)
 
-```
-Oct 0: LB|P|011000    Oct 1: MFID
-Oct 2: Status[15:8]
-Oct 3: Status[7:0]
-Oct 4: Target ID[23:16]
-Oct 5: Target ID[15:8]
-Oct 6: Target ID[7:0]
-Oct 7: reserved
-Oct 8: Source Address[23:16]
-Oct 9: Source Address[7:0]
-```
+| Bits  | Field           | Width | Notes |
+|-------|-----------------|------:|-------|
+| 16-23 | Unit Status     |     8 | |
+| 24-31 | User Status     |     8 | |
+| 32-55 | Target Address  |    24 | Recipient of the status |
+| 56-79 | Source Address  |    24 | Reporting unit |
 
-#### STS_Q_RSP (0x19) -- Status Query Response
+#### STS_Q_RSP (0x19) -- Status Query Response  (PDF §6.3.x)
 
-```
-Oct 0: LB|P|011001    Oct 1: MFID
-Oct 2: Status[15:8]
-Oct 3: Status[7:0]
-Oct 4: Target Address[23:16]
-Oct 5: Target Address[15:8]
-Oct 6: Target Address[7:0]
-Oct 7: reserved
-Oct 8: Source Address[23:16]
-Oct 9: Source Address[7:0]
-```
+Same layout as STS_UPDT_REQ — response to a status query carries the unit's
+current status.
 
-#### STS_Q_REQ (0x1A) -- Status Query Request
+| Bits  | Field           | Width | Notes |
+|-------|-----------------|------:|-------|
+| 16-23 | Unit Status     |     8 | |
+| 24-31 | User Status     |     8 | |
+| 32-55 | Target Address  |    24 | Querying unit |
+| 56-79 | Source Address  |    24 | Answering unit |
 
-```
-Oct 0: LB|P|011010    Oct 1: MFID
-Oct 2-3: reserved
-Oct 4: Target ID[23:16]
-Oct 5: Target ID[15:8]
-Oct 6: Target ID[7:0]
-Oct 7: reserved
-Oct 8: Source Address[23:16]
-Oct 9: Source Address[7:0]
-```
+#### STS_Q_REQ (0x1A) -- Status Query Request  (PDF §6.3.x)
 
-#### MSG_UPDT_REQ (0x1C) -- Message Update Request
+| Bits  | Field           | Width | Notes |
+|-------|-----------------|------:|-------|
+| 16-31 | reserved        |    16 | |
+| 32-55 | Target Address  |    24 | SU being queried |
+| 56-79 | Source Address  |    24 | Querying unit |
 
-```
-Oct 0: LB|P|011100    Oct 1: MFID
-Oct 2: Message[15:8]
-Oct 3: Message[7:0]
-Oct 4: Target ID[23:16]
-Oct 5: Target ID[15:8]
-Oct 6: Target ID[7:0]
-Oct 7: reserved
-Oct 8: Source Address[23:16]
-Oct 9: Source Address[7:0]
-```
+#### MSG_UPDT_REQ (0x1C) -- Message Update Request  (PDF §6.3.x)
 
-#### RAD_MON_REQ (0x1D) -- Radio Unit Monitor Request
+| Bits  | Field           | Width | Notes |
+|-------|-----------------|------:|-------|
+| 16-31 | Message         |    16 | 16-bit short message code |
+| 32-55 | Target Address  |    24 | Recipient |
+| 56-79 | Source Address  |    24 | Sender |
 
-```
-Oct 0: LB|P|011101    Oct 1: MFID
-Oct 2: TX Time (8-bit, seconds; 0 = don't key)
-Oct 3: SM(7) | reserved(6:2) | TX Mult(1:0)
-Oct 4: Target ID[23:16]
-Oct 5: Target ID[15:8]
-Oct 6: Target ID[7:0]
-Oct 7: reserved
-Oct 8: Source Address[23:16]
-Oct 9: Source Address[7:0]
-```
+#### RAD_MON_REQ (0x1D) -- Radio Unit Monitor Request  (PDF §6.3.x)
 
-SM = 0 non-silent, 1 silent. TX Mult = 2-bit multiplier (0-3).
+| Bits  | Field                | Width | Notes |
+|-------|----------------------|------:|-------|
+| 16-29 | reserved             |    14 | |
+| 30-31 | TX Multiplier        |     2 | TX-time multiplier (0-3) |
+| 32-55 | Target Address       |    24 | SU to monitor |
+| 56-79 | Source Address       |    24 | Requesting unit |
 
 #### RAD_MON_ENH_REQ (0x1E) -- Radio Unit Monitor Enhanced Request
 
-MBT only (Blocks=1). Header: Opcode + Group ID. Data Block: Target ID (24-bit),
-SM|TG|reserved, TX Time, Key ID (16-bit), ALGID (8-bit; 0x80 = unencrypted).
+MBT only (1 data block). Header carries Source Address and opcode; the data
+block carries Target ID (24), SM/TG flags, TX Time (8), Key ID (16), and
+ALGID (8; `0x80` = unencrypted).
 
-#### CALL_ALRT_REQ (0x1F) -- Call Alert Request
+#### CALL_ALRT_REQ (0x1F) -- Call Alert Request  (PDF §6.3.x)
 
-```
-Oct 0: LB|P|011111    Oct 1: MFID
-Oct 2-3: reserved
-Oct 4: Target Address[23:16]
-Oct 5: Target Address[15:8]
-Oct 6: Target Address[7:0]
-Oct 7: reserved
-Oct 8: Source Address[23:16]
-Oct 9: Source Address[7:0]
-```
+| Bits  | Field           | Width | Notes |
+|-------|-----------------|------:|-------|
+| 16-31 | reserved        |    16 | |
+| 32-55 | Target Address  |    24 | SU to alert |
+| 56-79 | Source Address  |    24 | Originating unit |
 
-#### ACK_RSP_U (0x20) -- Acknowledge Response - Unit
+#### ACK_RSP_U (0x20) -- Acknowledge Response - Unit  (PDF §6.3.x)
 
-```
-Oct 0: LB|P|100000    Oct 1: MFID
-Oct 2: AIV(7) | 0(6) | Service Type(5:0)
-Oct 3-6: Additional Information
-Oct 7: reserved
-Oct 8: Source Address[23:16]
-Oct 9: Source Address[7:0]
-```
+| Bits  | Field                      | Width | Notes |
+|-------|----------------------------|------:|-------|
+|    16 | AIV                        |     1 | |
+|    17 | reserved                   |     1 | |
+| 18-23 | Service Type               |     6 | Opcode being acknowledged |
+| 24-31 | reserved                   |     8 | |
+| 32-55 | Target Address             |    24 | Unit being acknowledged |
+| 56-79 | Source Address             |    24 | Acknowledging unit |
 
-#### CAN_SRV_REQ (0x23) -- Cancel Service Request
+#### CAN_SRV_REQ (0x23) -- Cancel Service Request  (PDF §6.3.x)
 
-```
-Oct 0: LB|P|100011    Oct 1: MFID
-Oct 2: AIV(7) | 0(6) | Service Type(5:0)
-Oct 3: Reason Code (Annex A)
-Oct 4: Additional Info[23:16]   (if Group: Call Options)
-Oct 5: Additional Info[15:8]    (if Group: Group Addr high)
-Oct 6: Additional Info[7:0]     (if Group: Group Addr low)
-Oct 7: reserved
-Oct 8: Source Address[23:16]
-Oct 9: Source Address[7:0]
-```
+| Bits  | Field                  | Width | Notes |
+|-------|------------------------|------:|-------|
+|    16 | AIV                    |     1 | |
+|    17 | reserved               |     1 | |
+| 18-23 | Service Type           |     6 | Opcode being cancelled |
+| 24-31 | Reason Code            |     8 | Per Annex A |
+| 32-55 | Additional Information |    24 | Per service type |
+| 56-79 | Source Address         |    24 | Unit cancelling |
 
-#### EXT_FNCT_RSP (0x24) -- Extended Function Response
+#### EXT_FNCT_RSP (0x24) -- Extended Function Response  (PDF §6.3.x)
 
-```
-Oct 0: LB|P|100100    Oct 1: MFID
-Oct 2-3: reserved
-Oct 4: Extended Function[23:16]
-Oct 5: Extended Function[15:8]
-Oct 6: Extended Function[7:0]
-Oct 7: reserved
-Oct 8: Source Address[23:16]
-Oct 9: Source Address[7:0]
-```
+| Bits  | Field              | Width | Notes |
+|-------|--------------------|------:|-------|
+| 16-31 | Function           |    16 | |
+| 32-55 | Arguments          |    24 | |
+| 56-79 | Source Address     |    24 | Responding unit |
 
-#### EMRG_ALRM_REQ (0x27) -- Emergency Alarm Request
+#### EMRG_ALRM_REQ (0x27) -- Emergency Alarm Request  (PDF §6.3.x)
 
-```
-Oct 0: LB|P|100111    Oct 1: MFID
-Oct 2: SI-1 (Special Information 1)
-Oct 3: SI-2 (Special Information 2)
-Oct 4: reserved
-Oct 5: Group Address[23:16]
-Oct 6: Group Address[15:8]
-Oct 7: Group Address[7:0]
-Oct 8: Source Address[23:16]
-Oct 9: Source Address[7:0]
-```
+SDRTrunk's canonical field set (matching the AABC-E figure):
 
-SI-1 bit flags:
-```
-Bit 0: MD   -- Man-Down condition
-Bit 1: VSE  -- Vehicle Sensed Emergency
-Bit 2: ASE  -- Accessory Sensed Emergency
-Bits 3-6: IC3-IC6 -- Interoperable Condition codes
-Bit 7: AC   -- Additional Codes present in SI-2
-```
+| Bits  | Field           | Width | Notes |
+|-------|-----------------|------:|-------|
+| 16-39 | reserved        |    24 | (includes any Special Information fields) |
+| 40-55 | Group Address   |    16 | Emergency group (WGID, abbreviated) |
+| 56-79 | Source Address  |    24 | Reporting unit |
 
-SI-2 values: 0x00 = default, 0x01 = Vest Pierced, 0x02-0x7F = reserved, 0x80-0xFF = user-defined.
+**Pitfall:** earlier drafts of this spec carried `SI-1` / `SI-2` special-
+information bytes in octets 2-3, based on an older reading. Current AABC-E
+figures do not expose those bytes at the ISP layer; if you need the
+Man-Down / Vehicle-Sensed-Emergency bits, they travel in the Service Options
+field on the *associated voice call* set up after the alarm, not in the
+alarm TSBK. Verify against your source PDF revision before relying on
+SI-1 / SI-2 parsing.
 
-#### GRP_AFF_REQ (0x28) -- Group Affiliation Request
+#### GRP_AFF_REQ (0x28) -- Group Affiliation Request  (PDF §6.3.x)
 
-```
-Oct 0: LB|P|101000    Oct 1: MFID
-Oct 2: E(7) | reserved(6:0)
-Oct 3: reserved(7:4) | System ID[11:8]
-Oct 4: System ID[7:0]
-Oct 5: Group ID[23:16]
-Oct 6: Group ID[15:8]
-Oct 7: Group ID[7:0]
-Oct 8: Source Address[23:16]
-Oct 9: Source Address[7:0]
-```
+| Bits  | Field                  | Width | Notes |
+|-------|------------------------|------:|-------|
+| 16-27 | reserved               |    12 | |
+| 28-39 | System ID              |    12 | Home system of the requesting SU |
+| 40-55 | Group ID               |    16 | WGID requested |
+| 56-79 | Source Address         |    24 | Requesting SU |
 
-#### GRP_AFF_Q_RSP (0x29) -- Group Affiliation Query Response
+#### GRP_AFF_Q_RSP (0x29) -- Group Affiliation Query Response  (PDF §6.3.x)
 
-```
-Oct 0: LB|P|101001    Oct 1: MFID
-Oct 2: E(7) | reserved(6:0)
-Oct 3: Announcement Group Address[15:8]
-Oct 4: Announcement Group Address[7:0]
-Oct 5: Group Address[23:16]
-Oct 6: Group Address[15:8]
-Oct 7: Group Address[7:0]
-Oct 8: Source Address[23:16]
-Oct 9: Source Address[7:0]
-```
+| Bits  | Field                       | Width | Notes |
+|-------|-----------------------------|------:|-------|
+| 16-23 | reserved                    |     8 | |
+| 24-39 | Announcement Group Address  |    16 | |
+| 40-55 | Group Address               |    16 | Currently-affiliated group |
+| 56-79 | Source Address              |    24 | Answering SU |
 
-#### U_DE_REG_REQ (0x2B) -- De-Registration Request
+#### U_DE_REG_REQ (0x2B) -- De-Registration Request  (PDF §6.3.x)
 
-```
-Oct 0: LB|P|101011    Oct 1: MFID
-Oct 2: reserved
-Oct 3: reserved
-Oct 4: WACN ID[19:12]
-Oct 5: WACN ID[11:4]  (upper nibble) | WACN ID[3:0] (lower nibble -- see note)
-Oct 6: System ID[7:0]
-Oct 7: reserved
-Oct 8: Source ID[23:16]
-Oct 9: Source ID[7:0]
-```
+| Bits  | Field           | Width | Notes |
+|-------|-----------------|------:|-------|
+| 16-23 | reserved        |     8 | |
+| 24-43 | WACN ID         |    20 | Home WACN |
+| 44-55 | System ID       |    12 | Home System |
+| 56-79 | Source ID       |    24 | De-registering SU |
 
-#### U_REG_REQ (0x2C) -- Unit Registration Request
+#### U_REG_REQ (0x2C) -- Unit Registration Request  (PDF §6.3.x)
 
-```
-Oct 0: LB|P|101100    Oct 1: MFID
-Oct 2: E(7) | Capabilities(6:0)
-Oct 3: reserved
-Oct 4: WACN ID[19:12]
-Oct 5: WACN ID[11:8] (upper nibble)  -- lower nibble part of System ID or reserved
-Oct 6: System ID[7:0]
-Oct 7: reserved
-Oct 8: Source ID[23:16]  (assigned WUID or registration default)
-Oct 9: Source ID[7:0]
-```
+| Bits  | Field                  | Width | Notes |
+|-------|------------------------|------:|-------|
+|    16 | Emergency Flag         |     1 | |
+| 17-23 | Capabilities           |     7 | |
+| 24-43 | WACN ID                |    20 | Home WACN |
+| 44-55 | System ID              |    12 | Home System |
+| 56-79 | Source ID              |    24 | Registering SU |
 
-#### LOC_REG_REQ (0x2D) -- Location Registration Request
+#### LOC_REG_REQ (0x2D) -- Location Registration Request  (PDF §6.3.x)
 
-```
-Oct 0: LB|P|101101    Oct 1: MFID
-Oct 2: E(7) | Capabilities(6:0)
-Oct 3: reserved
-Oct 4: LRA (8-bit Location Registration Area)
-Oct 5: Group Address[23:16]
-Oct 6: Group Address[15:8]
-Oct 7: Group Address[7:0]
-Oct 8: Source Address[23:16]
-Oct 9: Source Address[7:0]
-```
+| Bits  | Field                  | Width | Notes |
+|-------|------------------------|------:|-------|
+|    16 | Emergency Flag         |     1 | |
+| 17-23 | Capabilities           |     7 | |
+| 24-31 | reserved               |     8 | |
+| 32-39 | LRA                    |     8 | Current Location Registration Area |
+| 40-55 | Group Address          |    16 | Default group |
+| 56-79 | Source Address         |    24 | Registering SU |
 
-Extended (MBT, Blocks=2): Header + 2 Data Blocks. Adds WACN ID, System ID, Unit ID,
-Previous LRA, E|Capabilities.
+**Extended (MBT, 2 data blocks):** carries WACN ID, System ID, Unit ID (full
+SUID), Previous LRA, and the E/Capabilities fields for roaming registration.
 
-#### IDEN_UP_REQ (0x32) -- Identifier Update Request
+#### IDEN_UP_REQ (0x32) -- Identifier Update Request  (PDF §7.3.x)
 
-```
-Oct 0: LB|P|110010    Oct 1: MFID
-Oct 2: Flags(7:4) | Identifier(3:0)
-Oct 3-7: reserved
-Oct 8: Source Address[23:16]
-Oct 9: Source Address[7:0]
-```
+| Bits  | Field                          | Width | Notes |
+|-------|--------------------------------|------:|-------|
+|    16 | Rebroadcast All Frequency Bands|     1 | 1 = request all IDEN_UP entries |
+| 17-19 | reserved                       |     3 | |
+| 20-23 | Frequency Band                 |     4 | Identifier requested (if not rebroadcast-all) |
+| 24-55 | reserved                       |    32 | |
+| 56-79 | Source Address                 |    24 | Requesting SU |
 
-Flags bit 7 = 1: request all identifiers. Flags bit 7 = 0: request specific identifier only.
+#### ROAM_ADDR_REQ (0x36) -- Roaming Address Request  (PDF §8.3.x)
 
-#### ROAM_ADDR_REQ (0x36) -- Roaming Address Request
+| Bits  | Field           | Width | Notes |
+|-------|-----------------|------:|-------|
+| 16-31 | reserved        |    16 | |
+| 32-55 | Target Address  |    24 | SU whose stack is being queried |
+| 56-79 | Source Address  |    24 | Querying SU |
 
-```
-Oct 0: LB|P|110110    Oct 1: MFID
-Oct 2-3: reserved
-Oct 4: Target Address[23:16]
-Oct 5: Target Address[15:8]
-Oct 6: Target Address[7:0]
-Oct 7: reserved
-Oct 8: Source Address[23:16]
-Oct 9: Source Address[7:0]
-```
+#### ROAM_ADDR_RSP (0x37) -- Roaming Address Response  (PDF §8.3.x)
 
-#### ROAM_ADDR_RSP (0x37) -- Roaming Address Response
+| Bits  | Field                     | Width | Notes |
+|-------|---------------------------|------:|-------|
+|    16 | LM (Last Message flag)    |     1 | 1 on final response in sequence |
+| 17-19 | reserved                  |     3 | |
+| 20-23 | Message Sequence Number   |     4 | 0-15 |
+| 24-43 | WACN ID                   |    20 | Stack-entry WACN |
+| 44-55 | System ID                 |    12 | Stack-entry System |
+| 56-79 | Source ID                 |    24 | Responding SU |
 
-```
-Oct 0: LB|P|110111    Oct 1: MFID
-Oct 2: LM(7) | reserved(6:4) | MSN(3:0)
-Oct 3: WACN ID[19:12]  (from stack entry)
-Oct 4: WACN ID[11:4]
-Oct 5: WACN ID[3:0] | System ID[11:8]
-Oct 6: System ID[7:0]
-Oct 7: reserved
-Oct 8: Source Address[23:16]
-Oct 9: Source Address[7:0]
-```
-
-LM = Last Message flag (1 on final response). MSN = Message Sequence Number (0-15).
-Extended formats carry 2/4/8 stack entries using MBT with 1/2/3 data blocks.
+**Extended formats:** carry 2, 4, or 8 stack entries via MBT (1, 2, or 3 data
+blocks respectively).
 
 #### AUTH_RESP (0x38) -- Authentication Response
 
-```
-Oct 0: LB|P|111000    Oct 1: MFID
-Oct 2: reserved(7:1) | S(0)
-Oct 3: RES1[31:24]
-Oct 4: RES1[23:16]
-Oct 5: RES1[15:8]
-Oct 6: RES1[7:0]
-Oct 7: reserved
-Oct 8: Source ID[23:16]
-Oct 9: Source ID[7:0]
-```
-
-S = 1: standalone authentication. RES1 = 32-bit Response 1 per TIA-102.AACE.
+Extended (MBT) message. Carries the 32-bit RES1 response and the S standalone
+flag from SU to FNE. Abbreviated TSBK form is not defined — all AUTH_RESP
+traffic uses MBT per TIA-102.AACE.
 
 #### AUTH_RESP_M (0x39) -- Authentication Response Mutual
 
-Extended format only (MBT, Blocks=2). Carries RES1 (32-bit) + RAND2 (40-bit) + S flag.
+Extended (MBT, 2 data blocks). Carries RES1 (32), RAND2 (40), and the S flag
+for mutual authentication challenge/response.
 
 #### AUTH_FNE_RST (0x3A) -- Authentication FNE Result
 
-```
-Oct 0: LB|P|111010    Oct 1: MFID
-Oct 2: R2(7) | reserved(6:1) | S(0)
-Oct 3-7: reserved
-Oct 8: Source ID[23:16]
-Oct 9: Source ID[7:0]
-```
-
-R2 = 1: FNE passed authentication. S = 1: standalone.
+Extended (MBT). Carries the SU's verification of the FNE's mutual-auth
+response (pass/fail), plus the S flag.
 
 #### AUTH_SU_DMD (0x3B) -- Authentication SU Demand
 
-```
-Oct 0: LB|P|111011    Oct 1: MFID
-Oct 2-7: reserved
-Oct 8: Source ID[23:16]
-Oct 9: Source ID[7:0]
-```
+Extended (MBT). Rarely sent; used when an SU demands that the FNE authenticate
+itself outside the normal registration flow.
 
 ---
 
@@ -1125,415 +1027,472 @@ impl OspOpcode {
 
 ### 5.3 OSP Message Field Layouts (Abbreviated TSBK)
 
-#### GRP_V_CH_GRANT (0x00) -- Group Voice Channel Grant
+> **Authority note.** The bit ranges below are taken from the TIA-102.AABC-E
+> §4.x / §5.x / §6.x message-format figures (the PDF's 2D bit tables).
+> Earlier revisions of this spec rendered these as octet-oriented pseudo-layouts
+> and lost fidelity in several messages — see
+> `gap_reports/0020_aabc_e_osp_pseudo_layouts_lossy_vs_tia_bit_tables.md` and
+> `analysis/trunking_tsbk_bit_tables_vs_pseudo_layouts.md`. **Always trust the
+> bit-indexed table; the octet-oriented narrative is for orientation only.**
+>
+> Conventions:
+> - All bit indices are 0-based from the start of the 12-octet TSBK.
+> - Octets 10-11 carry the CCITT CRC-16 over octets 0-9; every field row is
+>   within bits 0-79.
+> - Bits 0-7 are always `LB | P | Opcode[5:0]` (octet 0); bits 8-15 are MFID
+>   (octet 1). Per-message tables start at bit 16 unless noted.
+> - For fields wider than one octet, the MSB is the lowest-numbered bit.
 
-```
-Oct 0: LB|P|000000    Oct 1: MFID
-Oct 2: Service Options
-Oct 3: reserved
-Oct 4: Channel(T)[15:8]
-Oct 5: Channel(T)[7:0]
-Oct 6: reserved (or Group Address high in some variants)
-Oct 7: reserved (or Group Address low)
-Oct 8: Group Address[15:8]
-Oct 9: Group Address[7:0]
-```
+#### GRP_V_CH_GRANT (0x00) -- Group Voice Channel Grant  (PDF §4.2.1.1, Fig 4.2.1-1)
 
-Channel(T) = 16-bit: `Identifier[15:12] | Number[11:0]`
+FNE grants a voice channel for group communications.
 
-Extended (MBT): Adds separate Channel(T) and Channel(R) for explicit T/R assignment.
+| Bits  | Field           | Width | Notes |
+|-------|-----------------|------:|-------|
+| 16-23 | Service Options |     8 | See §3.2 |
+| 24-27 | Frequency Band  |     4 | Identifier into iden-table (§6) |
+| 28-39 | Channel Number  |    12 | Low 12 bits of the Channel field |
+| 40-55 | Group Address   |    16 | WGID (abbreviated) |
+| 56-79 | Source Address  |    24 | WUID of the requesting unit |
 
-#### GRP_V_CH_GRANT_UPDT (0x02) -- Group Voice Channel Grant Update
+**Explicit format (MBT, 2-block, AMBTC):** Header Block + Last Data Block carry
+separate Channel(T) and Channel(R) fields; used when T/R designation must be
+explicit. See §7.
 
-```
-Oct 0: LB|P|000010    Oct 1: MFID
-Oct 2: Service Options
-Oct 3: Channel A(T)[15:8]
-Oct 4: Channel A(T)[7:0]
-Oct 5: Group Address A[15:8]
-Oct 6: Group Address A[7:0]
-Oct 7: Channel B(T)[15:8]
-Oct 8: Channel B(T)[7:0]
-Oct 9: Group Address B[7:0]
-```
+#### GRP_V_CH_GRANT_UPDT (0x02) -- Group Voice Channel Grant Update  (PDF §4.2.2, Fig 4.2.2-1)
 
 Carries two simultaneous channel-grant updates (A and B) in a single TSBK.
 
-#### GRP_V_CH_GRANT_UPDT_EXP (0x03) -- Group Voice Channel Grant Update - Explicit
+| Bits  | Field              | Width | Notes |
+|-------|--------------------|------:|-------|
+| 16-19 | Frequency Band A   |     4 | |
+| 20-31 | Channel Number A   |    12 | |
+| 32-47 | Group Address A    |    16 | |
+| 48-51 | Frequency Band B   |     4 | |
+| 52-63 | Channel Number B   |    12 | |
+| 64-79 | Group Address B    |    16 | **Full 16 bits**, not just low byte |
 
-Explicit form with separate T and R channel fields per assignment.
+**Pitfall:** earlier pseudo-layouts showed Group Address B as an 8-bit field in
+octet 9. It is 16 bits spanning octets 8-9.
 
-#### UU_V_CH_GRANT (0x04) -- Unit-to-Unit Voice Channel Grant
+#### GRP_V_CH_GRANT_UPDT_EXP (0x03) -- Group Voice Channel Grant Update - Explicit  (PDF §4.2.3, Fig 4.2.3-1)
 
-```
-Oct 0: LB|P|000100    Oct 1: MFID
-Oct 2: Service Options
-Oct 3: Channel(T)[15:8]
-Oct 4: Channel(T)[7:0]
-Oct 5: Target Address[23:16]
-Oct 6: Target Address[15:8]
-Oct 7: Target Address[7:0]
-Oct 8: Source Address[23:16]
-Oct 9: Source Address[7:0]
-```
+Single-assignment update with explicit T/R channels.
 
-Extended (MBT, 3-block): Full SUIDs for both source and target.
+| Bits  | Field                    | Width | Notes |
+|-------|--------------------------|------:|-------|
+| 16-23 | Service Options          |     8 | |
+| 24-31 | reserved                 |     8 | |
+| 32-35 | Downlink Frequency Band  |     4 | Channel (T) band |
+| 36-47 | Downlink Channel Number  |    12 | Channel (T) number |
+| 48-51 | Uplink Frequency Band    |     4 | Channel (R) band |
+| 52-63 | Uplink Channel Number    |    12 | Channel (R) number |
+| 64-79 | Group Address            |    16 | |
 
-#### UU_ANS_REQ (0x05) -- Unit-to-Unit Answer Request
+#### UU_V_CH_GRANT (0x04) -- Unit-to-Unit Voice Channel Grant  (PDF §4.2.4)
+
+FNE grants a voice channel for a unit-to-unit call.
+
+| Bits  | Field           | Width | Notes |
+|-------|-----------------|------:|-------|
+| 16-19 | Frequency Band  |     4 | |
+| 20-31 | Channel Number  |    12 | |
+| 32-55 | Target Address  |    24 | Callee WUID (abbreviated) |
+| 56-79 | Source Address  |    24 | Caller WUID (abbreviated) |
+
+**Extended (MBT, 3-block):** full SUIDs for both source and target.
+
+#### UU_ANS_REQ (0x05) -- Unit-to-Unit Answer Request  (PDF §4.2.5)
 
 FNE forwards a UU voice request to the target SU.
 
-#### UU_V_CH_GRANT_UPDT (0x06) -- Unit-to-Unit Voice Channel Grant Update
+| Bits  | Field           | Width | Notes |
+|-------|-----------------|------:|-------|
+| 16-23 | Service Options |     8 | |
+| 24-31 | reserved        |     8 | |
+| 32-55 | Target Address  |    24 | SU being paged |
+| 56-79 | Source Address  |    24 | Calling unit |
 
-Updates a UU voice channel grant.
+#### UU_V_CH_GRANT_UPDT (0x06) -- Unit-to-Unit Voice Channel Grant Update  (PDF §4.2.6)
 
-#### TELE_INT_CH_GRANT (0x08) -- Telephone Interconnect Voice Channel Grant
+| Bits  | Field           | Width | Notes |
+|-------|-----------------|------:|-------|
+| 16-19 | Frequency Band  |     4 | |
+| 20-31 | Channel Number  |    12 | |
+| 32-55 | Target Address  |    24 | |
+| 56-79 | Source Address  |    24 | |
 
-FNE grants voice channel for telephone interconnect call.
+#### TELE_INT_CH_GRANT (0x08) -- Telephone Interconnect Voice Channel Grant  (PDF §4.2.7)
 
-#### TELE_INT_CH_GRANT_UPDT (0x09) -- Telephone Interconnect Voice CH Grant Update
+| Bits  | Field           | Width | Notes |
+|-------|-----------------|------:|-------|
+| 16-23 | Service Options |     8 | |
+| 24-27 | Frequency Band  |     4 | |
+| 28-39 | Channel Number  |    12 | |
+| 40-55 | Call Timer      |    16 | Maximum call duration, units of 100 ms |
+| 56-79 | Source Address  |    24 | Granted unit |
 
-Updates a telephone interconnect voice channel grant.
+#### TELE_INT_CH_GRANT_UPDT (0x09) -- Telephone Interconnect Voice CH Grant Update  (PDF §4.2.8)
 
-#### SN_DATA_CHN_GNT (0x14) -- SNDCP Data Channel Grant
+| Bits  | Field                 | Width | Notes |
+|-------|-----------------------|------:|-------|
+| 16-23 | Service Options       |     8 | |
+| 24-27 | Frequency Band        |     4 | |
+| 28-39 | Channel Number        |    12 | |
+| 40-55 | Call Timer            |    16 | |
+| 56-79 | Any Address           |    24 | Source or target (context-dependent) |
 
-FNE grants a SNDCP data channel.
+#### SN_DATA_CHN_GNT (0x14) -- SNDCP Data Channel Grant  (PDF §5.2.4)
 
-#### ACK_RSP_FNE (0x20) -- Acknowledge Response - FNE
+FNE grants a SNDCP data channel. **Note:** carries separate downlink and uplink
+band+channel pairs, not a single T/R pair.
 
-```
-Oct 0: LB|P|100000    Oct 1: MFID
-Oct 2: AIV(7) | EX(6) | Service Type(5:0)
-Oct 3: Additional Info[31:24]
-Oct 4: Additional Info[23:16]
-Oct 5: Additional Info[15:8]
-Oct 6: Additional Info[7:0]
-Oct 7: reserved
-Oct 8: Target Address[23:16]
-Oct 9: Target Address[7:0]
-```
+| Bits  | Field                     | Width | Notes |
+|-------|---------------------------|------:|-------|
+| 16-23 | Data Service Options      |     8 | |
+| 24-27 | Downlink Frequency Band   |     4 | FNE → SU channel |
+| 28-39 | Downlink Channel Number   |    12 | |
+| 40-43 | Uplink Frequency Band     |     4 | SU → FNE channel |
+| 44-55 | Uplink Channel Number     |    12 | |
+| 56-79 | Target Address            |    24 | SU being granted |
 
-AIV/EX interpretation:
-- AIV=0: octets 3-6 unused
-- AIV=1, EX=1: octets 3-6 = WACN ID + System ID of target
-- AIV=1, EX=0: octets 3-4 reserved, octets 5-6 = Source Address (abbreviated)
+#### SN_DATA_PAGE_REQ (0x15) -- SNDCP Data Page Request  (PDF §5.2.5)
 
-#### QUE_RSP (0x21) -- Queued Response
+FNE pages an SU to request that it key up a data channel.
 
-```
-Oct 0: LB|P|100001    Oct 1: MFID
-Oct 2: AIV(7) | 0(6) | Service Type(5:0)
-Oct 3: Reason Code (Annex C)
-Oct 4: Additional Info[23:16]
-Oct 5: Additional Info[15:8]
-Oct 6: Additional Info[7:0]
-Oct 7: reserved
-Oct 8: Target Address[23:16]
-Oct 9: Target Address[7:0]
-```
+| Bits  | Field                  | Width | Notes |
+|-------|------------------------|------:|-------|
+| 16-23 | Data Service Options   |     8 | |
+| 24-31 | reserved               |     8 | |
+| 32-55 | Target Address         |    24 | SU to page |
+| 56-79 | Source Address         |    24 | FNE or requesting unit |
 
-#### DENY_RSP (0x27) -- Deny Response
+#### ACK_RSP_FNE (0x20) -- Acknowledge Response - FNE  (PDF §6.2.1)
 
-```
-Oct 0: LB|P|100111    Oct 1: MFID
-Oct 2: AIV(7) | 0(6) | Service Type(5:0)
-Oct 3: Reason Code (Annex B)
-Oct 4: Additional Info[23:16]  (if Group: Call Options)
-Oct 5: Additional Info[15:8]   (if Group: Group Addr high)
-Oct 6: Additional Info[7:0]    (if Group: Group Addr low)
-Oct 7: reserved
-Oct 8: Target Address[23:16]
-Oct 9: Target Address[7:0]
-```
+**Common fields** (always present):
 
-#### EXT_FNCT_CMD (0x24) -- Extended Function Command
+| Bits  | Field                         | Width | Notes |
+|-------|-------------------------------|------:|-------|
+|    16 | AIV (Additional Info Valid)   |     1 | |
+|    17 | EX (Extended Addressing)      |     1 | Discriminates the middle field union |
+| 18-23 | Service Type                  |     6 | Opcode of the message being ack'd |
+| 56-79 | Target Address                |    24 | |
 
-```
-Oct 0: LB|P|100100    Oct 1: MFID
-Oct 2-3: reserved
-Oct 4: Extended Function[23:16]
-Oct 5: Extended Function[15:8]
-Oct 6: Extended Function[7:0]
-Oct 7: reserved
-Oct 8: Target Address[23:16]
-Oct 9: Target Address[7:0]
-```
+**Middle field (bits 24-55) — union discriminated by EX:**
 
-#### GRP_AFF_RSP (0x28) -- Group Affiliation Response
+| EX bit | Bits 24-55 layout |
+|--------|-------------------|
+| EX=1   | WACN ID (24-43, 20 bits) \| System ID (44-55, 12 bits) — WSID of target |
+| EX=0   | reserved (24-31, 8 bits) \| Source Address (32-55, 24 bits) |
 
-```
-Oct 0: LB|P|101000    Oct 1: MFID
-Oct 2: reserved(7:2) | AA(1:0)  (Affiliation Announcement bits)
-Oct 3: Announcement Group Address[15:8]
-Oct 4: Announcement Group Address[7:0]
-Oct 5: Group Address[23:16]
-Oct 6: Group Address[15:8]
-Oct 7: Group Address[7:0]
-Oct 8: Source Address[23:16]
-Oct 9: Source Address[7:0]
-```
+**Pitfall:** earlier pseudo-layout placed Source Address at octets 5-6 (16 bits);
+it is 24 bits at bits 32-55 when EX=0.
 
-#### GRP_AFF_Q (0x2A) -- Group Affiliation Query
+#### QUE_RSP (0x21) -- Queued Response  (PDF §6.2.2)
 
-```
-Oct 0: LB|P|101010    Oct 1: MFID
-Oct 2-7: reserved
-Oct 8: Target Address[23:16]
-Oct 9: Target Address[7:0]
-```
+| Bits  | Field                   | Width | Notes |
+|-------|-------------------------|------:|-------|
+|    16 | AIV                     |     1 | |
+|    17 | reserved                |     1 | |
+| 18-23 | Service Type            |     6 | Opcode being responded to |
+| 24-31 | Reason Code             |     8 | Per Annex C |
+| 32-55 | Additional Info         |    24 | Interpretation per Service Type |
+| 56-79 | Target Address          |    24 | |
 
-#### CALL_ALRT (0x1F) -- Call Alert
+#### DENY_RSP (0x27) -- Deny Response  (PDF §6.2.7)
 
-```
-Oct 0: LB|P|011111    Oct 1: MFID
-Oct 2-3: reserved
-Oct 4: Target Address[23:16]
-Oct 5: Target Address[15:8]
-Oct 6: Target Address[7:0]
-Oct 7: reserved
-Oct 8: Source Address[23:16]
-Oct 9: Source Address[7:0]
-```
+| Bits  | Field                   | Width | Notes |
+|-------|-------------------------|------:|-------|
+|    16 | AIV                     |     1 | |
+|    17 | reserved                |     1 | |
+| 18-23 | Service Type            |     6 | Opcode being denied |
+| 24-31 | Reason Code             |     8 | Per Annex B |
+| 32-55 | Additional Info         |    24 | Per-service-type payload (e.g., requester WUID, group address) |
+| 56-79 | Target Address          |    24 | **24 bits**, not 16 |
 
-#### U_REG_RSP (0x2C) -- Unit Registration Response
+**Pitfall:** earlier pseudo-layout showed Target at octets 8-9 (16 bits); it is
+24 bits at bits 56-79.
 
-```
-Oct 0: LB|P|101100    Oct 1: MFID
-Oct 2: reserved(7:2) | RC(1:0)  -- Response Code
-Oct 3: WACN ID[19:12]
-Oct 4: WACN ID[11:4]
-Oct 5: WACN ID[3:0] | System ID[11:8]
-Oct 6: System ID[7:0]  (or Source ID high)
-Oct 7: Source ID[7:0]   (source who registered)
-Oct 8: Assigned Source Address[23:16]
-Oct 9: Assigned Source Address[7:0]
-```
+#### EXT_FNCT_CMD (0x24) -- Extended Function Command  (PDF §6.2.4)
 
-Response Codes: `00` = accepted, `01` = accepted (used default), `10` = denied, `11` = denied (partial).
+| Bits  | Field              | Width | Notes |
+|-------|--------------------|------:|-------|
+| 16-31 | Function           |    16 | Function code (see Annex) |
+| 32-55 | Arguments          |    24 | Function-specific arguments |
+| 56-79 | Target Address     |    24 | |
 
-#### U_REG_CMD (0x2D) -- Unit Registration Command
+#### GRP_AFF_RSP (0x28) -- Group Affiliation Response  (PDF §6.2.8)
 
-```
-Oct 0: LB|P|101101    Oct 1: MFID
-Oct 2: WACN ID[19:12]
-Oct 3: WACN ID[11:4]
-Oct 4: WACN ID[3:0] | System ID[11:8]
-Oct 5: System ID[7:0]
-Oct 6-7: reserved
-Oct 8: Target Address[23:16]
-Oct 9: Target Address[7:0]
-```
+| Bits  | Field                       | Width | Notes |
+|-------|-----------------------------|------:|-------|
+|    16 | Global/Local Flag           |     1 | Response scope |
+| 17-21 | reserved                    |     5 | |
+| 22-23 | Response                    |     2 | 00=accept, 01=accept-default, 10=deny-fail, 11=deny-refused |
+| 24-39 | Announcement Group Address  |    16 | Parent announcement group (0x0000 if none) |
+| 40-55 | Group Address               |    16 | Group being affiliated to |
+| 56-79 | Target Address              |    24 | SU that affiliated |
 
-#### U_DE_REG_ACK (0x2F) -- De-Registration Acknowledge
+#### GRP_AFF_Q (0x2A) -- Group Affiliation Query  (PDF §6.2.10)
 
-```
-Oct 0: LB|P|101111    Oct 1: MFID
-Oct 2: WACN ID[19:12]
-Oct 3: WACN ID[11:4]
-Oct 4: WACN ID[3:0] | System ID[11:8]
-Oct 5: System ID[7:0]
-Oct 6-7: reserved
-Oct 8: Source Address[23:16]
-Oct 9: Source Address[7:0]
-```
+| Bits  | Field           | Width | Notes |
+|-------|-----------------|------:|-------|
+| 16-31 | reserved        |    16 | |
+| 32-55 | Target Address  |    24 | SU being queried |
+| 56-79 | Source Address  |    24 | Querying unit (typically FNE) |
 
-#### LOC_REG_RSP (0x2B) -- Location Registration Response
+#### CALL_ALRT (0x1F) -- Call Alert  (PDF §6.2.16)
 
-```
-Oct 0: LB|P|101011    Oct 1: MFID
-Oct 2: reserved(7:2) | RC(1:0)
-Oct 3-4: reserved
-Oct 5: Group Address[23:16]
-Oct 6: Group Address[15:8]
-Oct 7: Group Address[7:0]
-Oct 8: Source Address[23:16]
-Oct 9: Source Address[7:0]
-```
+| Bits  | Field           | Width | Notes |
+|-------|-----------------|------:|-------|
+| 16-31 | reserved        |    16 | |
+| 32-55 | Target Address  |    24 | SU to alert |
+| 56-79 | Source ID       |    24 | **24 bits**, not 16 — originating unit |
 
-#### RFSS_STS_BCST (0x3A) -- RFSS Status Broadcast
+**Pitfall:** earlier pseudo-layout showed Source at octets 8-9 (16 bits); the
+PDF bit table has Source ID as 24 bits at 56-79.
 
-```
-Oct 0: LB|P|111010    Oct 1: MFID
-Oct 2: LRA (8-bit)
-Oct 3: reserved(7:5) | A(4) | System ID[11:8]
-Oct 4: System ID[7:0]
-Oct 5: RF Sub-system ID (8-bit)
-Oct 6: Site ID (8-bit)
-Oct 7: reserved
-Oct 8: Channel[15:8]
-Oct 9: Channel[7:0]
-```
+#### U_REG_RSP (0x2C) -- Unit Registration Response  (PDF §6.2.22)
 
-A = 1: active network connection.
+| Bits  | Field                      | Width | Notes |
+|-------|----------------------------|------:|-------|
+| 16-17 | reserved                   |     2 | |
+| 18-19 | Response                   |     2 | 00=accepted, 01=accepted-default, 10=denied, 11=denied-partial |
+| 20-31 | System ID                  |    12 | Home system of the registered unit |
+| 32-55 | Source ID                  |    24 | Unit's permanent ID (e.g., assigned WUID) |
+| 56-79 | Source Address             |    24 | Abbreviated address assigned by FNE |
 
-#### NET_STS_BCST (0x3B) -- Network Status Broadcast
+#### U_REG_CMD (0x2D) -- Unit Registration Command  (PDF §6.2.23)
 
-```
-Oct 0: LB|P|111011    Oct 1: MFID
-Oct 2: LRA (8-bit)
-Oct 3: WACN ID[19:12]
-Oct 4: WACN ID[11:4]
-Oct 5: WACN ID[3:0] | System ID[11:8]
-Oct 6: Channel[15:8]
-Oct 7: Channel[7:0]
-Oct 8: System Service Class
-Oct 9: reserved
-```
+| Bits  | Field           | Width | Notes |
+|-------|-----------------|------:|-------|
+| 16-31 | reserved        |    16 | |
+| 32-55 | Target Address  |    24 | SU to command |
+| 56-79 | Source Address  |    24 | Commanding unit (or FNE) |
 
-NOTE: Octet 5 packs the bottom 4 bits of WACN ID and the top 4 bits of System ID.
+#### U_DE_REG_ACK (0x2F) -- De-Registration Acknowledge  (PDF §6.2.24)
 
-#### ADJ_STS_BCST (0x3C) -- Adjacent Status Broadcast
+| Bits  | Field           | Width | Notes |
+|-------|-----------------|------:|-------|
+| 16-23 | reserved        |     8 | |
+| 24-43 | WACN ID         |    20 | Home WACN of de-registered unit |
+| 44-55 | System ID       |    12 | Home System |
+| 56-79 | Target ID       |    24 | Unit that de-registered |
 
-```
-Oct 0: LB|P|111100    Oct 1: MFID
-Oct 2: LRA (8-bit, adjacent site's LRA)
-Oct 3: C(7) | F(6) | V(5) | A(4) | System ID[11:8]
-Oct 4: System ID[7:0]
-Oct 5: RF Sub-system ID
-Oct 6: Site ID
-Oct 7: reserved
-Oct 8: Channel[15:8]
-Oct 9: System Service Class
-```
+#### LOC_REG_RSP (0x2B) -- Location Registration Response  (PDF §6.2.21)
 
-Flags: C = conventional, F = failure, V = valid, A = active network.
+| Bits  | Field           | Width | Notes |
+|-------|-----------------|------:|-------|
+| 16-21 | reserved        |     6 | |
+| 22-23 | Response        |     2 | 00=accept, 01=accept-default, 10=deny-fail, 11=deny-refused |
+| 24-39 | Group Address   |    16 | Announcement group (or 0x0000) |
+| 40-47 | RFSS ID         |     8 | Registered RFSS |
+| 48-55 | Site ID         |     8 | Registered Site |
+| 56-79 | Target Address  |    24 | **Target** (the unit being told "you're registered") — not source |
+
+**Pitfall:** earlier pseudo-layout labeled this tail as Source Address and
+gave Group Address 24 bits. Correct layout has a 16-bit Group Address,
+8-bit RFSS, 8-bit Site, and a 24-bit **Target** Address. This misread
+produced wrong talkgroup/RFSS/site/target values on every live decode until
+it was caught (see gap 0020).
+
+#### RFSS_STS_BCST (0x3A) -- RFSS Status Broadcast  (PDF §7.2.x)
+
+| Bits  | Field                                 | Width | Notes |
+|-------|---------------------------------------|------:|-------|
+| 16-23 | Location Registration Area (LRA)      |     8 | |
+| 24-26 | reserved                              |     3 | |
+|    27 | A (Active Network Connection flag)    |     1 | |
+| 28-39 | System ID                             |    12 | |
+| 40-47 | RFSS ID                               |     8 | |
+| 48-55 | Site ID                               |     8 | |
+| 56-59 | Frequency Band                        |     4 | Control-channel band |
+| 60-71 | Channel Number                        |    12 | Control channel of this site |
+| 72-79 | System Service Class                  |     8 | |
+
+#### NET_STS_BCST (0x3B) -- Network Status Broadcast  (PDF §7.2.x)
+
+| Bits  | Field                                 | Width | Notes |
+|-------|---------------------------------------|------:|-------|
+| 16-23 | Location Registration Area (LRA)      |     8 | |
+| 24-43 | WACN ID                               |    20 | |
+| 44-55 | System ID                             |    12 | |
+| 56-59 | Frequency Band                        |     4 | |
+| 60-71 | Channel Number                        |    12 | |
+| 72-79 | System Service Class                  |     8 | |
+
+#### ADJ_STS_BCST (0x3C) -- Adjacent Status Broadcast  (PDF §7.2.x)
+
+| Bits  | Field                                 | Width | Notes |
+|-------|---------------------------------------|------:|-------|
+| 16-23 | Location Registration Area (LRA)      |     8 | Adjacent site's LRA |
+|    24 | C (Conventional flag)                 |     1 | |
+|    25 | F (Site Failure flag)                 |     1 | |
+|    26 | V (Valid Information flag)            |     1 | |
+|    27 | A (Active Network Connection flag)    |     1 | |
+| 28-39 | System ID                             |    12 | |
+| 40-47 | RFSS ID                               |     8 | |
+| 48-55 | Site ID                               |     8 | |
+| 56-59 | Frequency Band                        |     4 | |
+| 60-71 | Channel Number                        |    12 | |
+| 72-79 | System Service Class                  |     8 | |
 
 #### ADJ_STS_BCST_UNC (0x3E) -- Adjacent Status Broadcast Uncoordinated
 
-Same structure as ADJ_STS_BCST but for sites not sharing WACN coordination.
+Same bit layout as ADJ_STS_BCST. Used for adjacent sites that do not share
+WACN coordination with this site.
 
-#### SYS_SRV_BCST (0x38) -- System Service Broadcast
+#### SYS_SRV_BCST (0x38) -- System Service Broadcast  (PDF §7.2.x)
 
-```
-Oct 0: LB|P|111000    Oct 1: MFID
-Oct 2: reserved
-Oct 3: System Service Class (8-bit)
-Oct 4: WACN ID[19:12]
-Oct 5: WACN ID[11:4]
-Oct 6: WACN ID[3:0] | System ID[11:8]
-Oct 7: System ID[7:0]  (continued)
-Oct 8: reserved
-Oct 9: System Service Class (extended)
-```
+Advertises which services the system offers and which require which priority.
+**Warning:** earlier pseudo-layout was hallucinated as WACN+System+svc-class;
+the correct layout has no WACN or System fields.
 
-#### SCCB (0x39) -- Secondary Control Channel Broadcast
+| Bits  | Field                       | Width | Notes |
+|-------|-----------------------------|------:|-------|
+| 16-23 | reserved                    |     8 | |
+| 24-47 | Available Services          |    24 | Bitmap of services currently available |
+| 48-71 | Supported Services          |    24 | Bitmap of services supported by the system |
+| 72-79 | Request Priority Level      |     8 | |
 
-```
-Oct 0: LB|P|111001    Oct 1: MFID
-Oct 2: RF Sub-system ID
-Oct 3: RFSS | Site (combined field)
-Oct 4: Channel(T)[15:8]
-Oct 5: Channel(T)[7:0]
-Oct 6: Channel(R)[15:8]  (or reserved)
-Oct 7: Channel(R)[7:0]
-Oct 8: System Service Class
-Oct 9: reserved
-```
+#### SCCB (0x39) -- Secondary Control Channel Broadcast  (PDF §7.2.x)
 
-#### IDEN_UP (0x3D) -- Identifier Update (FDMA)
+Announces up to two secondary control channels at this site.
 
-```
-Oct 0: LB|P|111101    Oct 1: MFID
-Oct 2: Identifier(7:4) | reserved(3:0)
-Oct 3: Channel Spacing + Transmit Offset (high)
-Oct 4: Transmit Offset (low)
-Oct 5: Channel Spacing[15:8]
-Oct 6: Channel Spacing[7:0]
-Oct 7: Base Frequency[31:24]  (resolution = 5 Hz)
-Oct 8: Base Frequency[23:16]
-Oct 9: Base Frequency[7:0]
-```
+| Bits  | Field                    | Width | Notes |
+|-------|--------------------------|------:|-------|
+| 16-23 | RFSS ID                  |     8 | |
+| 24-31 | Site ID                  |     8 | |
+| 32-35 | Frequency Band A         |     4 | First SCCH band |
+| 36-47 | Channel Number A         |    12 | First SCCH channel |
+| 48-55 | System Service Class A   |     8 | |
+| 56-59 | Frequency Band B         |     4 | Second SCCH band (or all-zero = absent) |
+| 60-71 | Channel Number B         |    12 | |
+| 72-79 | System Service Class B   |     8 | |
 
-NOTE: Base Frequency uses octets 7-9 (24 bits in the extraction); the full 32 bits
-may use the boundary bits from octets 6-7. See Section 6 for frequency calculation.
+**Pitfall:** earlier pseudo-layout showed 12-bit channel-only fields. Both
+channels are full 4-bit-band + 12-bit-number pairs (16 bits each).
 
-#### IDEN_UP_VU (0x34) -- Identifier Update for VHF/UHF Bands
+#### SCCB_EXP (0x29) -- Secondary Control Channel Broadcast - Explicit  (PDF §7.2.x)
 
-```
-Oct 0: LB|P|110100    Oct 1: MFID
-Oct 2: Identifier(7:4) | Channel Spacing(3:0) MSB
-Oct 3: Channel Spacing (continued)
-Oct 4: Transmit Offset VU[13:8]
-Oct 5: Transmit Offset VU[7:0]
-Oct 6: Base Frequency[31:24]   (resolution = 5 Hz)
-Oct 7: Base Frequency[23:16]
-Oct 8: Base Frequency[15:8]
-Oct 9: Base Frequency[7:0]
-```
+Same as SCCB but with explicit transmit/receive channel pairs for a single SCCH.
 
-#### IDEN_UP_TDMA (0x33) -- Identifier Update for TDMA
+| Bits  | Field                       | Width | Notes |
+|-------|-----------------------------|------:|-------|
+| 16-23 | RFSS ID                     |     8 | |
+| 24-31 | Site ID                     |     8 | |
+| 32-35 | Transmit Frequency Band     |     4 | |
+| 36-47 | Transmit Channel Number     |    12 | |
+| 48-55 | reserved                    |     8 | |
+| 56-59 | Receive Frequency Band      |     4 | |
+| 60-71 | Receive Channel Number      |    12 | |
+| 72-79 | System Service Class        |     8 | |
 
-```
-Oct 0: LB|P|110011    Oct 1: MFID
-Oct 2: Identifier(7:4) | Channel Type(3:0)
-Oct 3: Slots per Frame + Transmit Offset TDMA (high)
-Oct 4: Transmit Offset TDMA (low)
-Oct 5: Channel Spacing[15:8]
-Oct 6: Channel Spacing[7:0]
-Oct 7: Base Frequency[31:24]
-Oct 8: Base Frequency[23:16]
-Oct 9: Base Frequency[7:0]
-```
+#### IDEN_UP (0x3D) -- Identifier Update (FDMA 800/900)  (PDF §7.2.x)
 
-#### SYNC_BCST (0x30) -- Synchronization Broadcast
+Broadcasts parameters for iden-table entry. See §6 for the frequency
+calculation that consumes these fields.
 
-```
-Oct 0: LB|P|110000    Oct 1: MFID
-Oct 2: US(7) | IST(6) | MMU(5) | MC(4) | reserved(3:0)
-Oct 3: Local Time Offset (8-bit signed, units = 30 min)
-Oct 4: Year (7-bit, offset from 2000)
-Oct 5: Month (4-bit)
-Oct 6: Day (5-bit)
-Oct 7: Hours (5-bit, UTC)
-Oct 8: Minutes (6-bit, UTC)
-Oct 9: Micro-Slots (6-bit)
-```
+| Bits  | Field                       | Width | Notes |
+|-------|-----------------------------|------:|-------|
+| 16-19 | Frequency Band Identifier   |     4 | Table index, 0-15 |
+| 20-28 | Bandwidth                   |     9 | Channel bandwidth |
+|    29 | Transmit Offset Sign        |     1 | 1 = positive, 0 = negative |
+| 30-37 | Transmit Offset (magnitude) |     8 | Units of 250 kHz |
+| 38-47 | Channel Spacing             |    10 | Units of 125 Hz |
+| 48-79 | Base Frequency              |    32 | Units of 5 Hz |
 
-Flags: US = UTC synchronized, IST = In Sync with Time, MMU = Micro-slot valid, MC = Multi-Channel sync.
+#### IDEN_UP_VU (0x34) -- Identifier Update for VHF/UHF  (PDF §7.2.x)
 
-#### AUTH_DMD (0x31) -- Authentication Demand
+| Bits  | Field                       | Width | Notes |
+|-------|-----------------------------|------:|-------|
+| 16-19 | Frequency Band Identifier   |     4 | |
+| 20-23 | Bandwidth                   |     4 | VHF/UHF bandwidth encoding |
+|    24 | Transmit Offset Sign        |     1 | |
+| 25-37 | Transmit Offset (magnitude) |    13 | Units of channel spacing |
+| 38-47 | Channel Spacing             |    10 | Units of 125 Hz |
+| 48-79 | Base Frequency              |    32 | Units of 5 Hz |
 
-```
-Oct 0: LB|P|110001    Oct 1: MFID
-Oct 2: reserved(7:1) | S(0)
-Oct 3: RAND1[31:24]
-Oct 4: RAND1[23:16]
-Oct 5: RAND1[15:8]
-Oct 6: RAND1[7:0]
-Oct 7: reserved
-Oct 8: Target Address[23:16]
-Oct 9: Target Address[7:0]
-```
+#### IDEN_UP_TDMA (0x33) -- Identifier Update for TDMA  (PDF §7.2.x)
 
-S = standalone flag. RAND1 = 32-bit random challenge.
+| Bits  | Field                       | Width | Notes |
+|-------|-----------------------------|------:|-------|
+| 16-19 | Frequency Band Identifier   |     4 | |
+| 20-23 | Channel Type                |     4 | See §3.5 — TDMA 12.5 kHz / 25 kHz / 8psk etc. |
+|    24 | Transmit Offset Sign        |     1 | |
+| 25-37 | Transmit Offset (magnitude) |    13 | Units of channel spacing |
+| 38-47 | Channel Spacing             |    10 | Units of 125 Hz |
+| 48-79 | Base Frequency              |    32 | Units of 5 Hz |
+
+**Note (all IDEN_UP variants):** Base Frequency is a full 32-bit field — it
+spans octets 6-9. Decoders that extract only 24 bits (octets 7-9) will produce
+base frequencies that are off by a factor of 256 at the low end.
+
+#### SYNC_BCST (0x30) -- Synchronization Broadcast  (PDF §7.2.x)
+
+Broadcasts current UTC time and microslot offset. The newer AABC-E amendments
+expanded this message; the layout below matches AABC-E-3 (2025).
+
+| Bits  | Field                                     | Width | Notes |
+|-------|-------------------------------------------|------:|-------|
+| 16-28 | reserved                                  |    13 | |
+|    29 | US (System Time Not Locked to External)   |     1 | 1 = free-running |
+|    30 | MMU (Microslots-to-Minute Unlocked)       |     1 | 1 = free rolling |
+| 31-32 | Leap Second Correction                    |     2 | Units of 2.5 ms to add |
+|    33 | Local Time Offset Valid                   |     1 | 1 = offset fields are invalid (inverted sense) |
+|    34 | Local Time Offset Sign                    |     1 | 1 = negative |
+| 35-38 | Local Time Offset Hours                   |     4 | |
+|    39 | Local Time Offset Half-Hour               |     1 | |
+| 40-46 | Year                                      |     7 | Offset from 2000 (range 2000-2127) |
+| 47-50 | Month                                     |     4 | 1-12 |
+| 51-55 | Day                                       |     5 | 1-31 |
+| 56-60 | Hours                                     |     5 | UTC, 0-23 |
+| 61-66 | Minutes                                   |     6 | UTC, 0-59 |
+| 67-79 | Micro-Slots                               |    13 | Since last minute rollover |
+
+**Note:** this layout supersedes the 6-flag / 8-bit-offset form carried in
+earlier revisions. When decoding, verify your source PDF revision matches.
+
+#### AUTH_DMD (0x31) -- Authentication Demand  (PDF §8.x)
+
+| Bits  | Field           | Width | Notes |
+|-------|-----------------|------:|-------|
+| 16-23 | reserved        |     8 | |
+| 24-43 | WACN ID         |    20 | Home WACN of target |
+| 44-55 | System ID       |    12 | |
+| 56-79 | Target ID       |    24 | SU being challenged |
+
+**Note:** the RAND1 32-bit challenge is carried in the Header Block (bits 32-63
+of the header) per §2.2, not in the TSBK body. The abbreviated TSBK above
+identifies *which* SU is being challenged; the challenge value itself travels
+via MBT.
 
 #### AUTH_FNE_RESP (0x32) -- Authentication FNE Response
 
-```
-Oct 0: LB|P|110010    Oct 1: MFID
-Oct 2: reserved
-Oct 3: RES2[31:24]
-Oct 4: RES2[23:16]
-Oct 5: RES2[15:8]
-Oct 6: RES2[7:0]
-Oct 7: reserved
-Oct 8: Target Address[23:16]
-Oct 9: Target Address[7:0]
-```
-
-RES2 = FNE's 32-bit response to RAND2 challenge during mutual authentication.
+Extended (MBT) message. Carries RES2 (32-bit FNE response to mutual-auth
+challenge) across the header + data block. Bit-table details parallel AUTH_DMD;
+see TIA-102.AACE for the authentication protocol.
 
 #### TIME_DATE_ANN (0x35) -- Time and Date Announcement
 
-Similar to SYNC_BCST but without micro-slot synchronization fields.
+Obsolete in the AABC-E revision line. When present, carries date/time without
+the microslot synchronization fields of SYNC_BCST. New deployments use
+SYNC_BCST exclusively.
 
-#### ROAM_ADDR_CMD (0x36) -- Roaming Address Command
+#### ROAM_ADDR_CMD (0x36) -- Roaming Address Command  (PDF §8.x)
 
-FNE commands SU to update roaming address stack.
+FNE commands SU to modify its roaming-address stack.
+
+| Bits  | Field                  | Width | Notes |
+|-------|------------------------|------:|-------|
+| 16-23 | Stack Operation        |     8 | Delete, add, replace, etc. |
+| 24-43 | WACN ID                |    20 | Stack entry WACN |
+| 44-55 | System ID              |    12 | Stack entry System |
+| 56-79 | Target ID              |    24 | SU to command |
 
 #### ROAM_ADDR_UPDT (0x37) -- Roaming Address Update
 
-FNE updates SU's roaming address stack entry.
+Extended (MBT) message. Carries one or more stack entries (each: LM flag,
+MSN, WACN, System) to the SU. See AACE for the stack-management protocol.
 
 ---
 
