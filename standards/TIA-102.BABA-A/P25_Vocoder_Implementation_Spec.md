@@ -1110,6 +1110,22 @@ Then run the rest of the synthesis pipeline (§1.10–§1.12) against these
 repeated parameters. The "current" frame becomes the previous frame for
 the next one.
 
+**No per-repeat attenuation.** Eq. 99–104 are plain assignments; the standard
+does not prescribe any consecutive-repeat counter, attenuation multiplier, or
+fade-to-silence schedule at this layer. Sustained-error attenuation comes
+solely from the §9 adaptive smoothing's γ_M scaling (§1.11.3, Eq. 116), which
+applies to repeated frames the same as to fresh frames. PDF §7.7 step 3 is
+explicit: "The repeated model parameters are used in all future processing
+wherever the current model parameters are required" — i.e., feed them through
+the full synthesis pipeline, including §1.11.3 smoothing, with no extra
+processing on the repeat path itself.
+
+Some open-source decoders (notably JMBE) add a consecutive-repeat heuristic
+that resets to default pitch + flat spectral amplitudes after N repeats (JMBE
+uses N = 3). This is a beyond-spec quality choice; it is **not** a conformance
+requirement. See `gap_reports/0022_repeat_attenuation_eq103_vs_section_6_3.md`
+for the audit that established this.
+
 #### 1.11.2 Frame Mute Trigger
 
 Mute if `ε_R(0) > 0.0875`. Recommended muting procedure (§7.8):
@@ -2466,9 +2482,16 @@ or comfort noise, depending on implementation.
 ### 6.2 Full-Rate Silence
 
 Full-rate silence is indicated implicitly through the adaptive smoothing mechanism:
-- When the smoothed error rate e_R exceeds 0.0875, the frame is **muted** (output silence)
-- During frame repeats, spectral amplitudes are progressively attenuated toward silence
-- Explicit silence: all spectral amplitudes M_l near zero and all bands unvoiced
+- When the smoothed error rate e_R exceeds 0.0875, the frame is **muted** (output silence
+  or comfort noise per §7.8) — see §1.11.2.
+- During frame repeats, the previous frame's parameters are reused verbatim via
+  Eq. 99–104 (§7.7 step 2). The §9 adaptive smoothing (Eq. 112–116, §1.11.3)
+  scales the spectral amplitudes by a γ_M factor that drifts below 1.0 when
+  ε_T stays elevated — that is the spec's only attenuation-over-time mechanism
+  during sustained repeats. There is no explicit per-repeat attenuation
+  multiplier, no consecutive-repeat counter, and no fade-to-silence schedule
+  in §7.7.
+- Explicit silence: all spectral amplitudes M_l near zero and all bands unvoiced.
 
 ### 6.3 Frame Erasure/Muting Summary
 
@@ -2476,8 +2499,8 @@ Full-rate silence is indicated implicitly through the adaptive smoothing mechani
 |-----------|-----------|-----------|
 | Frame repeat trigger | e0 >= 2 AND e_T >= 10 + 40*e_R | e0 >= 4 OR e_T >= 6 |
 | Frame mute trigger | e_R > 0.0875 | e_R > 0.096 or 4 consecutive invalid |
-| Repeat behavior | Attenuate previous M_l, fade to silence | Same principle |
-| Mute behavior | Output silence | Output silence |
+| Repeat behavior | Copy previous M_l verbatim per Eq. 99–104 (§7.7); §9 adaptive smoothing applies γ_M scaling on top, which can drift below 1.0 under sustained errors | Same principle |
+| Mute behavior | Output comfort noise per §7.8 (uniform `[-5, 5]`) | Output silence/comfort noise |
 
 ---
 
@@ -2891,9 +2914,18 @@ void decoder_state_init(decoder_state_t *s) {
    (24 bits, distance 8), while full-rate c0..c3 use [23,12] standard Golay
    (23 bits, distance 7). Do not confuse them.
 
-6. **Frame repeat attenuation:** When repeating a frame due to errors, the previous
-   frame's spectral amplitudes must be attenuated (not simply replayed). The
-   attenuation factor increases with consecutive repeats, fading to silence.
+6. **Frame repeat is a plain copy per Eq. 99–104, NOT an attenuation.** §7.7 of
+   the standard prescribes literal assignment of the previous frame's parameters
+   on repeat — `M̃_l(0) = M̃_l(−1)`, `M̄_l(0) = M̄_l(−1)`, etc. There is no
+   per-repeat attenuation multiplier, no consecutive-repeat counter, and no
+   fade-to-silence schedule. The only attenuation mechanism that engages
+   during sustained errors is the §9 adaptive smoothing (Eq. 112–116, §1.11.3),
+   which applies a γ_M scaling factor to all frames (repeated or not) once
+   ε_T / ε_R cross their thresholds. JMBE's `IMBEModelParameters.copy()`
+   uses a `MAX_HEADROOM_THRESHOLD = 3` consecutive-repeat reset to default
+   pitch + amplitudes; that is a beyond-spec implementation choice, not a
+   conformance requirement. Implementations that choose to follow JMBE's
+   heuristic should note it as a quality-improvement extension.
 
 ### 11.2 Reference Implementations
 

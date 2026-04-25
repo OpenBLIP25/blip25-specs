@@ -1,12 +1,25 @@
 # Gap 0021 — DVSI chip.bit FEC convention does not match spec-derived Golay/Hamming layout
 
-**Status:** spec-audit complete 2026-04-24 on branch
-`gap-0021-chip-fec-audit`. Options (b), (c), (d) ruled out. Option (a)
-relocated — the spec-derived tables match the PDF and JMBE; the divergence
-is a post-FEC implementation bug in the implementer's pipeline, not a
-spec or derivation error. See `analysis/imbe_spec_audit_vs_jmbe_vs_chip.md`
-for the full audit and recommended A/B probe (dump u₀..u₇ from both
-pipelines on a common frame). Awaiting implementer to execute the probe.
+**Status:** A/B probe executed 2026-04-25 (implementer). FEC layer
+confirmed bit-equivalent to JMBE on chip.bit frame 0 — `u0..u7 = 0x015
+0x5ca 0xaa3 0xcad 0x5a0 0x589 0x55e 0x019` with errors `[3,3,3,3,1,1,1]`
+match across both pipelines exactly. Spec-author's prediction holds; the
+gap is fully post-FEC.
+
+**First post-FEC fix landed** (blip25-mbe commit `cd42c53`): mute now
+emits comfort noise per BABA-A §1.11.2's primary recommendation rather
+than the silence alternative. chip_enc_our_dec PESQ rose 1.319 → 1.393
+(+0.07); canonical our_enc_our_dec unchanged at 3.202 (no regression).
+
+**Reframed:** the residual chip_enc_our_dec gap to JMBE's 2.66 is a
+post-FEC quality problem in implementation only — no further spec
+disambiguation required. JMBE-style max-repeat reset to default amps=1
+after 3 consecutive repeats (§1.11.1 / Eq. 105 region) is the next
+candidate. Tracked in blip25-mbe; no spec-author action needed unless
+new ambiguity surfaces.
+
+Spec-audit doc preserved at
+`analysis/imbe_spec_audit_vs_jmbe_vs_chip.md` for posterity.
 
 **Filed:** 2026-04-24
 **Filed by:** implementer (blip25-mbe)
