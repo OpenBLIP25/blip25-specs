@@ -1,23 +1,27 @@
 # AMBE-3000 Patent Reference
 
-**Purpose:** Technical reference for expired DVSI patents relevant to
-AMBE+2™ software implementation. These patents are public domain and serve
-as detailed algorithmic documentation for the synthesis, quantization,
-and rate conversion techniques used in the AMBE-3000 chip.
+**Purpose:** Technical reference for DVSI patents relevant to AMBE+2™ software
+implementation. The expired patents are public domain and serve as detailed
+algorithmic documentation for the synthesis, quantization, and rate conversion
+techniques used in the AMBE-3000 chip. **Note:** Not all relevant patents have
+expired — see §6 (US8359197) for an active half-rate vocoder patent that
+covers the same disclosure as US8595002 but remains in force until 2028-05-20
+due to patent term adjustment.
 
-**Date:** 2026-04-13
+**Date:** 2026-04-13 (last updated 2026-04-27 with §6)
 
 ---
 
 ## Patent Index
 
-| # | Patent | Title | Expired | Section |
-|---|--------|-------|---------|---------|
-| 1 | US5701390 | MBE Synthesis with Regenerated Phase | 2015-02-22 | [Section 1](#1-us5701390--mbe-synthesis-with-regenerated-phase) |
-| 2 | US8595002 | Half-Rate Vocoder (AMBE+2) | 2023-04-01 | [Section 2](#2-us8595002--half-rate-vocoder-ambe2) |
-| 3 | US6199037 | Joint Quantization of Voicing and Pitch | 2017-12-04 | [Section 3](#3-us6199037--joint-quantization-of-voicing-and-pitch) |
-| 4 | US7634399 | Voice Transcoder | 2025-11-07 | [Section 4](#4-us7634399--voice-transcoder) |
-| 5 | US8315860 | Interoperable Vocoder | 2022-11-13 | [Section 5](#5-us8315860--interoperable-vocoder) |
+| # | Patent | Title | Expires | Status (2026-04-27) | Section |
+|---|--------|-------|---------|---------|---------|
+| 1 | US5701390 | MBE Synthesis with Regenerated Phase | 2015-02-22 | Expired | [§1](#1-us5701390--mbe-synthesis-with-regenerated-phase) |
+| 2 | US8595002 | Half-Rate Vocoder (AMBE+2) | 2023-04-01 | Expired | [§2](#2-us8595002--half-rate-vocoder-ambe2) |
+| 3 | US6199037 | Joint Quantization of Voicing and Pitch | 2017-12-04 | Expired | [§3](#3-us6199037--joint-quantization-of-voicing-and-pitch) |
+| 4 | US7634399 | Voice Transcoder | 2025-11-07 | Expired | [§4](#4-us7634399--voice-transcoder) |
+| 5 | US8315860 | Interoperable Vocoder | 2022-11-13 | Expired | [§5](#5-us8315860--interoperable-vocoder) |
+| **6** | **US8359197** | **Half-Rate Vocoder (sibling of US8595002)** | **2028-05-20** | **ACTIVE** ⚠️ | [§6](#6-us8359197--half-rate-vocoder-active-until-2028) |
 
 ---
 
@@ -530,3 +534,418 @@ FEC encode (target rate scheme)
     ▼
 Channel bits at target rate
 ```
+
+---
+
+## 6. US8359197 — Half-Rate Vocoder (active until 2028)
+
+- **Inventor:** John C. Hardwick
+- **Assignee:** Digital Voice Systems Inc
+- **Filed:** 2003-04-01
+- **Granted:** 2013-01-22
+- **Anticipated expiration:** **2028-05-20** (patent term adjustment for ~10 years of USPTO prosecution delay)
+- **Family:** US20050278169A1 (publication), US8595002B2 (continuation), CA2461704C, EP1465158B1, EP1748425B1, JP2004310088A, DE602004021438D1, DE602004003610T2
+
+### Why This Patent Matters
+
+US8359197 is the parent half-rate vocoder grant from the same 2003-04-01
+priority filing as US8595002. Both share inventor, disclosure, and
+subject matter. The crucial difference is **expiration**: US8595002 expired
+2023-04-01 (no PTA), while US8359197 picked up nearly five years of patent
+term adjustment and remains in force until **2028-05-20**.
+
+The disclosure is essentially identical to US8595002's. What this section
+documents is the **claim language**, since that is what governs
+infringement and is the only part that differs meaningfully from §2.
+
+### Claim Coverage Summary
+
+The patent has 87 claims with four independent claims:
+
+| Independent Claim | Subject |
+|---|---|
+| Claim 1 | Encoding method (frame → params → mixed sub-codeword → FEC) |
+| Claim 42 | Decoding method (FEC → params → speech samples) |
+| Claim 60 | Decoding method with tone/speech discrimination |
+| Claim 72 | Decoding using bit-count-dependent spectral codebook index |
+
+### Claim 1 (Verbatim, Independent Encoder)
+
+> A method of encoding a sequence of digital speech samples into a bit
+> stream, the method comprising:
+> - dividing the digital speech samples into one or more frames;
+> - computing model parameters for a frame;
+> - quantizing the model parameters to produce pitch bits conveying pitch
+>   information, voicing bits conveying voicing information, and gain bits
+>   conveying signal level information, wherein the pitch bits, the voicing
+>   bits and the gain bits are included in quantizer bits for the frame;
+> - **combining one or more of the pitch bits with one or more of the
+>   voicing bits and one or more of the gain bits to create a first
+>   parameter codeword that includes less than all of the quantizer bits
+>   for the frame;**
+> - encoding the first parameter codeword with an error control code to
+>   produce a first FEC ("forward error control") codeword; and
+> - including the first FEC codeword in a bit stream for the frame.
+
+The **bolded limitation** is the novelty: forming a sub-codeword by
+mixing pitch + voicing + gain bits (rather than FEC-protecting each
+parameter separately), then FEC-encoding that mixed codeword.
+
+### Narrowing-Claim Chain Mapping to AMBE+2 Half-Rate
+
+| Claim | Limitation | Matches BABA-A half-rate? |
+|---|---|---|
+| 2 | Fundamental freq + voicing decisions + spectral params | ✓ |
+| 3 | MBE speech model | ✓ |
+| 5 | Joint voicing quantization | ✓ |
+| 6 | Voicing codebook with redundant entries (multiple indices → same vector) | ✓ (Table 2: indices 0,1 → all voiced; 16–31 → all unvoiced) |
+| 7 | First codeword = 12 bits | ✓ |
+| 8 | 12 bits = 4 pitch + 4 voicing + 4 gain | ✓ exact |
+| 9 | First codeword Golay-encoded | ✓ ([24,12]) |
+| 10 | Log-spectral magnitudes; gain = mean of logmags | ✓ |
+| 11 | Spectral bits → second codeword → second FEC | ✓ ([23,12]) |
+| 12 | Bits split into important/less-important; less-important sent unprotected | ✓ |
+| 13 | 7 pitch (4+3), 5 voicing (4+1), 5 gain (4+1) | ✓ exact |
+| 14 | 12 most-important spectral bits with Golay | ✓ |
+| 15 | Scrambling sequence derived from first parameter codeword applied to second FEC codeword | ✓ exact AMBE+2 data-dependent scrambling |
+| 16–19 | Tone detection; tone identifier + amplitude bits in first codeword; tone identifier = "disallowed pitch bits" | ✓ matches 0x3F tone-frame identifier |
+
+### Decoder Side (Claims 42–71)
+
+Claim 42 is the mirror image of claim 1. The chain claims 47–51 add the
+error-metric path: Golay decoder → modulation key recovery from first
+codeword → descrambling → second Golay decode → error metric (sum of
+corrected errors from both Golay decoders) → frame error processing if
+metric ≥ threshold (claim 51 specifies "threshold value"; the disclosure
+identifies threshold = 6, and frame error processing = repeat previous
+frame → mute after consecutive invalid frames).
+
+### Practical Infringement Read
+
+A clean-room AMBE+2 **half-rate** decoder/encoder that implements:
+- 4 pitch + 4 voicing + 4 gain MSBs combined into a 12-bit first codeword
+- [24,12] extended Golay protecting that codeword
+- Data-dependent scrambling keyed from the first codeword's Golay output
+- Redundant-index voicing codebook (multiple indices → same vector)
+- Tone-frame identifier in disallowed pitch-bit values (0x3F)
+
+reads on claims 8, 9, 13, 14, and 15 (and necessarily claim 1).
+
+**Full-rate (7200 bps) IMBE decoders are likely outside** the narrowing
+claims because claims 7–14 specify bit allocations specific to the
+half-rate format. Claim 1 alone is broader, but practical reads against
+full-rate IMBE depend on whether the IMBE first codeword groups pitch +
+voicing + gain bits — a question for the BABA-A full-rate FEC structure,
+not resolved here.
+
+### Implications for Implementation Roadmap
+
+US8359197 does **not** disclose new algorithmic content beyond what
+§2 (US8595002) already documents — disclosure and figures are essentially
+identical. What it changes is the **legal posture**:
+
+- A faithful AMBE+2 half-rate clean-room implementation that passes
+  bit-exact interop with AMBE-3000 will read on US8359197 claims 8–15.
+- Encoder and decoder are both covered (claims 1–41 encoder side,
+  42–71 decoder side, plus claim 60 tone-handling decoder).
+- Patent expires 2028-05-20. Receive-only/decoder-only software for
+  research or personal use has weaker practical enforcement risk than
+  vendor product, but the patent claims still cover decoder
+  implementations.
+- A non-AMBE+2-compatible half-rate vocoder that uses a different first-
+  codeword grouping (e.g., 6 pitch + 6 spectral instead of 4+4+4) might
+  fall outside the narrowing claims while still landing on claim 1.
+
+### Prosecution History — How the Independent Claims Were Narrowed
+
+US8359197 prosecuted from 2003-04-01 to 2013-01-22 (nearly 10 years), with
+~5.1 years of patent term adjustment. Key prosecution events:
+
+| Date | Event |
+|---|---|
+| 2003-04-01 | Application filed (87 claims) |
+| 2005-12-15 | Published as US 2005/0278169 A1 |
+| 2007-02-07 | First Non-Final Rejection (rejection #1) |
+| 2007-11-26 | Final Rejection #1 |
+| 2008-04-29 | Notice of Appeal #1 (examiner reopened) |
+| 2009-04-13 | Non-Final Rejection #2 |
+| 2009-09-21 | RCE filed (after Notice of Appeal #2) |
+| 2009-12-11 | Non-Final Rejection #3 |
+| 2010-06-09 | Non-Final Rejection #4 |
+| 2011-03-21 | Final Rejection #2 (all 87 claims) |
+| 2011-07-21 | Notice of Appeal #3 |
+| 2011-11-21 | Appeal Brief filed |
+| 2012-04-07 | Ex Parte Quayle Action — examiner closed prosecution on the merits |
+| 2012-11-26 | Notice of Allowance |
+| 2013-01-22 | Patent issued |
+
+Prior art cited in the rejections: Hardwick '037 (US 6,199,037),
+Griffin '974 (US 5,754,974), Hardwick '089 (US 6,161,089), Hardwick '511
+(US 5,517,511) — all DVSI's own earlier patents. Huang (US 5,496,798) was
+cited briefly and dropped. The examiner argued obviousness over
+combinations of DVSI's own prior work.
+
+#### Examiner's Statements of Reasons for Allowance
+
+The 2012-04-12 Ex Parte Quayle Action mailed by Examiner Angela A.
+Armstrong (Art Unit 2626) closed prosecution on the merits and contains
+the only statements of reasons for allowance for this patent. (The
+2012-11-26 Notice of Allowance does not have the "Examiner's Statement
+of Reasons for Allowance" attachment box checked — that statement was
+already issued in the Quayle Action.) The Quayle Action says:
+
+> "Applicant's arguments, see Appeal Brief (pages 3-9), filed 11/21/11,
+> with respect to claims 1-87 have been fully considered and are
+> persuasive. The rejection of claims 1-87 has been withdrawn."
+
+Pages 3–9 of the 2011-11-21 Appeal Brief are the substantive argument
+section that convinced the examiner.
+
+The Quayle Action contains **two separate** examiner statements of
+reasons for allowance — confirming the two-inventions framing:
+
+**Reasons for allowance — claims 1, 42, 60 and dependents** (mixed-
+codeword chain):
+
+> "Regarding claim 1, the prior art of Hardwick (US Patent No.
+> 6,199,037), Griffin (US Patent No. 5,754,974) and Hardwick (US Patent
+> No. 6,161,089) **fails to specifically teach or disclose** a method of
+> encoding...combining one or more of the pitch bits with one or more
+> of the voicing bits and one or more of the gain bits to create a
+> first parameter codeword that includes less than all of the quantizer
+> bits for the frame; encoding the first parameter codeword with an
+> error control code to produce a first FEC codeword..."
+
+The same "fails to teach" finding is recited for claim 42 (decoder
+mirror) and claim 60 (tone-aware decoder).
+
+**Reasons for allowance — claims 72–87** (bit-count-dependent spectral
+codebook chain):
+
+> "Regarding claim 72, Hardwick (US Patent No. 6,199,037), Griffin (US
+> Patent No. 5,754,974) and Hardwick (US Patent No. 6,161,089) **fails
+> to specifically teach or disclose** a method for decoding a frame of
+> bits into speech samples...using one or more of the spectral bits to
+> form a spectral codebook index, wherein the index is determined at
+> least in part by the number of bits in the frame of bits..."
+
+The same prior-art trio failed to disclose **either** invention — the
+examiner had to concede on both grounds, not just one.
+
+**Final formal objection (the only thing remaining):**
+
+> "Claims 1-71 are objected to because of the following informalities:
+> Claims 1, 42, and 60 recite the term 'FEC' without a description of
+> the term at its first use. Appropriate correction is required."
+
+DVSI's 2012-04-12 response to the Quayle Action added the parenthetical
+"('forward error control')" after the first use of "FEC" in each of
+claims 1, 42, and 60. This is the only post-Quayle amendment in the
+file wrapper. No substantive claim language changed between the Quayle
+Action and the grant.
+
+#### The September 10, 2009 Interview — Where Scope Was Negotiated
+
+The patent's enforceable scope was effectively settled at an in-person
+examiner interview on 2009-09-10. Participants:
+
+- Examiner Angela A. Armstrong (Art Unit 2626)
+- John F. Hayden (Fish & Richardson, attorney)
+- **John C. Hardwick** — the named inventor himself
+
+The Interview Summary's continuation sheet records the agreements
+reached:
+
+> "Regarding claim 1, an agreement was reached to amend the claims to
+> specify that **a subset combined pitch, voicing, and gain bits** are
+> used to form the first parameter codeword used in the FEC encoding.
+> Regarding claims 42 and 60, an agreement was reached to amend the
+> claims to specify that the bits of the FEC codeword represent only a
+> subset of all available pitch, voicing and gain bits. Regarding
+> claim 72, an agreement was reached that the prior art of Hardwick
+> (6,199,037) does not teach the claim limitations."
+
+The "less than all of the quantizer bits" amendment originated here in
+2009 — not in the 2011 Appeal Brief. The 2½ years of subsequent
+prosecution (Dec 2009 OA → June 2010 OA → March 2011 Final → Nov 2011
+Appeal Brief → April 2012 Quayle) were spent re-fighting the same battle
+as the examiner introduced new prior art (Hardwick '089 first appeared
+in the December 2009 Office Action) and then withdrew it.
+
+**Claim 72 was conceded at the September 2009 interview** — Hardwick
+'037 alone was admitted not to teach the bit-count-dependent spectral
+codebook. The examiner only resisted on claims 1, 42, 60 thereafter.
+
+#### The Patent's Technical Foundation — Unexpected Voicing Sensitivity
+
+The 2011-11-21 Appeal Brief (pages 3–4) articulates the technical
+insight that supports patentability under § 103. The argument is a
+classic "unexpected results" rebuttal:
+
+> "When coding voice, voice quality in the presence of bit errors may be
+> determined by the weakest or most sensitive parameter... Since the
+> inventor was developing low bit rate coding techniques, very few bits
+> were available for error correction. In determining how best to make
+> use of the available error correction bits, **the inventor was
+> surprised to determine that performance was limited to a large extent
+> by bit errors in the pitch, gain and voicing information. This was a
+> surprising and unexpected result because the inventor had generally
+> not considered the voicing information to be very sensitive to bit
+> errors.** Faced with this unexpected result, the inventor decided to
+> use available error correction bits to encode a codeword formed by
+> combining one or more pitch bits, one or more voicing bits and one or
+> more gain bits, but less than all of the quantizer bits for the
+> frame, as recited in claim 1."
+
+Pre-2003 MBE vocoders (including DVSI's own Hardwick '511 with its
+seven FEC codewords) routinely **excluded voicing bits from the
+strongest FEC protection**. '511 puts voicing in weaker Hamming codes.
+Hardwick '089's bit allocation (Table 2 at col. 10) puts voicing among
+the 33 unprotected bits. Both reflected a prevailing assumption that
+voicing was less error-sensitive than pitch/gain.
+
+The patent rests on the discovery that **voicing IS error-sensitive at
+half-rate** — and therefore a half-rate vocoder must include voicing
+bits in its strongest FEC codeword to achieve acceptable quality under
+typical mobile-radio error conditions. This is the reason BABA-A
+specifies the 4-pitch + 4-voicing + 4-gain MSB grouping in the
+[24,12]-Golay-protected first codeword.
+
+#### The Specific Factual Hook — Hardwick '089 Table 2 at Col. 10
+
+The Appeal Brief's argument that flipped the examiner is precise and
+fact-bound (page 6):
+
+> "...this passage of Hardwick '089 describes a system that employs six
+> FEC codewords (four Golay, two Hamming). In the system described by
+> this passage of Hardwick '089, **voicing bits are not included in the
+> extended Golay code** that protects the more sensitive fundamental
+> frequency bits and gain bits. Indeed, it appears that the voicing
+> bits would be included among the 33 bits that are left unencoded (see
+> **Table 2 at col. 10 of Hardwick '089**, which sets forth the bit
+> allocation)."
+
+The examiner had cited '089 col. 16 lines 6–61 for "12 highest priority
+bits...protected by a Golay code." DVSI's response was a precise
+factual rebuttal: those 12 priority bits don't include voicing — see
+'089's own bit-allocation table. Once the examiner verified this, the
+rejection collapsed.
+
+#### Implications for Design-Around — Narrower Than Initially Suggested
+
+The unexpected-results / voicing-sensitivity foundation has a practical
+consequence: **the patent's scope is anchored to the technical insight
+that voicing bits need FEC protection at half-rate**. A design-around
+that reverts to the pre-2003 prior-art structure (voicing bits
+unprotected, or voicing bits in a separate weaker FEC code) would not
+infringe — but it would also produce worse audio quality under bit-
+error conditions, because the underlying technical insight is real.
+
+For BABA-A-compatible AMBE+2 implementations, this is academic: the
+wire format mandates the protected mixed codeword. But for hypothetical
+non-interoperable half-rate vocoder designs, the patent does not
+preclude a vocoder that simply makes the (technically inferior)
+choice to leave voicing bits unprotected.
+
+#### Claim Amendments (Original 2003 → Issued 2013)
+
+The 87 originally filed claims all issued with the same numbering — none
+were canceled. Substantive amendments were concentrated in the four
+independent claims (1, 42, 60, 72). The dependent claims that specify
+the AMBE+2 format details (4+4+4 grouping in claim 8, [24,12]+[23,12]
+Golay in claims 9/14, data-dependent scrambling in claim 15, redundant
+voicing codebook in claim 6, 0x3F tone identifier in claims 16–19, 7+5+5
+bit allocations in claim 13) were **filed as written in 2003** and
+issued unamended.
+
+**Claim 1 — encoder side amendment:**
+
+Original 2003 (claim 1, last two operative steps):
+> "...combining one or more of the pitch bits with one or more of the
+> voicing bits and one or more of the gain bits to create a first
+> parameter codeword;"
+
+Issued 2013:
+> "...quantizing the model parameters to produce pitch bits...,
+> voicing bits..., and gain bits..., **wherein the pitch bits, the
+> voicing bits and the gain bits are included in quantizer bits for the
+> frame**; combining one or more of the pitch bits with one or more of
+> the voicing bits and one or more of the gain bits to create a first
+> parameter codeword **that includes less than all of the quantizer
+> bits for the frame**;"
+
+The added phrase **"that includes less than all of the quantizer bits
+for the frame"** is the prosecution-driven narrowing that overcame
+Hardwick '089. The 2010-09-09 reply (response to the 2010-06-09 OA)
+distinguished '089 by arguing that '089's voicing bits "would be
+included among the 33 bits that are left unencoded" — i.e., '089
+protected pitch + gain MSBs in its FEC codeword but did not protect
+voicing bits in the same codeword. By restricting claim 1 to a first
+codeword that is a strict subset of the total quantizer bits, DVSI
+distinguished from '089's FEC structure.
+
+**Claims 42 and 60 (decoder side)** received parallel amendments adding
+"the extracted pitch bits, voicing bits and gain bits including less
+than all of a set of quantizer bits for the frame."
+
+**Claim 72 (variable-bit-rate spectral codebook decoder) was NOT
+amended.** Original 2003 wording is identical to issued 2013 wording.
+This claim chain (72–87) was conceded by the examiner well before the
+Quayle Action — DVSI was forced to fight only over the encoder/decoder
+mixed-codeword chain (1, 42, 60), not over the variable-rate spectral
+chain. Effectively, US8359197 contains **two independent patentable
+inventions** in one patent:
+
+1. **Mixed pitch+voicing+gain FEC-protected first codeword** (claims
+   1–71, narrowed to "less than all quantizer bits" during prosecution)
+2. **Bit-count-dependent spectral codebook indexing** (claims 72–87,
+   allowed as filed)
+
+#### Doctrine of Equivalents — Surrendered Scope
+
+By adding "less than all of the quantizer bits" through amendment to
+overcome Hardwick '089, DVSI surrendered the scope where the first
+parameter codeword contains **all** the frame's quantizer bits. Under
+the *Festo* line of cases, prosecution history estoppel forecloses
+DVSI from re-capturing that surrendered territory via the doctrine of
+equivalents. This is a narrow carve-out: a hypothetical implementation
+that puts every parameter bit inside the FEC-protected first codeword
+would not infringe. AMBE+2 half-rate does not do this (the 12-bit
+first codeword is far smaller than the ~49 voice bits per frame), so
+the carve-out is academic for BABA-A-compatible implementations.
+
+#### Sharper Design-Around Analysis
+
+Combined with the prosecution-history limitation, the practical
+infringement reads are:
+
+- **Decoder side (any BABA-A-compatible half-rate decoder):
+  unavoidable infringement.** The wire format mandates extracting the
+  mixed pitch+voicing+gain first codeword. Both inventions
+  (mixed-codeword chain and variable-rate spectral chain) are forced
+  by the BABA-A bit allocations. Claim 72's "spectral codebook index
+  determined at least in part by the number of bits in the frame"
+  reads on AMBE+2's variable 25–32 spectral bits → variable codebook
+  selection.
+- **Encoder side (any BABA-A-interoperable half-rate encoder): same
+  read.** To produce a bitstream consumable by an AMBE-3000, the
+  encoder must produce the mixed first codeword.
+- **Non-interoperable design-around space exists** but produces a
+  vocoder that doesn't exchange voice frames with AMBE-3000. Examples:
+  separate FEC codewords for each parameter type (avoids claims 1,
+  42, 60); fixed-length spectral codebook independent of frame bit
+  count (avoids claim 72). Either choice breaks bitstream
+  interoperability.
+
+### Cross-References to Existing Analysis
+
+- `analysis/vocoder_missing_specs.md` — "Path Forward for Clean-Room
+  Implementation" section needs the legal-status caveat reflecting
+  US8359197's 2028 expiration
+- `DVSI/AMBE-3000/AMBE-3000_Patent_Reference.md` §2 — US8595002
+  disclosure (identical to US8359197 disclosure; algorithm details apply
+  to both)
+- USPTO file wrapper for application 10/402,938 — source for prosecution
+  history, claim amendments, and prior-art discussion in this section.
+  Pull from Patent Center or USPTO API for future updates.
+
