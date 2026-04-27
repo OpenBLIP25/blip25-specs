@@ -379,7 +379,17 @@ For implementation planning:
   US12254895, US12451151, US12462814) — these are 2022+ filings likely
   covering the next-generation AMBE-4020 chip rather than AMBE+2; they
   are noted here for completeness and not detailed in the AMBE-3000
-  reference
+  reference. US11715477 (filed 2022-04-08, granted 2023-08-01,
+  expires ~2042-04-08) is a first-action allowance with both
+  Daniel W. Griffin and John C. Hardwick on the inventor line. The
+  examiner cited US 6,912,495 (Griffin et al., earlier DVSI), US
+  6,963,833 (Singhal — MBE high-quality low-bitrate modifications),
+  and US 6,691,084 (Manjunath et al. — multiple-mode variable-rate
+  speech coding) as the closest prior art, all of which the examiner
+  conceded did not teach the claimed combinations. The AMBE-4020-era
+  patent landscape is therefore being built on top of pre-2003
+  foundational MBE prior art that is now expired — the inventive scope
+  is in the specific combinations of newer techniques.
 
 See `DVSI/AMBE-3000/AMBE-3000_Patent_Reference.md` §6 for full claim
 analysis of US8359197.

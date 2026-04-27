@@ -369,6 +369,35 @@ than propagating corrupted parameters.
 US7957963B2 is a continuation of this patent covering the same
 technology. Filed 2009-12-14, granted 2011-06-07, expired 2023-01-30.
 
+### Prosecution — Examiner's Reasons for Allowance
+
+USPTO application 10/353,974, examined by Examiner David D. Knepper
+(Art Unit 2626 — different examiner from the half-rate / interoperable
+vocoder patents which were examined by Angela A. Armstrong). Allowed
+2009-09-04 with all 63 originally filed claims intact.
+
+The examiner's statement of reasons for allowance:
+
+> "The prior art teaches coding such as Multi-Band Excitation (MBE)
+> that divides parameters into at least two portions for transmission.
+> However, the prior art does not utilize the divisions as claimed
+> which **apply error control encoding which application thereof must
+> precede the computation of speech parameters**."
+
+The patentable insight identified by the examiner: applying FEC
+**decoding** to the source bitstream **before** parameter recomputation
+in the rate converter. Prior MBE rate conversion either (a) did
+PCM-roundtrip transcoding (decode → resynthesize → re-analyze →
+re-encode) or (b) manipulated parameters without proper FEC handling.
+US7634399 is the combination — FEC-decode source → parametric
+conversion → FEC-encode target — without going through PCM. This is
+the parametric repeater-mode operation used in the AMBE-3000's
+`PKT_RPT_MODE`.
+
+This prosecution validates §4's existing framing: US7634399 is
+specifically the patent on **parametric (no-PCM-roundtrip) rate
+conversion**.
+
 ---
 
 ## 5. US8315860 — Interoperable Vocoder
@@ -428,6 +457,108 @@ tracking with noise floor estimation.
 **Sidelobe suppression (decoder):**
 20 dB attenuation of non-harmonic spectral components for detected
 tone frames.
+
+### Family Relationship — Parent US7970606
+
+US8315860 is a **continuation** of US7970606 (also titled "Interoperable
+Vocoder"). The two patents share the same disclosure and the same
+2002-11-13 priority date but pursued different claim scopes:
+
+| | US7970606 (parent) | US8315860 (continuation) |
+|---|---|---|
+| Application no. | 10/292,460 | 13/169,642 |
+| Filed | 2002-11-13 | 2011-06-27 |
+| Granted | 2011-06-28 | 2012-11-20 |
+| Expired | 2025-09-08 (700 days PTA) | 2025-09-08 (terminal disclaimer to '606) |
+| Claim count | 58 (allowed 1–58) | 35 (allowed 1–35) |
+| Examiner | Angela A. Armstrong | Angela A. Armstrong |
+| Key prosecution event | 3rd appeal brief (2010-11-29) found persuasive | Terminal Disclaimer (2012-06-29) + single Examiner's Amendment |
+
+The continuation strategy: '606 prosecuted to allowance through hard
+rejections and appeals over 8.6 years, securing the broader 58-claim
+scope. '860 was filed shortly before '606 issued and pursued a
+narrower 35-claim scope tightly drafted around interoperability with
+APCO Project 25. DVSI filed a Terminal Disclaimer in '860 to overcome
+obviousness-type double-patenting, which ties '860's expiration to
+'606's. Both expired together on 2025-09-08.
+
+### Explicit P25 Interoperability Claim
+
+US8315860's claim 21 (added by Examiner's Amendment 2012-07-16) recites:
+
+> "The speech coder of claim 17 wherein the produced bit stream is
+> **interoperable with the standard coder used for APCO Project 25**."
+
+This is one of the few DVSI patent claims that explicitly names APCO
+Project 25 in its operative language. It captures the patent's
+commercial role as the legal hook for "enhanced vocoder produces a
+P25-compatible bitstream that backward-compatible decoders can still
+parse, while enhanced decoders extract higher-quality information."
+
+### Prosecution — US7970606 Parent's Examiner Reasons for Allowance
+
+The 2011-03-17 Notice of Allowance for US7970606 contains the
+substantive Reasons for Allowance (box 8 checked) — these reasons
+apply to the same disclosure that backs US8315860:
+
+> "Applicant's arguments, see Appeal Brief (pages 4-8), filed
+> November 29, 2010, with respect to claims 1-19, 28-43, and 47-54
+> have been fully considered and are persuasive. The rejection of the
+> claims has been withdrawn."
+
+> "The following is an examiner's statement of reasons for allowance:
+> the prior art reference of **Hardwick, Coulter, and Kutaragi** fails
+> to specifically teach or fairly disclose **modifying a parameter
+> conveying pitch information to designate the determined voicing
+> state of a frame if the determined voicing state of the frame is
+> equal to one of a set of multiple reserved voicing states**.
+> Additionally, the prior art of Hardwick, Coulter, and Kutaragi fails
+> to specifically teach or disclose **quantizing the model parameters,
+> including the pitch parameter and the spectral parameters to which
+> values are assigned to approximate the detected tone signal if the
+> digital speech samples for the frame are determined to correspond to
+> the tone signal**, to generate quantizer bits which are used to
+> produce the bit stream."
+
+The examiner identified **two distinct patentable inventions** in this
+patent family, mirroring what we observed in US8359197:
+
+1. **Three-state voicing encoded in reserved pitch values** — the
+   reserved-pitch-field repurposing documented in §5's "Core Innovation"
+   above. The examiner's words: "modifying a parameter conveying pitch
+   information to designate the determined voicing state of a frame if
+   the determined voicing state of the frame is equal to one of a set
+   of multiple reserved voicing states."
+2. **Tone signal handling via shared parameter quantizer** — instead of
+   a separate tone path, tone signals are encoded by assigning specific
+   pitch and spectral parameter values that approximate the tone, then
+   quantized through the same parameter machinery as voice. The
+   examiner's words: "quantizing the model parameters, including the
+   pitch parameter and the spectral parameters to which values are
+   assigned to approximate the detected tone signal."
+
+Prior art cited in the rejection: **Hardwick + Coulter + Kutaragi**
+(Ken Kutaragi of Sony — the PlayStation creator held vocoder patents
+from his Sony career in the 1990s). The "Hardwick" reference is
+DVSI's own prior work; combining it with the Sony-era voice-coding
+patents was the examiner's obviousness theory, which DVSI distinguished
+in pages 4–8 of the November 2010 Appeal Brief.
+
+### Cross-Patent Interview Note
+
+The 2009-09-10 examiner interview that finalized US8359197's "less
+than all of the quantizer bits" amendment (see §6) was held the **same
+day** as a separate interview on US7970606. John C. Hardwick was
+negotiating both patents in parallel with Examiner Armstrong on a
+single visit to the USPTO — a coordinated negotiation strategy.
+
+### Active Family Member: US7970606 vs. US8315860 Status (2026-04-27)
+
+Both expired 2025-09-08. The interoperable-vocoder family is **fully
+public domain** as of late 2025. Implementations of three-state V/UV/
+pulsed encoding using reserved pitch values, and tone-handling via
+shared parameter quantizers, are no longer encumbered by either
+US7970606 or US8315860.
 
 ---
 
