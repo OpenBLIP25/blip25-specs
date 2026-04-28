@@ -1393,9 +1393,74 @@ discrimination at the codec level. Active for another ~16 years.
 - Would affect any implementation that adds DTX-style silence handling
   or sophisticated voice/non-voice discrimination on top of an AMBE+2
   codec
-- The 10/10/2023 applicant response would identify what specifically
-  about Caffrey + Huang's combined approach was deficient, and
-  therefore what specific technique US11990144 actually claims
+- The 10/10/2023 applicant response (pulled from the file wrapper)
+  documents the patent's load-bearing limitations in DVSI's own words,
+  see "Substantive Distinguishing Argument" below.
+
+### Substantive Distinguishing Argument (2023-10-10 Remarks)
+
+The 2023-10-10 applicant response identifies claim 1's load-bearing
+limitation as recited:
+
+> "...selecting a frame of voice bits to carry the non-voice data;
+> placing **non-voice identifier bits in a first portion** of the
+> voice bits in the selected frame; and placing the **non-voice data
+> in a second portion** of the voice bits in the selected frame..."
+
+**This is the architectural pattern of in-band non-voice signaling
+within an AMBE+2 voice channel** — generalizing the tone-frame
+identifier of US8359197 to arbitrary non-voice payload. Where US8359197
+flagged tone frames specifically (via the 0x3F disallowed pitch
+identifier), US11990144 covers any non-voice data type (data,
+signaling, diagnostics, etc.) being embedded in a voice frame slot.
+
+**Distinguishing from Caffrey** (US 2004/0253925, the primary prior
+art) — DVSI's argument:
+
+> "Caffrey, which is directed to arranging data to correspond to **CD
+> standard format** for subsequent transmission, does not employ
+> frames of voice bits, does not select a frame of voice bits, does
+> not place non-voice identifier bits in a first portion of the voice
+> bits in the selected frame, and does not place the non-voice data
+> in a second portion of the voice bits in the selected frame...
+> Caffrey places non-voice data in a portion of the Red Book CD format
+> frames already reserved for non-voice data. Accordingly, Caffrey does
+> not replace voice bits with non-voice data..."
+
+Caffrey is about CD audio (27-bit sync + 8-bit SUBCODE + 96-bit data
++ 32-bit parity + 96-bit data + 32-bit parity per frame) where non-
+audio data lives in the reserved SUBCODE field. DVSI's distinction:
+US11990144 takes a voice frame slot and **replaces voice bits with
+non-voice data**, marked by an identifier in a designated first portion.
+
+Distinguishing from Huang (US 2005/0281289) was again dispensed with
+in one sentence: "Huang does not remedy this failure of Caffrey."
+
+### Connection to P25 Implementation
+
+US11990144's claim 1 architecture maps directly onto **P25's in-band
+non-voice signaling**. P25 voice channels carry Link Control words,
+Encryption Sync, and Low-Speed Data alongside voice frames; each
+non-voice frame has an identifier prefix and a payload portion. The
+patent's "first portion identifier + second portion data" structure
+is the general legal scope covering this pattern.
+
+### Tone/Non-Voice Frame Generation Map (Updated)
+
+US11990144 fits as a fourth generation in DVSI's lineage of patents
+covering non-voice frame handling within voice channels:
+
+| Generation | Patent | Scope | Status (2026-04-27) |
+|---|---|---|---|
+| Gen 1 (2002) | US7970606 (§5) | Shared parameter quantizer for tones | Expired 2025-09-08 |
+| Gen 2 (2003) | US8359197 (§6) | 0x3F disallowed-pitch identifier flagging tone frames + tone-amplitude data in first parameter codeword | Active to 2028-05-20 |
+| Gen 3 (2025) | US12451151 (§10) | Template-matching tone detector with error-criteria threshold gate | Active to ~2042 |
+| Gen 4 (2024) | US11990144 (this section) | **Generalized non-voice-data identifier + payload split** — covers arbitrary non-voice payload, not just tones | Active to ~2041 |
+
+For a clean-room AMBE+2 implementation that handles BABA-A's specified
+non-voice frame types, all four generations need to be considered.
+Gen 1 is fully public domain; Gens 2–4 are encumbered until 2028, 2042,
+and 2041 respectively.
 
 ---
 
@@ -1643,3 +1708,105 @@ market without challenge.
 - No hidden European prior art exists in the AMBE+2 citation graph.
   The patent family is built entirely on DVSI's own incremental work,
   and the EPO accepted the patentability story without resistance.
+
+### DVSI Foundational MBE Patents (Pre-2003) — Public Domain References
+
+The EPO citation set surfaced the existence of DVSI's foundational
+pre-AMBE+2 MBE patent portfolio. The granted-patent specifications
+have been pulled and characterized below. All three are expired and
+in the public domain — they are **positive references** for clean-
+room MBE/AMBE-compatible work, not constraints.
+
+#### US 5,081,681 — Phase Synthesis (Predecessor to US5701390)
+
+- **Inventors:** John C. Hardwick + Jae S. Lim
+- **Assignee:** Digital Voice Systems Inc, Cambridge MA
+- **Filed:** 1989-11-30
+- **Granted:** 1992-01-14
+- **Expired:** ~2010 (17-year term from grant per pre-1995 rules)
+- **Claims:** 22
+
+This is the **original phase synthesis patent** from the founders of
+DVSI, predating both AMBE+2 and the spectral-envelope phase
+regeneration of US5701390. The technical content:
+
+- Recreates phase signals for voiced harmonics from fundamental
+  frequency and V/UV information (rather than transmitting phase
+  directly)
+- Adds a random component to the recreated phase to improve
+  synthesized speech quality
+- Foundation for all subsequent MBE-family phase synthesis work
+
+For clean-room implementation, US 5,081,681's specification is the
+authoritative public-domain disclosure of how to do basic phase-
+recreation-from-fundamental in an MBE decoder. It pre-dates the more
+sophisticated spectral-envelope-derived phase of US5701390 (which is
+also now expired, see §1) but is the simpler approach that an
+implementation can start from.
+
+#### US 5,664,051 — Speech Decoder with Random Phase
+
+- **Inventors:** Hardwick + Jae S. Lim (DVSI, Burlington MA)
+- **Filed:** 1994-06-23
+- **Granted:** 1997-09-02
+- **Expired:** ~2014
+
+Decoder-side patent: an analyzer that processes the digitized speech
+bit stream to recover sinusoidal component parameters (angular
+frequencies, magnitudes), a random phase generator producing time
+sequences of random phase components, a phase synthesizer that
+generates synthesized phases from angular frequencies + random
+components, and a synthesizer that combines all three. Closer to
+the IMBE decoder architecture than '681; documents a complete
+sinusoidal speech synthesizer with random phase injection.
+
+#### US 5,870,405 — Spectral Parameter Smoothing for Robustness
+
+- **Inventors:** Hardwick + Jae S. Lim (DVSI)
+- **Filed:** 1996-03-04
+- **Granted:** 1999-02-09
+- **Expired:** ~2016
+
+Title mentions "communication channel" — patent on smoothing spectral
+parameters in a speech decoder, almost certainly for **error robustness
+in narrow-band digital land mobile radio applications**. Cited
+references include Brandstein "A Real-Time Implementation of the
+Improved MBE Speech Coder" (IEEE 1990) and "Application of the IMBE
+Speech Coder for narrow-band Digital Land Mobile Radio" (IEEE 1990) —
+these are the early P25/IMBE references that connect this DVSI patent
+directly to the land-mobile-radio context.
+
+This is likely the public-domain reference for **decoder-side spectral
+smoothing under bit errors** — a technique any P25-compatible
+implementation needs for fielded radio conditions. Worth reading the
+full specification when implementing error-robust MBE decoding.
+
+### Updated Citation Graph — DVSI's Pre-2003 Portfolio
+
+Combining USPTO citations (from §§4–10) and EPO citations (this
+section), DVSI's pre-2003 MBE patent portfolio that supports the
+AMBE+2 family includes:
+
+| Patent | Inventors | Subject | Expired |
+|---|---|---|---|
+| US 4,797,926 | Hardwick + Lim | Original IMBE digital speech vocoder | ~2007 |
+| US 5,081,681 | Hardwick + Lim | Phase synthesis (this section) | ~2010 |
+| US 5,517,511 | Hardwick et al. | Bit prioritization with mixed Golay/Hamming FEC ("'511") | ~2015 |
+| US 5,664,051 | Hardwick + Lim | Speech decoder with random phase (this section) | ~2014 |
+| US 5,701,390 | Griffin + Hardwick | MBE synthesis with regenerated phase (§1) | 2015-02-22 |
+| US 5,715,365 | Griffin + Lim | Excitation parameter estimation via nonlinear ops on frequency bands | 2015-02-03 |
+| US 5,754,974 | Griffin | Spectral magnitude representation ("'974") | (date in EPO grant) |
+| US 5,826,222 | Griffin | Hybrid excitation parameter estimation (extension of '365) | 2015-01-12 |
+| US 5,870,405 | Hardwick + Lim | Spectral parameter smoothing (this section) | ~2016 |
+| US 6,161,089 | Hardwick et al. | "'089" — bit prioritization with [24,12] Golay (the prior art the USPTO examiner used against US8359197) | ~2017 |
+| US 6,199,037 | Hardwick | Joint V/pitch quantization (§3) | 2017-12-04 |
+| EP 0,893,791 | Hardwick + Lim | Spectral-amplitude prediction-residual blocks (European; corresponds to US 5,754,974 family) | (EP) |
+
+**All twelve patents are now public domain.** This is the complete
+mathematical foundation of MBE/AMBE-family speech coding, freely
+available for clean-room implementation. The AMBE+2-specific
+techniques (§§2, 6, 8, 10) layer on top; an implementation built on
+these foundational disclosures plus the BABA-A wire format (TIA
+specification) covers everything needed for IMBE/AMBE+2-compatible
+decoding without infringing the active patents listed in §§6, 7, 8,
+9, 10.
