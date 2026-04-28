@@ -179,6 +179,21 @@ Fireground tactical channels operate simplex — no infrastructure, no TDMA
 controller. These are inherently Phase 1, full-rate. Audio quality on
 fireground channels is a life-safety concern.
 
+DVSI holds two patents specifically targeting fireground noise conditions
+that overlap with TIA-102.BABG's 15-condition noise test set:
+
+- **US8265937** (active until ~2032) covers SCBA two-mic noise cancellation
+  with reference-signal filtering, plus a four-threshold cascade detector
+  for PASS alarm signals. The PASS alarm is one of BABG's required test
+  conditions.
+- **US12254895** (active until ~2045) covers detecting that a speaker is
+  wearing a mask and compensating for the mask's acoustic effects within
+  the codec.
+
+Both patents are forward-looking for any open-source vocoder targeting
+fireground use. See `DVSI/AMBE-3000/AMBE-3000_Patent_Reference.md`
+§§7–8.
+
 ### Conventional Repeaters
 
 Many agencies operate conventional (non-trunked) repeater systems that use
@@ -301,8 +316,12 @@ What is dead/irrelevant:
 What doesn't exist in any TIA spec:
   ┌─────────────────────────────────────────────┐
   │ AMBE+2 synthesis      ✗ DVSI proprietary     │
-  │ algorithm               (patents expired,    │
-  │                         see DVSI/AMBE-3000/) │
+  │ algorithm               (foundational patents│
+  │                         expired; one sibling │
+  │                         half-rate patent     │
+  │                         US8359197 active     │
+  │                         until 2028-05-20)    │
+  │                         see DVSI/AMBE-3000/  │
   └─────────────────────────────────────────────┘
 
 Implementation strategy:
@@ -319,6 +338,76 @@ Implementation strategy:
   6. Test both full-rate and half-rate paths (BABG confirms both
      are covered with identical performance limits)
 ```
+
+### Patent Status Caveat (added 2026-04-27)
+
+The summary above is technically correct but legally incomplete. The
+foundational AMBE+2 disclosure is documented in five DVSI patents that
+were all expired prior to April 2026 (US5701390, US6199037, US7634399,
+US8315860, US8595002 — see `DVSI/AMBE-3000/AMBE-3000_Patent_Reference.md`).
+However, **US8359197 — a sibling of US8595002 with the same 2003-04-01
+priority date — remains in force until 2028-05-20** because it received
+substantial patent term adjustment for USPTO prosecution delays.
+
+US8359197 actually contains **two independent patentable inventions**:
+
+1. **Mixed pitch+voicing+gain FEC-protected first codeword** (claims 1,
+   42, 60 and their dependents). Narrowed during prosecution to require
+   the first codeword to contain "less than all of the quantizer bits
+   for the frame" — distinguishing Hardwick '089 (US 6,161,089) which
+   FEC-protected pitch + gain MSBs but excluded voicing bits from the
+   protected codeword.
+2. **Bit-count-dependent spectral codebook indexing** (claims 72–87).
+   Allowed as filed — never amended during prosecution.
+
+US8359197's claims read directly onto an AMBE+2 half-rate
+encoder/decoder that uses the BABA-A wire format:
+- 4-pitch + 4-voicing + 4-gain MSB grouping into a 12-bit first codeword
+  (claims 7–8) — first codeword is a strict subset of ~49 voice bits, so
+  meets the "less than all quantizer bits" limitation
+- [24,12] extended Golay protecting that codeword (claim 9)
+- Data-dependent scrambling keyed from the first codeword (claim 15)
+- Redundant-index voicing codebook (claim 6)
+- Tone-frame identifier in disallowed pitch-bit values (claims 16–19)
+- Variable spectral codebook selection from 25–32 bit allocation
+  (claim 72) — AMBE+2's variable spectral bit count drives codebook
+  index choice
+
+**Full-rate (7200 bps) IMBE implementations are likely outside claims
+1, 42, 60** — these claims chain to dependent claims (7–14) specifying
+bit allocations particular to the half-rate format. Full-rate
+infringement on claim 1 alone depends on whether IMBE's first FEC-
+protected codeword groups pitch + voicing + gain bits and is a strict
+subset of total quantizer bits. **However, claim 72 (variable spectral
+codebook indexing) may apply to full-rate IMBE if its spectral codebook
+selection depends on a per-frame bit count** — a separate question for
+the BABA-A full-rate FEC structure.
+
+For implementation planning:
+- Half-rate (3600 bps) AMBE+2-compatible decoders/encoders shipped
+  before 2028-05-20 carry patent risk under US8359197
+- Full-rate IMBE decoders/encoders are not encumbered (Phase 1 channels)
+- Receive-only software for research / personal use has lower practical
+  enforcement risk than vendor product, but is still inside the claim
+  scope
+- Additional active DVSI patents exist (US11715477, US11990144,
+  US12254895, US12451151, US12462814) — these are 2022+ filings likely
+  covering the next-generation AMBE-4020 chip rather than AMBE+2; they
+  are noted here for completeness and not detailed in the AMBE-3000
+  reference. US11715477 (filed 2022-04-08, granted 2023-08-01,
+  expires ~2042-04-08) is a first-action allowance with both
+  Daniel W. Griffin and John C. Hardwick on the inventor line. The
+  examiner cited US 6,912,495 (Griffin et al., earlier DVSI), US
+  6,963,833 (Singhal — MBE high-quality low-bitrate modifications),
+  and US 6,691,084 (Manjunath et al. — multiple-mode variable-rate
+  speech coding) as the closest prior art, all of which the examiner
+  conceded did not teach the claimed combinations. The AMBE-4020-era
+  patent landscape is therefore being built on top of pre-2003
+  foundational MBE prior art that is now expired — the inventive scope
+  is in the specific combinations of newer techniques.
+
+See `DVSI/AMBE-3000/AMBE-3000_Patent_Reference.md` §6 for full claim
+analysis of US8359197.
 
 The Motorola white paper's use of "dual rate vocoder" and "enhanced vocoder"
 — never "IMBE" or "AMBE+2" — mirrors TIA's approach: the standard specifies
