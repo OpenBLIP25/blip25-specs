@@ -8,7 +8,7 @@ expired — see §6 (US8359197) for an active half-rate vocoder patent that
 covers the same disclosure as US8595002 but remains in force until 2028-05-20
 due to patent term adjustment.
 
-**Date:** 2026-04-13 (last updated 2026-04-27 with §6)
+**Date:** 2026-04-13 (last updated 2026-04-27 with §§6–8)
 
 ---
 
@@ -22,6 +22,8 @@ due to patent term adjustment.
 | 4 | US7634399 | Voice Transcoder | 2025-11-07 | Expired | [§4](#4-us7634399--voice-transcoder) |
 | 5 | US8315860 | Interoperable Vocoder | 2022-11-13 | Expired | [§5](#5-us8315860--interoperable-vocoder) |
 | **6** | **US8359197** | **Half-Rate Vocoder (sibling of US8595002)** | **2028-05-20** | **ACTIVE** ⚠️ | [§6](#6-us8359197--half-rate-vocoder-active-until-2028) |
+| 7 | US8265937 | Breathing-Apparatus Speech Enhancement (Fireground) | ~2032 | Active | [§7](#7-us8265937--breathing-apparatus-speech-enhancement-fireground-patent) |
+| **8** | **US12254895** | **Detecting and Compensating for Speaker Mask** | **~2045** | **ACTIVE** ⚠️ | [§8](#8-us12254895--detecting-and-compensating-for-speaker-mask-active-until-2045) |
 
 ---
 
@@ -1079,4 +1081,199 @@ infringement reads are:
 - USPTO file wrapper for application 10/402,938 — source for prosecution
   history, claim amendments, and prior-art discussion in this section.
   Pull from Patent Center or USPTO API for future updates.
+
+
+---
+
+## 7. US8265937 — Breathing-Apparatus Speech Enhancement (Fireground Patent)
+
+- **Inventors:** Daniel W. Griffin et al.
+- **Assignee:** Digital Voice Systems Inc
+- **Application:** 12/021,789
+- **Filed:** 2008-01-29
+- **Granted:** 2012-09-11
+- **PTA:** 516 days
+- **Expired:** ~2032 (estimated based on PTA)
+- **Examiner:** Talivaldis Ivars Smits (Art Unit 2626)
+
+### Why This Patent Matters
+
+This is the SCBA / fireground patent that connects directly to TIA-102.BABG's
+15-noise-condition test plan (see `analysis/vocoder_missing_specs.md`).
+BABG explicitly tests vocoder performance under fireground noise types
+including PASS alarm, SCBA low-air alarm, fog nozzle, rotary saw, and
+chainsaw. US8265937 is the patent on the techniques DVSI uses to handle
+two of those conditions specifically: SCBA-environment speech enhancement
+and PASS alarm detection.
+
+### Examiner's Reasons for Allowance — Two Distinct Inventions
+
+The 2012-06-06 Notice of Allowance contains the examiner's statement of
+reasons for allowance, identifying two patentable inventions:
+
+#### Invention 1 — Filtered Reference Noise Cancellation (Claims 1–13, 16–17)
+
+> "Independent claim 1 is allowed because the closest prior art of
+> record, **Yang**, does not teach **filtering the reference signal
+> (interference plus noise) prior to subtracting the resultant estimate
+> of the interference signal from the primary signal (speech plus
+> interference plus other noise), to enhance speech in a breathing
+> apparatus**. **Yang, and other prior art such as Kushner**, subtract
+> an unprocessed noise signal (interference plus any additional noise)
+> picked up from a separate channel from the noisy speech in the primary
+> signal to remove extraneous noise contaminating the noise (interference)
+> signal therefrom. This, in combination with the other recited
+> limitations, makes claim 1 allowable."
+
+The architecture is two-microphone noise cancellation specific to SCBA:
+
+- Primary mic: speech + SCBA interference + ambient noise
+- Reference mic: SCBA interference + ambient noise (no speech, placed
+  behind mask or near regulator)
+- Prior art (Yang, Kushner): subtract the reference signal directly from
+  the primary signal
+- US8265937: **filter the reference signal first**, then subtract — the
+  filtering removes the "other noise" component contaminating the
+  reference, producing a cleaner estimate of just the SCBA interference
+
+#### Invention 2 — PASS Alarm Detection (Claims 20–21)
+
+> "Independent claims 20 and 21 are allowed because they recite
+> **declaring the exclusive presence of an alarm signal in a breathing
+> apparatus when an alarm count exceeds a fourth threshold, by
+> determining a peak count of consecutive energy samples below a first
+> threshold, a valley count of consecutive energy samples above a second
+> threshold, and an alarm count of the number of consecutive samples for
+> which the peak count and valley count are below a third threshold**."
+
+This is PASS (Personal Alert Safety System) alarm detection. The PASS
+alarm is the loud chirping alarm carried by every firefighter on
+fireground operations. The detection method uses a four-threshold
+cascade:
+
+1. **Peak count**: count of consecutive energy samples below threshold 1
+   (low-energy gap between alarm chirps)
+2. **Valley count**: count of consecutive energy samples above threshold 2
+   (high-energy alarm chirp)
+3. **Alarm count**: count of consecutive samples for which both peak and
+   valley counts fall below threshold 3 (consistent alarm cadence)
+4. **Declaration threshold**: alarm count ≥ threshold 4 → declare alarm
+
+This four-stage cascade makes the detector robust to general loud
+fireground noise (which has irregular peak/valley structure) while
+sensitive to the regular cadence of an actual PASS alarm.
+
+### Connection to BABG Test Conditions
+
+TIA-102.BABG's 15 fireground noise environments include:
+
+| BABG noise type | Maps to US8265937 |
+|---|---|
+| PASS alarm | Invention 2 (alarm detection cascade) |
+| SCBA low-air alarm | Invention 2 (similar cadence-based detection) |
+| SCBA mask breathing | Invention 1 (reference-channel filtering of breathing artifacts) |
+| Fog nozzle, rotary saw, chainsaw | General-purpose noise reduction (not specifically claimed) |
+
+US8265937 is therefore one of the practical techniques DVSI uses to
+**pass** BABG conformance testing on fireground conditions, particularly
+the alarm-tolerant decoding requirement.
+
+### Implementation Status
+
+The patent's expiration is estimated at ~2032 based on the 516-day PTA.
+Until then, the filtered-reference noise cancellation and the four-
+threshold PASS alarm detector are encumbered. For an open-source
+implementation:
+
+- **Generic two-mic noise cancellation** (without the filtering-before-
+  subtraction step) is in the prior art (Yang, Kushner) and free to use
+- **PASS alarm detection** can be done by frequency-domain matched
+  filtering on the PASS alarm's specific spectral signature (~3 kHz
+  fundamental, ~3 sec on / 5 sec off cadence per NFPA 1982) — this
+  is a different technique not covered by claims 20–21
+
+---
+
+## 8. US12254895 — Detecting and Compensating for Speaker Mask (active until ~2045)
+
+- **Inventors:** Thomas Clark et al. (NEW DVSI inventor — neither
+  Hardwick nor Griffin is the named first inventor)
+- **Assignee:** Digital Voice Systems Inc
+- **Application:** 17/366,782
+- **Filed:** 2021-07-02
+- **Granted:** 2025-03-18
+- **Status:** **ACTIVE** — anticipated expiration ~2045 (no PTA per AIA
+  rule changes; PTA determined post-issuance)
+- **Examiner:** Satwant K Singh (Art Unit 2653 — different art unit
+  than the half-rate vocoder family in 2626)
+- **Examination type:** AIA (First-Inventor-to-File) — post-2013
+
+### Why This Patent Matters
+
+US12254895 is the modern successor to US8265937 — same problem domain
+(mask environment speech) but addressed at a different layer: rather
+than enhancing the input signal before encoding, this patent **detects
+that a speaker mask is present in the speech signal and compensates**
+within the codec. Active for another ~20 years, this is the most
+forward-looking patent in DVSI's current portfolio for fireground use.
+
+### Examiner's Reasons for Allowance — The Critical Citation Finding
+
+> "The following is an examiner's statement of reasons for allowance:
+> Claims 1, 12, and 23 of the current application teaches similar
+> subject matter as the prior art of **Usher (US 2020/0077177)** and
+> **Hardwick (US 2005/0278169)**. However, claims 1, 12, and 23 are
+> allowed for the reasons pointed out by the applicant's remarks filed
+> on 10/30/2024 (pages 7-9)."
+
+**Hardwick US 2005/0278169 is the published application of US10/402,938
+— DVSI's own AMBE+2 half-rate vocoder disclosure** (the application
+that became US8359197 and US8595002). The examiner cited DVSI's own
+AMBE+2 disclosure as the closest prior art to this 2025 mask-detection
+patent.
+
+This is significant for the project's understanding:
+
+1. **DVSI is layering modern inventions on top of their (expiring or
+   expired) AMBE+2 disclosure.** The half-rate vocoder framework is now
+   the prior-art baseline that newer DVSI patents must distinguish from.
+2. **Pages 7–9 of the 2024-10-30 applicant response** contain the
+   substantive distinguishing argument. That document would describe
+   what specifically about the AMBE+2 disclosure is insufficient for
+   mask-environment speech, and what US12254895 adds.
+3. **Mask detection is now layered ON TOP of the AMBE+2 framework**,
+   not replacing it. An open-source AMBE+2 decoder is not encumbered by
+   US12254895; only an AMBE+2 decoder that *also* implements specific
+   mask-detection-and-compensation techniques would be.
+
+### Cited but Not Relied Upon
+
+> "Ostrand et al. (US 2023/0186942) discloses **detecting face mask
+> usage based on a crowd sound**."
+
+Ostrand has a face-mask detection patent application from 2023 in a
+different domain (crowd-sound based). The examiner found it but did
+not use it for rejection.
+
+### Inventor-Line Implication
+
+The first named inventor is **Thomas Clark**, not Hardwick or Griffin.
+This is the first major DVSI patent in our reference set with a new
+first inventor. DVSI's IP development is expanding beyond the founders
+into a broader engineering team. The post-2020 patent line (US11715477
+through US12462814) is being built by a mix of Clark, Griffin, and
+Hardwick — the next-generation IP base for AMBE-4020.
+
+### Implications for Open-Source Implementation
+
+- **AMBE+2 half-rate decoder per BABA-A**: not affected by US12254895
+- **AMBE+2 decoder + speaker-mask detection + parameter compensation**:
+  encumbered until ~2045
+- **Generic noise-robust speech processing without mask-specific
+  detection**: not affected
+- A research-quality fireground-tolerant open vocoder could implement
+  the mask detection without compensation, or implement compensation
+  without mask detection, and likely fall outside the patent's specific
+  combination claims. Pages 7–9 of the 2024-10-30 response would
+  identify the exact combination that is claimed.
 

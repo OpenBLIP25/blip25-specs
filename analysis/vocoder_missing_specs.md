@@ -179,6 +179,21 @@ Fireground tactical channels operate simplex — no infrastructure, no TDMA
 controller. These are inherently Phase 1, full-rate. Audio quality on
 fireground channels is a life-safety concern.
 
+DVSI holds two patents specifically targeting fireground noise conditions
+that overlap with TIA-102.BABG's 15-condition noise test set:
+
+- **US8265937** (active until ~2032) covers SCBA two-mic noise cancellation
+  with reference-signal filtering, plus a four-threshold cascade detector
+  for PASS alarm signals. The PASS alarm is one of BABG's required test
+  conditions.
+- **US12254895** (active until ~2045) covers detecting that a speaker is
+  wearing a mask and compensating for the mask's acoustic effects within
+  the codec.
+
+Both patents are forward-looking for any open-source vocoder targeting
+fireground use. See `DVSI/AMBE-3000/AMBE-3000_Patent_Reference.md`
+§§7–8.
+
 ### Conventional Repeaters
 
 Many agencies operate conventional (non-trunked) repeater systems that use
