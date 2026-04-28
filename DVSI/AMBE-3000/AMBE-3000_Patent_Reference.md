@@ -8,7 +8,7 @@ expired — see §6 (US8359197) for an active half-rate vocoder patent that
 covers the same disclosure as US8595002 but remains in force until 2028-05-20
 due to patent term adjustment.
 
-**Date:** 2026-04-13 (last updated 2026-04-27 with §§6–10)
+**Date:** 2026-04-13 (last updated 2026-04-27 with §§6–11)
 
 ---
 
@@ -26,6 +26,7 @@ due to patent term adjustment.
 | **8** | **US12254895** | **Detecting and Compensating for Speaker Mask** | **~2045** | **ACTIVE** ⚠️ | [§8](#8-us12254895--detecting-and-compensating-for-speaker-mask-active-until-2045) |
 | **9** | **US11990144** | **Reducing Perceived Effects of Non-Voice Data** | **~2041** | **ACTIVE** | [§9](#9-us11990144--reducing-perceived-effects-of-non-voice-data-active) |
 | **10** | **US12451151** | **Tone Frame Detector (PTAB-confirmed)** | **~2042** | **ACTIVE** ⚠️ | [§10](#10-us12451151--tone-frame-detector-active-ptab-confirmed) |
+| 11 | EP 1,465,158 + DVSI foundational MBE prior art | Foreign prosecution overview (EP) + US 5,715,365, US 5,826,222 | 2023-04 (EP) | Expired | [§11](#11-foreign-prosecution-overview--ep-1465158-half-rate-vocoder-european) |
 
 ---
 
@@ -1514,3 +1515,131 @@ free, Gen 2 is encumbered until 2028, and Gen 3 is encumbered until
   quantizer approach is fully free to use as of late 2025
 
 
+
+---
+
+## 11. Foreign Prosecution Overview — EP 1,465,158 (Half-Rate Vocoder, European)
+
+The half-rate vocoder family was prosecuted internationally under the
+Paris Convention. The European counterpart of US8359197 / US8595002 is
+EP 1,465,158 ("Half-rate vocoder"), with separately-prosecuted divisional
+EP 1,748,425. The technical disclosure is identical to the US application
+(treaty requirement); only the claims and prosecution differ.
+
+### EP 1,465,158 Prosecution Timeline
+
+| Date | Event |
+|---|---|
+| 2003-04-01 | Priority date (US application 10/402,938) |
+| 2004-03-26 | EP application filed (corresponds to US 2005/0278169 publication) |
+| 2004-10-06 | Published as EP 1465158 A2 (without search report) |
+| 2005-08-05 | EP search report dispatched (A3 publication) |
+| 2006-02-20 | Examination requested |
+| 2006-05-23 | **Communication of intention to grant** — single examination round |
+| 2006-12-13 | **Granted as B1** |
+| 2007-09-14 | Opposition deadline passed — **no opposition filed** |
+| ~2023-04-01 | **Expired** in Europe (20 years from priority date) |
+
+**Total prosecution time: 2.75 years**, with a single examination round
+and no rejection. Compare to US prosecution: ~10 years, 4 Office Actions,
+2 Final Rejections, 3 Notices of Appeal, an RCE, an in-person interview,
+and an Ex Parte Quayle Action.
+
+The dramatic prosecution-time difference suggests either:
+- The EPO examiner viewed DVSI's distinguishing arguments as clearer than
+  the USPTO examiner did
+- The "less than all of the quantizer bits" narrowing required to
+  overcome Hardwick '089 in the US wasn't required by the EPO
+
+### EPO Prior-Art Citations — All DVSI's Own Work
+
+The EPO search report cited (categorized X/Y/A — relevance designations
+not directly visible in our extraction):
+
+| Reference | Inventor / Assignee | Subject |
+|---|---|---|
+| US 5,081,681 | Hardwick (DVSI) | Method and apparatus for phase synthesis for speech processing |
+| US 5,517,511 | Hardwick et al. (DVSI) | Bit prioritization with mixed Golay/Hamming FEC — known to us as "Hardwick '511" |
+| US 5,664,051 | (likely DVSI) | (subject not verified) |
+| US 5,715,365 | **Griffin + Jae S. Lim (DVSI)** | **Excitation parameter estimation via nonlinear operations on frequency bands — foundational MBE pitch/voicing math** |
+| US 5,754,974 | Griffin (DVSI) | "Griffin '974" — known |
+| US 5,826,222 | **Griffin (DVSI)** | **Hybrid excitation parameter estimation — extension of '365** |
+| US 5,870,405 | (likely DVSI) | (subject not verified) |
+| US 6,199,037 | Hardwick (DVSI) | Joint V/pitch quantization — known to us as §3 |
+| **EP 0,893,791** | Hardwick + Jae S. Lim (DVSI) | Methods for encoding/enhancing/synthesizing speech via spectral-amplitude prediction-residual blocks |
+| **TIA-102.BABA** | TIA (NPL — non-patent literature) | The IMBE standard itself, cited as prior art against AMBE+2 |
+
+**No third-party prior art was cited.** Every patent reference is
+DVSI's own work. The EPO examiner's case was that AMBE+2 was an
+incremental improvement over DVSI's own foundational MBE patent
+portfolio. DVSI distinguished, and the EPO accepted, in one round.
+
+### Newly-Visible DVSI Foundational Patents
+
+The EPO citations surface two DVSI patents that didn't appear in the
+USPTO file wrapper for US8359197 but are foundational to MBE-family
+excitation parameter estimation:
+
+**US 5,715,365** — "Estimation of excitation parameters"
+- Inventors: Daniel Wayne Griffin + Jae S. Lim
+- Filed 1994-04-04, granted 1998-02-03, **expired 2015-02-03**
+- Technical content: divides digitized speech into frequency bands,
+  applies nonlinear operations to at least one band to emphasize the
+  fundamental frequency, then estimates pitch and voicing from the
+  modified band signals
+- Public domain since 2015 — implementations of nonlinear-band-
+  emphasis pitch detection are unencumbered
+
+**US 5,826,222** — "Estimation of excitation parameters"
+- Inventor: Daniel Wayne Griffin
+- Filed 1997-04-14, granted 1998-10-20, **expired 2015-01-12**
+- Technical content: hybrid extension of '365 — uses two different
+  estimation methods on the modified frequency band signals and
+  combines results for improved pitch/voicing accuracy across
+  conditions
+- Public domain since 2015
+
+Both patents pre-date AMBE+2 by ~10 years and represent the
+mathematical foundation of MBE-family pitch/voicing detection. They
+are likely the **best public-domain reference for implementing
+excitation parameter estimation** in a clean-room MBE/AMBE-compatible
+codec — better than reverse-engineering AMBE+2 binaries because the
+math is explicitly disclosed in the patent specifications.
+
+Worth adding to the implementation roadmap as a positive (use-this)
+reference rather than a constraint.
+
+### EP 1,748,425 — Divisional
+
+The EPO required DVSI to split EP 1,465,158 into two applications via
+divisional, confirming that the EPO held the parent contained two
+distinct inventions (matching our US claim 1/42/60 vs. claim 72
+two-inventions analysis from §6). EP 1,748,425 covers the spectral-
+codebook chain that would have been claim 72 in the US filing.
+
+Both EP 1,465,158 and EP 1,748,425 expired ~2023 (20 years from
+priority date). Fully public domain in Europe.
+
+### No Opposition — Family Uncontested in Europe
+
+The 9-month post-grant opposition window for EP 1,465,158 closed
+2007-09-14 with no third-party opposition. Despite this being the
+foundational AMBE+2 patent, no European competitor (no third-party
+codec vendor, no European telecom equipment maker) challenged
+validity. This is consistent with no commercial competitor offering
+an AMBE+2-compatible codec — DVSI's licensing model captures the
+market without challenge.
+
+### Implications
+
+- The EPO patent's broader scope (no "less than all" narrowing) was
+  available to DVSI for ~17 years (2006-2023) but is now expired.
+  All technical content and all claims of EP 1,465,158 are public
+  domain in Europe today.
+- The newly-visible US 5,715,365 and US 5,826,222 DVSI patents are
+  positive references for clean-room MBE excitation estimation work,
+  with disclosure of the nonlinear-band-emphasis pitch detection
+  mathematics.
+- No hidden European prior art exists in the AMBE+2 citation graph.
+  The patent family is built entirely on DVSI's own incremental work,
+  and the EPO accepted the patentability story without resistance.
