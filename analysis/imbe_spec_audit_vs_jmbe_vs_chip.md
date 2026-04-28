@@ -216,6 +216,206 @@ Expected outcomes:
 Either way: the spec itself is not the gap. This is an
 implementation-level investigation.
 
+## Patent Cross-Reference: US 5,870,405 (Hardwick + Lim, expired ~2016)
+
+**Added 2026-04-27.** US 5,870,405 is the DVSI-authored patent that
+discloses the same IMBE FEC/modulation/frame-handling scheme covered
+by BABA-A. It is the divisional of US 5,517,511 with priority to
+1992-11-30, granted 1999-02-09. The specification explicitly references
+"APCO/NASTD/Fed Project 25 Vocoder Description" Appendices E, F, G, and
+H throughout — meaning the patent and the eventual TIA standard share a
+common origin disclosure. The patent is now public domain.
+
+This adds **a third independent source** to confirm BABA-A's IMBE FEC
+constants (alongside the BABA-A PDF and JMBE source code). Where all
+three agree, confidence in the audit's correctness is very high. Where
+the patent differs from BABA-A, BABA-A is authoritative — but the
+differences are themselves informative: most appear to be **refinements
+made between the 1992 patent disclosure and the 2014 standard**.
+
+See `analysis/ambe_foundational_patents.md` §3 for the full patent
+analysis. This section reports the cross-check against BABA-A.
+
+### Items where Patent, BABA-A, and JMBE all agree
+
+These are now confirmed by three independent sources:
+
+1. **Golay [23,12] generator matrix** — patent shows the same 12×11
+   parity portion as BABA-A §7.3. Cross-checks: PDF, JMBE, and
+   patent (US 5,870,405 col. 18 P_G matrix) all match.
+2. **Hamming [15,11] parity matrix** — patent col. 18 shows P_H
+   matrix; BABA-A and JMBE agree.
+3. **PN generator recurrence** — patent Eq. 41–42 and BABA-A Eq. 84–85
+   are identical:
+   ```
+   p_r(0) = 16 · û₀
+   p_r(n) = (173·p_r(n-1) + 13849) mod 65536
+   ```
+4. **Mask bit ranges (m̂_0 through m̂_7)** — patent Eq. 43–50 and BABA-A
+   Eq. 86–93 specify identical ranges:
+   - m̂_0 = 0 (zero, 23 bits)
+   - m̂_1 = p_r(1..23)
+   - m̂_2 = p_r(24..46)
+   - m̂_3 = p_r(47..69)
+   - m̂_4 = p_r(70..84)
+   - m̂_5 = p_r(85..99)
+   - m̂_6 = p_r(100..114)
+   - m̂_7 = 0 (zero, 7 bits)
+5. **Reserved pitch values** — patent col. 19–20 and BABA-A spec agree
+   on b̃_0 ∈ [0, 207] valid; b̃_0 ≥ 208 reserved (silence/inband data).
+6. **Higher-order DCT step sizes (Table 3)** — patent Table 3 matches
+   the spec's `HOC_STEP[]` array byte-for-byte:
+   1.20σ, 0.85σ, 0.65σ, 0.40σ, 0.28σ, 0.15σ, 0.08σ, 0.04σ, 0.02σ, 0.01σ
+7. **Bit prioritization structure** — patent FIG. 9–11 shows the same
+   û_0..û_7 vector lengths (12, 12, 12, 12, 11, 11, 11, 7) with
+   [23,12] Golay on û_0..û_3 and [15,11] Hamming on û_4..û_6.
+   Matches BABA-A §1.4.
+
+These items are now triple-confirmed.
+
+### Items where Patent and BABA-A appear to differ
+
+The following items show apparent numerical or structural differences
+between the patent (1992 priority, 1999 grant) and BABA-A (2014
+publication). BABA-A is authoritative; differences likely reflect
+refinements during standardization.
+
+#### 1. Frame-repeat trigger (substantive structural change)
+
+| Source | Trigger condition |
+|---|---|
+| Patent Eq. 55–56 | `ε_0 ≥ 2 AND ε_T ≥ 11` (constant threshold) |
+| BABA-A Eq. 97/98 | `ε_0 ≥ 2 AND ε_T ≥ 10 + 40·ε_R(0)` (dynamic threshold) |
+
+This is a real structural improvement. The patent's constant threshold
+of 11 was refined into a function of the smoothed long-term error
+rate. The dynamic threshold raises the bar in clean conditions
+(rejecting fewer frames) and lowers it in high-error conditions
+(rejecting more frames) — a quality refinement not in the original
+patent.
+
+**Implication for the project:** the spec's Eq. 97/98 is correct and
+authoritative. The patent's constant 11 is **historical** — useful
+for context but not for implementation.
+
+#### 2. ε_R smoothing recurrence (small numerical difference, possibly OCR)
+
+| Source | Recurrence |
+|---|---|
+| Patent Eq. 54 | `ε_R(0) = 0.95·ε_R(-1) + 0.000356·ε_T` |
+| BABA-A | `ε_R(0) = 0.95·ε_R(-1) + 0.05·(ε_T / 144) ≈ 0.95·ε_R(-1) + 0.000347·ε_T` |
+
+Difference: ~2.6% on the per-error weight (0.000356 vs 0.000347).
+Could be:
+- (a) Genuine refinement during standardization (BABA-A's 0.05/144 is
+  cleaner — the per-frame-bit normalization is mathematically
+  meaningful, while the patent's 0.000356 has no obvious closed-form
+  derivation)
+- (b) OCR misread of the patent value (the patent PDF is image-only;
+  "0.000356" could plausibly be "0.000347" with OCR errors on multiple
+  digits)
+
+The BABA-A form `0.05·(ε_T/144)` is more likely correct because of its
+clean derivation. **Use BABA-A's value.**
+
+#### 3. Mute threshold (small numerical difference, possibly OCR)
+
+| Source | Threshold |
+|---|---|
+| Patent | `ε_R > 0.085` |
+| BABA-A | `ε_R(0) > 0.0875` |
+
+Difference: 3% (0.085 vs 0.0875). Could be:
+- (a) Genuine refinement (0.0875 = 7/80 is a cleaner fraction)
+- (b) OCR misread (the patent could show "0.0875" with the trailing
+  digit cropped or misread)
+
+**Use BABA-A's 0.0875.**
+
+#### 4. Higher-order DCT σ values (Table 4) — possible discrepancy at C_{1,6}
+
+| C_{1,k} | Patent Table 4 | BABA-A spec |
+|---|---|---|
+| C_{1,2} | 0.307 | 0.307 ✓ |
+| C_{1,3} | 0.241 | 0.241 ✓ |
+| C_{1,4} | 0.207 | 0.207 ✓ |
+| C_{1,5} | 0.190 | 0.190 ✓ |
+| C_{1,6} | **0.190** | **0.179** ⚠️ |
+| C_{1,7} | 0.179 | 0.173 |
+| C_{1,8} | 0.173 | 0.165 |
+| C_{1,9} | 0.165 | 0.170 |
+| C_{1,10} | 0.170 | 0.170 ✓ |
+
+The patent appears to show 0.190 duplicated at C_{1,5} and C_{1,6},
+then a sequence shifted-by-one relative to BABA-A from k=6 onward, with
+both sources agreeing again at C_{1,10}.
+
+**Most likely explanation:** OCR error in the patent reading. Patents
+in the 1990s had hand-typeset tables that scan poorly — "0.179" and
+"0.190" are visually distinct but both contain digits that OCR
+sometimes confuses. The shifted sequence after k=6 is consistent with
+a single missing-row OCR error rather than nine independent
+discrepancies.
+
+**Use BABA-A's values** — they are the authoritative TIA standard
+values and have been verified in the existing audit against the
+BABA-A PDF, JMBE, and the project's `HOC_SIGMA[]` array.
+
+If a future implementer encounters a discrepancy with a third-party
+IMBE implementation that uses the patent values, this difference is a
+candidate explanation.
+
+#### 5. 4-consecutive-invalid-frames mute rule
+
+| Source | Trigger |
+|---|---|
+| Patent | Mute if **4 consecutive invalid frames** OR `ε_R > 0.085` |
+| BABA-A full-rate (§1.11.2) | Mute if `ε_R(0) > 0.0875` (no consecutive-frame counter) |
+| BABA-A half-rate (§2.8.3) | Mute if `ε_R(0) > 0.0875` OR **4 consecutive frame repeats** |
+
+The patent specifies BOTH triggers; BABA-A full-rate uses ONLY the
+ε_R(0) threshold. BABA-A half-rate restored the 4-consecutive-frame
+trigger.
+
+This is a real difference between full-rate and half-rate handling
+that the patent did not anticipate. The full-rate spec relies on the
+ε_R smoothing alone to escalate to mute; the half-rate adds the
+explicit consecutive-frame counter. **Both are authoritative for their
+respective formats.**
+
+### Items only documented in the patent (not in BABA-A)
+
+The patent contains an explicit muting procedure that BABA-A leaves
+implementation-defined:
+
+> "The recommended muting method is to bypass the synthesis procedure
+> and set the synthetic speech signal, ŝ(n), to random noise uniformly
+> distributed over the interval [-5, 5] samples."
+
+BABA-A §1.11.2 says only "random small-amplitude noise (or silence)".
+The patent's specific [-5, 5] (16-bit PCM samples) is a **public-domain
+implementation hint** — implementers can use this without infringement
+risk and with assurance the value is from DVSI's own reference.
+
+### Audit conclusion
+
+The IMBE audit is now triple-confirmed: BABA-A PDF, JMBE source, and
+US 5,870,405 patent specification all agree on the load-bearing FEC
+and modulation constants. The two substantive differences (dynamic
+ε_T threshold in BABA-A Eq. 97/98 vs. patent's constant 11; 4-
+consecutive-frames trigger present in patent and half-rate BABA-A but
+absent from full-rate BABA-A) are authoritative refinements made during
+standardization. Several smaller numerical differences (0.000356 vs
+0.000347, 0.085 vs 0.0875, Table 4 row at C_{1,6}) are probably patent
+OCR artifacts, not real disagreements; in any case BABA-A's values are
+authoritative and should be used.
+
+This cross-reference does NOT change the audit's conclusion that the
+implementer's gap-0021 issue is a post-FEC bug, not a spec-derivation
+error.
+
+---
+
 ## Cross-references
 
 - PDF: `standards/TIA-102.BABA-A/84_TIA 102 BABA A Final Published
