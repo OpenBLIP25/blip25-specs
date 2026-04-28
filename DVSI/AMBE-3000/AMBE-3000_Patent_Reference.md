@@ -8,7 +8,7 @@ expired — see §6 (US8359197) for an active half-rate vocoder patent that
 covers the same disclosure as US8595002 but remains in force until 2028-05-20
 due to patent term adjustment.
 
-**Date:** 2026-04-13 (last updated 2026-04-27 with §§6–8)
+**Date:** 2026-04-13 (last updated 2026-04-27 with §§6–10)
 
 ---
 
@@ -24,6 +24,8 @@ due to patent term adjustment.
 | **6** | **US8359197** | **Half-Rate Vocoder (sibling of US8595002)** | **2028-05-20** | **ACTIVE** ⚠️ | [§6](#6-us8359197--half-rate-vocoder-active-until-2028) |
 | 7 | US8265937 | Breathing-Apparatus Speech Enhancement (Fireground) | ~2032 | Active | [§7](#7-us8265937--breathing-apparatus-speech-enhancement-fireground-patent) |
 | **8** | **US12254895** | **Detecting and Compensating for Speaker Mask** | **~2045** | **ACTIVE** ⚠️ | [§8](#8-us12254895--detecting-and-compensating-for-speaker-mask-active-until-2045) |
+| **9** | **US11990144** | **Reducing Perceived Effects of Non-Voice Data** | **~2041** | **ACTIVE** | [§9](#9-us11990144--reducing-perceived-effects-of-non-voice-data-active) |
+| **10** | **US12451151** | **Tone Frame Detector (PTAB-confirmed)** | **~2042** | **ACTIVE** ⚠️ | [§10](#10-us12451151--tone-frame-detector-active-ptab-confirmed) |
 
 ---
 
@@ -1192,6 +1194,27 @@ implementation:
   fundamental, ~3 sec on / 5 sec off cadence per NFPA 1982) — this
   is a different technique not covered by claims 20–21
 
+### Claim Form — System (Hardware) vs. Method
+
+Per the granted patent XML, claim 1 is a **system claim requiring
+physical hardware**:
+
+> "1. A breathing apparatus speech enhancement system comprising:
+> a breathing mask; a primary sensor on the breathing mask and
+> configured to produce a primary signal; ..."
+
+This is significant for design-around. Pure software implementations
+of the filtered-reference noise cancellation algorithm — with no
+physical SCBA hardware — likely fall outside claim 1's system-claim
+scope. A general-purpose audio processing library that implements the
+"filter the reference channel before subtracting" technique without
+including a breathing apparatus and physical sensors does not infringe
+the system claim.
+
+The PASS alarm detection claims (20–21) need separate analysis — if
+they are method claims rather than system claims, their scope reaches
+software-only implementations regardless of hardware context.
+
 ---
 
 ## 8. US12254895 — Detecting and Compensating for Speaker Mask (active until ~2045)
@@ -1274,6 +1297,220 @@ Hardwick — the next-generation IP base for AMBE-4020.
 - A research-quality fireground-tolerant open vocoder could implement
   the mask detection without compensation, or implement compensation
   without mask detection, and likely fall outside the patent's specific
-  combination claims. Pages 7–9 of the 2024-10-30 response would
-  identify the exact combination that is claimed.
+  combination claims.
+
+### The 2024-10-30 Remarks — What AMBE+2 Disclosure Specifically Lacks
+
+DVSI's 2024-10-30 applicant response (pages 7–9) is the substantive
+patentability argument. Pulled from the file wrapper, it reveals the
+precise three-step pipeline that distinguishes US12254895 from both
+Usher and the AMBE+2 disclosure:
+
+1. **Suitability gate**: "using the speech parameters for the subframe
+   in determining whether **the subframe is suitable for use in
+   detecting a mask** worn by the speaker"
+2. **Mask detection**: "upon determining that the subframe is suitable
+   for use in detecting a mask, **using the speech parameters for the
+   subframe in determining whether a mask is present**"
+3. **Compensation**: "upon determining that a mask is present,
+   **modifying the speech parameters for the subframe to produce
+   modified speech parameters that compensate the speech signal for
+   the presence of the mask**"
+
+**Architectural distinction from Usher** (DVSI's primary distinguishing
+argument):
+
+> "Fundamentally, Usher is not directed to detecting the presence of a
+> mask worn by a speaker in order to compensate the speech of the
+> speaker based on the presence of the mask. Rather, Usher is directed
+> to compensating for the impact of headwear worn by a user on a
+> received signal that is used to modify the sound level of a signal
+> delivered to the user. Stated another way, Usher is directed to
+> modifying a signal delivered to the user while the claims are
+> directed to modifying speech produced by the user."
+
+Usher = receiver-side ambient sound modification (e.g., earplug
+loudspeaker compensating for headwear muffling). US12254895 = encoder-
+side speech modification (compensating the speaker's outgoing speech
+for their mask).
+
+**Distinction from AMBE+2 disclosure** (Hardwick US 2005/0278169) is
+trivially short — DVSI dispensed with it in one sentence:
+
+> "Hardwick does not remedy this failure of Usher."
+
+Implication: **the AMBE+2 disclosure provides zero teaching of
+speech-parameter-level mask detection or speech-parameter-level mask
+compensation.** The mask-detection invention is genuinely additive to
+AMBE+2, not a recombination of AMBE+2's existing components. A clean-
+room AMBE+2 implementation does not inadvertently practice US12254895
+unless it specifically adds the three-step pipeline above.
+
+For implementation roadmap purposes, this confirms that BABG fireground
+quality targets can be met by AMBE+2 + generic noise reduction without
+falling into US12254895's scope. The mask-specific compensation in
+US12254895 is **above and beyond** what BABG requires for conformance.
+
+---
+
+## 9. US11990144 — Reducing Perceived Effects of Non-Voice Data (active)
+
+- **Inventor:** John C. Hardwick
+- **Assignee:** Digital Voice Systems Inc
+- **Application:** 17/387,412
+- **Filed:** 2021-07-28
+- **Granted:** 2024-05-21
+- **Status:** ACTIVE (anticipated expiration ~2041)
+- **Examiner:** Edgar X Guerra-Erazo (Art Unit 2656)
+- **Examination type:** AIA
+
+### Why This Patent Matters
+
+This is an AMBE-4020-era patent specifically about discriminating
+voice from non-voice data and reducing the perceptual artifacts when
+non-voice content (data, tones, noise frames) leaks through the
+codec. Likely covers DTX, comfort-noise insertion, and voice/data
+discrimination at the codec level. Active for another ~16 years.
+
+### Examiner's Reasons for Allowance (Brief)
+
+- **Allowed claims:** 1–12 and 30–32 (claims 13–29 were canceled
+  during prosecution — the original claim numbering had gaps after
+  amendment)
+- **Closest prior art:** Caffrey et al. US 2004/0253925 + Huang et al.
+  US 2005/0281289
+- The Reasons for Allowance themselves are boilerplate ("specific
+  combinations of limitations stated in the claims"); the substantive
+  distinction is in the 10/10/2023 applicant response, which would be
+  the next document to pull if deeper analysis is needed.
+- Two independent claims (1 and 30) — independent encoder and decoder
+  variants is the typical DVSI pattern.
+
+### Implications
+
+- Doesn't directly affect AMBE+2 implementation
+- Would affect any implementation that adds DTX-style silence handling
+  or sophisticated voice/non-voice discrimination on top of an AMBE+2
+  codec
+- The 10/10/2023 applicant response would identify what specifically
+  about Caffrey + Huang's combined approach was deficient, and
+  therefore what specific technique US11990144 actually claims
+
+---
+
+## 10. US12451151 — Tone Frame Detector (active, PTAB-confirmed)
+
+- **Inventor:** Thomas Clark et al. (same inventor as US12254895 §8)
+- **Assignee:** Digital Voice Systems Inc
+- **Application:** 17/716,845
+- **Filed:** 2022-04-08
+- **Granted:** 2025-10-21
+- **Status:** ACTIVE (anticipated expiration ~2042)
+- **Examiner:** Douglas Godbold (Art Unit 2655)
+- **Examination type:** AIA
+
+### Why This Patent Matters
+
+US12451151 is the third-generation DVSI tone-handling patent, granted
+following a PTAB decision that **reversed** the examiner's original
+§ 103 rejection. This is the first patent in our reference set where
+the appeal actually went to the Board and DVSI won on the merits —
+earlier appeals (US8359197, US7970606) were withdrawn by the examiner
+before reaching a PTAB decision.
+
+### PTAB Win — More Authoritative Than Examiner Withdrawal
+
+The 2025-09-09 Notice of Allowance explicitly states:
+
+> "This Office Action is in response to **board decision dated 25
+> August 2025, reversing the rejections** made in the Office Action
+> dated 22 December 2023."
+
+PTAB-confirmed patentability is a stronger legal posture than examiner
+withdrawal because:
+- The Board independently reviewed the prior art and the rejection
+- The decision creates persuasive authority for subsequent prosecutions
+- A challenger contesting validity would have to overcome both the
+  examiner's eventual allowance AND the Board's affirmation
+
+### Examiner's Statement of Reasons (per PTAB Decision)
+
+> "Consider claim 1, **Hardwick** teaches a method for detecting and
+> extracting tone data embedded in a voice bit stream that includes
+> frames of bits (abstract), with some of the frames of bits being
+> frames of non-tone bits and some of the frames of bits being frames
+> of tone bits (0053, 0063, tone and voice), the method comprising:
+> selecting a frame of bits from the voice bit stream (0080, receiving
+> MBE parameters, 0050, parameters sent in frames from encoder);
+> analyzing the selected frame of bits to determine whether the
+> selected frame of bits is a frame of tone bits (0080, checking
+> parameters to see if they are valid tone parameters); and when the
+> selected frame of bits is a frame of tone bits, extracting tone
+> data from the selected frame of bits (0080, valid tone frames are
+> extracted and subjected towards additional noise filtering to
+> remove coding noise)."
+
+**The "Hardwick" reference is again the AMBE+2 disclosure** (Hardwick
+US 2005/0278169). The cited paragraphs (0050, 0053, 0063, 0080) match
+the AMBE+2 published application's tone-handling sections. AMBE+2's
+tone handling validates parameters against a known set; that's prior
+art for this 2025 patent.
+
+What the PTAB held the prior art does NOT teach:
+
+> "However, **per the board decision**, the prior art of record does
+> not teach or suggest the limitations of: 'wherein analyzing the
+> selected frame of bits comprises:
+> - **comparing bits of the selected frame of bits to sets of tone
+>   data to produce error criteria** representative of differences
+>   between the selected frame of bits and each of multiple sets of
+>   tone data,
+> - **based on the error criteria, selecting a set of tone data that
+>   most closely corresponds** to the bits of the selected frame of
+>   bits,
+> - and when the **error criteria corresponding to the selected set
+>   of tone data satisfies a set of thresholds**, designating the
+>   selected frame of bits as a frame of tone bits, and wherein
+>   extracting tone data from the selected frame of bits comprises
+>   **providing the selected set of tone data as the extracted tone
+>   data**.'"
+
+This is a **template-matching tone detector**:
+1. Pre-compute or store a set of tone-data templates
+2. Compare received frame bits against each template
+3. Compute error criteria (Hamming distance, correlation, etc.)
+4. Select the best-matching template
+5. Apply a threshold gate — only declare a tone frame if the best
+   match's error is below threshold
+6. Output the selected template's tone data as the decoded result
+
+### Three Generations of DVSI Tone Handling
+
+This patent reveals that DVSI has incrementally improved tone detection
+across three patent generations, each distinct from the previous:
+
+| Generation | Patent | Approach | Status (2026-04-27) |
+|---|---|---|---|
+| Gen 1 (2002) | US7970606 (§5) | Shared parameter quantizer — encode tones via specific pitch + spectral values; decode by recognizing reserved values | Expired 2025-09-08 |
+| Gen 2 (2003) | US8359197 (§6) | Disallowed-pitch identifier (0x3F) — flag tone frames via reserved pitch field values; tone amplitude in first parameter codeword | Active to 2028-05-20 |
+| Gen 3 (2025) | US12451151 (this section) | Template matching with error-criteria threshold gate — store tone-data templates, find best match, threshold-gate the declaration | Active to ~2042 |
+
+A modern open-source tone detector targeting AMBE+2 streams must
+distinguish between generations: implementing Gen 1's approach is now
+free, Gen 2 is encumbered until 2028, and Gen 3 is encumbered until
+~2042 — each requires different design-around analysis.
+
+### Implications for Open-Source Implementation
+
+- **Decoding tone frames per BABA-A's specified format**: not affected
+  by US12451151 — that follows the Gen 2 reserved-pitch approach which
+  is in the BABA-A wire format
+- **Implementing template-matching tone detection on AMBE+2 streams**:
+  encumbered by US12451151 until ~2042
+- **Doing tone detection by parameter validation alone** (the Gen 2
+  Hardwick approach the PTAB held as prior art): not affected by
+  US12451151, but still affected by US8359197 until 2028
+- **For research/personal-use implementations**: Gen 1's shared-
+  quantizer approach is fully free to use as of late 2025
+
 
