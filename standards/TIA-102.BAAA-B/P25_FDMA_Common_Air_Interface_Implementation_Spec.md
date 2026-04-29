@@ -62,6 +62,20 @@ static const uint8_t SYMBOL_TO_DIBIT[7] = {
 static const float C4FM_DEVIATION_HZ[4] = { 600.0f, 1800.0f, -600.0f, -1800.0f };
 ```
 
+**TX-side calibration is mandatory before going on-air.** Many SDR
+TX paths (notably PlutoSDR / AD9363) silently scale the input
+amplitude through gain stages that are not exposed via the standard
+configuration interfaces — it is *not* safe to assume the listed
+deviation values map 1:1 to on-air Hz. Verify with the §8.4.1
+deviation calibration test signal (`...01 01 11 11 01 01 11 11...`
+input → 1.2 kHz tone at 2827 Hz peak deviation on the RF output).
+Over-deviation by 3–4× has been observed on uncalibrated PlutoSDR
+TX paths and pushes the FM-discriminator output into its non-linear
+range, inflating BCH NID-decode bit-error rates regardless of pulse
+shape. See §1.4.5 for the calibration procedure and
+`notes_to_implementer/2026-04-29_c4fm_g_ota_data_back.md` for a
+field-observed instance.
+
 ### 1.3 Pulse Shaping -- Nyquist Raised Cosine Filter H(f)
 
 The symbol stream (impulses scaled by symbol value) is filtered through a raised cosine
@@ -270,6 +284,72 @@ RF -> FM Discriminator -> D(f) Integrate-and-Dump Filter -> Clock Recovery -> Di
 Integrate-and-dump filter: `|D(f)| = sin(pi*f/4800) / (pi*f/4800)` for |f| < 2880 Hz.
 
 Clock recovery uses a stochastic gradient algorithm (not specified by the standard).
+
+#### 1.6.1 D(f) is paired with the transmitter's P(f) — receiver-side pairing rule
+
+The matched D(f) integrate-and-dump filter is paired with the
+transmitter's P(f) sinc-inverse pre-emphasis (§1.4). The H·P·D = H
+identity (§1.4.1) requires **both halves**: a receiver that omits
+D(f) (e.g., one that band-limits with the channel DDC alone and
+slices directly on the FM-discriminator output) MUST also assume
+the transmitter omits P(f) — i.e., expects ZOH-shaped or pure-H(f)-
+shaped TX input.
+
+Mixing a P(f)-pre-emphasised TX with a D(f)-less RX produces ~32%
+overshoot at the slicer near the H(f) transition-band corner (the
+1.32× peak of |G(f)| at f = 1920 Hz that arrives un-compensated by
+the absent D(f)), inflating symbol-decision error rates in the same
+way as the §1.4.4 "H only, omit P" failure mode but on the receive
+side. The pairing is symmetric: either both halves of the H·P·D
+identity are present, or neither.
+
+OTA validation result (blip25-edge implementer agent, 2026-04-29,
+Pluto+ → Pi RTL-SDR @ 855.2875 MHz): in a receiver that omits
+D(f), switching the TX from ZOH to G(f) = H(f)·P(f) regressed
+NID-decode rate by ~28% (25 → 18 frames per 5-LDU-pair call).
+Errors stayed in the 17–22 BCH-bit range — well above the t = 11
+correction limit, consistent with the un-compensated overshoot
+pushing dibits past the slicer thresholds. See
+`notes_to_implementer/2026-04-29_c4fm_g_ota_data_back.md`.
+
+**Receiver classification.** Most production open-source P25
+receivers fall into one of two categories:
+
+- **D(f)-equipped receivers.** OP25 implements D(f) implicitly in
+  its decimation chain. SDRTrunk's standard receive path includes
+  it. These can decode any conformant TX (ZOH, H-only, H·P).
+- **D(f)-less receivers.** Receivers built around channel-DDC +
+  slicer that omit the matched filter (some "fast path" SDR
+  pipelines, blip25-edge as of 2026-04-29). These can only decode
+  TX that also omits P(f) — i.e., H-only or ZOH-shaped emitters.
+
+Adding D(f) to a D(f)-less receiver is the systematic fix; it
+costs one short FIR (typically 16–32 taps at the symbol rate) and
+recovers the full conformance envelope.
+
+#### 1.6.2 Why D(f) is the matched filter for FM-discriminator output
+
+A common misconception (and a real implementation foot-gun): "the
+FM discriminator output is the derivative of phase, not the
+baseband signal, so applying a matched filter adds ISI instead of
+removing it." This is false in the steady-state symbol-decision
+sense. The FM modulator is `phase(t) = ∫ freq_deviation(τ) dτ`,
+and the FM discriminator output is `freq_deviation(t) =
+d/dt phase(t)` — the modulator integrator and discriminator
+differentiator are an inverse pair and cancel exactly, leaving
+the discriminator output equal to the original baseband
+freq-deviation symbol stream (`H · P` shaped, in a conformant TX).
+
+The matched filter for the symbol stream out of the discriminator
+is **D(f) = sinc**, not "no filter." Applying D(f) to the
+discriminator output is mathematically equivalent to applying it
+in the original baseband — the FM mod/disc pair is transparent to
+this operation. The "RRC adds ISI" reasoning conflates RRC (used
+in linear PSK chains) with D(f) (the integrate-and-dump filter
+specified here); they have different roles. If a receiver chain
+omits D(f), it works only because the channel filter happens to
+provide enough rolloff to compensate for P(f)'s overshoot — i.e.,
+implicit D(f) — or because the TX also omits P(f).
 
 ---
 
