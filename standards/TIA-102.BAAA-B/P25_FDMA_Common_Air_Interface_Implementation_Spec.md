@@ -1762,7 +1762,9 @@ to spot-check entry-by-entry; polynomial form needs less memory and
 favors platforms with cheap shift-register loops over GF mults.
 MMDVMHost picks the matrix form (`RS634717.cpp` `ENCODE_MATRIX_362017`,
 `ENCODE_MATRIX_24169`, `ENCODE_MATRIX_241213`); SDRTrunk and OP25 tend
-toward polynomial form. Both are conformant.
+toward polynomial form. Both are conformant — verified empirically in
+`analysis/p25_rs_encoder_matrices_audit.md` for all 48 parity rows
+across the three matrices.
 
 ```c
 /* Generic RS encoder over GF(2^6) using the generator polynomial.
