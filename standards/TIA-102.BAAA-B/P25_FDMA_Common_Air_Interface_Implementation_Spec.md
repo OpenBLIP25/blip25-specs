@@ -212,7 +212,7 @@ static uint8_t nid_duid(uint64_t nid) {
 | `0000` | `0x0` | 0 | HDU -- Header Data Unit |
 | `0011` | `0x3` | 0 | TDU -- Terminator Data Unit (no LC) |
 | `0101` | `0x5` | 1 | LDU1 -- Logical Link Data Unit 1 |
-| `0111` | `0x7` | *—* | TSBK -- Single-block Trunking Signaling (per AABB-B §4.2; P bit not separately tabulated in BAAA-B) |
+| `0111` | `0x7` | 0 | TSBK -- Single-block Trunking Signaling (per AABB-B §4.2; P bit value confirmed by MMDVMHost cross-reference audit, see `analysis/p25_nid_implementation_audit.md`) |
 | `1010` | `0xA` | 1 | LDU2 -- Logical Link Data Unit 2 |
 | `1100` | `0xC` | 0 | PDU -- Multi-block Packet Data Unit (data PDU or MBT) |
 | `1111` | `0xF` | 0 | TDULC -- Terminator with Link Control |
@@ -417,6 +417,21 @@ likelihood decoding over a tiny codebook and is cheap because there are
 only seven candidates. It is most useful during initial lock or on a
 fading channel where a small bump in recovery rate matters more than
 cycles.
+
+By BCH linearity, the pairwise minimum distance among any 7 codewords
+sharing a fixed NAC is `≥ d_min = 23` (the XOR of any two such
+codewords is itself a non-zero BCH codeword, hence weight ≥ 23). So
+hard-decision Hamming-nearest-codeword lookup over the 7-entry table
+reaches the **same `t = 11` correction floor** as the algebraic decoder,
+with no Galois-field arithmetic — just `popcount(received XOR entry)`
+seven times. This makes Pattern C usable as the *only* decoder in a
+known-NAC system (transceiver / repeater); MMDVMHost (`P25NID.cpp`)
+takes this approach, with `MAX_NID_ERRS = 5` as a conservative
+threshold against cross-NAC false positives. For a passive multi-NAC
+scanner, Pattern C is appropriate as a fast path layered above an
+algebraic decoder used for first-sight NAC discovery. See
+`analysis/p25_nid_implementation_audit.md` for the full third-party
+audit and threshold-selection analysis.
 
 **Interop consequences.** All three patterns either succeed (and produce a
 codeword that also satisfies the nominal t=11 decoder) or fail (and the
@@ -1319,6 +1334,19 @@ static const uint32_t GOLAY_18_6_GENERATOR[6] = {
 };
 ```
 
+**Implementation shortcut.** Implementations that already include
+Golay(24,12,8) for TDULC need not maintain a separate (18,6,8) generator
+or decoder. Encode by zero-padding the 6 info bits into a 12-bit word
+(high 6 bits zero) and passing to the (24,12,8) encoder; the low 18
+bits of the 24-bit output are the (18,6,8) codeword. Decode by
+zero-extending received 18 bits to 24 and running the (24,12,8)
+decoder; the low 6 bits of the recovered 12-bit info word are the
+(18,6,8) information. This is what MMDVMHost's `P25Data.cpp` does
+(`encodeHeaderGolay` / `decodeHeaderGolay`). The `GOLAY_18_6_GENERATOR`
+table above is therefore optional — useful only if a project ships
+without a (24,12,8) implementation. See
+`analysis/p25_hdu_ldu_lsd_implementation_audit.md`.
+
 ### 8.3 Hamming Codes
 
 #### 8.3.1 Hamming(10,6,3) -- Shortened
@@ -1330,13 +1358,20 @@ Generator polynomial: `g(x) = x^4 + x + 1` (octal: 23)
 ```c
 /* Hamming(10,6,3) generator matrix (systematic form).
  * Each row: [6-bit identity | 4-bit parity] = 10 bits.
- * NOTE: row 5 parity shown as 0011 in spec -- verify against reference. */
+ * Row 5 parity 0011 confirmed by MMDVMHost cross-reference audit:
+ * Hamming.cpp encode1063 implements parity equations
+ *   d[6] = d[0]^d[1]^d[2]^d[5]
+ *   d[7] = d[0]^d[1]^d[3]^d[5]
+ *   d[8] = d[0]^d[2]^d[3]^d[4]
+ *   d[9] = d[1]^d[2]^d[3]^d[4]
+ * which match these generator rows column-by-column. See
+ * analysis/p25_hdu_ldu_lsd_implementation_audit.md. */
 static const uint16_t HAMMING_10_6_GENERATOR[6] = {
     0x020Eu, /* row 1: 10 0000 1110 */
     0x010Du, /* row 2: 01 0000 1101 */
     0x008Bu, /* row 3: 00 1000 1011 */
     0x0047u, /* row 4: 00 0100 0111 */
-    0x0023u, /* row 5: 00 0010 0011 -- NOTE: verify */
+    0x0023u, /* row 5: 00 0010 0011 */
     0x001Cu, /* row 6: 00 0001 1100 */
 };
 
@@ -1469,32 +1504,27 @@ static const uint8_t RS_36_20_GENERATOR[17] = {
 };
 ```
 
-#### 8.4.3 RS(24,16,9) -- G_LC (LDU1 Link Control, LDU2 Encryption Sync)
+#### 8.4.3 The Two RS(24, ·, ·) Codes — G_LC and G_ES
 
-**Used for:** LC words in LDU1, ES data in LDU2.
+P25 defines two distinct Reed–Solomon codes that share codeword length
+24 but differ in dimension and minimum distance. These are easy to
+confuse because both are tabulated as "RS(24,…)" generator matrices
+in the standard. The MMDVMHost cross-reference audit
+(`analysis/p25_hdu_ldu_lsd_implementation_audit.md`) confirms the
+correct assignments:
 
-- 16 information symbols (96 bits)
-- 8 parity symbols (48 bits)
-- Minimum distance: 9 -> corrects up to 4 symbol errors
+- **G_LC = RS(24,12,13):** 12 info symbols, 12 parity symbols, d_min = 13,
+  degree-12 generator. Used for: **LDU1 LC code word** and **TDULC LC
+  code word**. The LC content (1 LCF byte + 1 MFID byte + 7 info bytes
+  = 72 bits = 12 six-bit symbols) fills the 12 info symbols exactly.
+- **G_ES = RS(24,16,9):** 16 info symbols, 8 parity symbols, d_min = 9,
+  degree-8 generator. Used for: **LDU2 Encryption Sync** (9-byte MI +
+  ALGID + 2-byte KID = 12 bytes ≈ 16 six-bit symbols).
 
-Generator polynomial:
-```
-g_LC(x) = 50 + 41x + 02x^2 + 74x^3 + 11x^4 + 60x^5 + 34x^6 + 71x^7
-         + 03x^8 + 55x^9 + 05x^10 + 71x^11 + x^12
-
-Wait -- this is degree 12 but R = N-K = 24-16 = 8. Let me re-examine.
-The spec lists g_LC as having degree 12, but for RS(24,16,9), R=8.
-```
-
-**Note on spec ambiguity:** The spec extraction shows g_LC with 13 terms (degree 12), but
-RS(24,16,9) should have R=8 parity symbols and generator polynomial of degree 8. And the
-spec labels the generator matrix as "(24,12,13)" not "(24,16,9)". There may be confusion
-between the two RS codes. Let me clarify:
-
-- **G_LC = RS(24,12,13):** 12 info symbols, 12 parity symbols, d_min=13, degree-12 generator.
-  Used for: **TDULC LC code word** and **LDU2 ES (MI portion)**.
-- **G_ES = RS(24,16,9):** 16 info symbols, 8 parity symbols, d_min=9, degree-8 generator.
-  Used for: **LDU1 LC** and **LDU2 ES (full)**.
+(Earlier revisions of this spec reversed these assignments — LDU1 LC
+was incorrectly listed as RS(24,16,9). MMDVMHost's `P25Data.cpp` calls
+`decode241213` in `decodeLDU1` and `decode24169` in `decodeLDU2`,
+which is the correct mapping.)
 
 Generator polynomial for RS(24,12,13) (labeled G_LC in spec, degree 12):
 ```
@@ -1534,8 +1564,15 @@ notation (Tables 7, 8, 9 in the full text extraction). These are systematic matr
 left portion is identity, right portion is parity. Each entry is a GF(2^6) element
 in octal.
 
-For implementation, polynomial division (using the generator polynomials above) is
-typically more efficient than matrix multiplication.
+Either form yields identical codewords. Polynomial division (LFSR-style
+remainder) and matrix multiplication (`info × [I | P]` over GF(2⁶))
+both implement the systematic encoder. Choose by platform: matrix form
+maps directly to the spec's tabulated generator matrices and is easier
+to spot-check entry-by-entry; polynomial form needs less memory and
+favors platforms with cheap shift-register loops over GF mults.
+MMDVMHost picks the matrix form (`RS634717.cpp` `ENCODE_MATRIX_362017`,
+`ENCODE_MATRIX_24169`, `ENCODE_MATRIX_241213`); SDRTrunk and OP25 tend
+toward polynomial form. Both are conformant.
 
 ```c
 /* Generic RS encoder over GF(2^6) using the generator polynomial.
@@ -1776,8 +1813,32 @@ static void trellis_encode_rate_half(TrellisEncoder *enc,
 }
 ```
 
-**Trellis decoding** is typically done with Viterbi algorithm (not specified in the
-standard). SDRTrunk implements this in `TrellisCodec.java`.
+**Trellis decoding** is not specified in the standard — only the
+encoder. Two valid decoder choices appear in production implementations:
+
+1. **Viterbi (maximum-likelihood).** SDRTrunk's `TrellisCodec.java`. Keeps
+   `|states|` parallel paths, computes path metrics, runs traceback at
+   the end. Naturally accepts soft-decision input for ~2–3 dB of
+   receiver-sensitivity gain. `O(n · |states|²)` ops with
+   `|states| × n` memory.
+2. **Sequential search with bounded backtracking.** MMDVMHost's
+   `P25Trellis.cpp` (`fixCode12` / `fixCode34`). Walks the trellis state-
+   by-state, accepting any received point that is a valid edge from
+   the current state. On a stall, tries all 16 substitutions for the
+   failing position, picks the one that reaches furthest, advances,
+   and iterates up to 20 times; backtracks one position once. No path
+   metrics, no soft input. Dramatically simpler to implement; constant
+   memory; returns a clean "uncorrectable" signal when correction
+   fails. On clean input, recovers the same bits as Viterbi.
+
+For a passive SDR receiver with soft demod output, Viterbi is the
+better choice — soft-decision gain translates directly into more
+decoded calls at coverage edges. For a first-cut implementation or a
+firmware/embedded context, sequential backtracking ships faster behind
+the same `decode(input) -> Result<Payload>` interface, and both
+implementations are bit-compatible on clean input. See
+`analysis/p25_trellis_implementation_audit.md` for the full comparison
+including a recommended test-oracle harness pattern.
 
 ---
 
