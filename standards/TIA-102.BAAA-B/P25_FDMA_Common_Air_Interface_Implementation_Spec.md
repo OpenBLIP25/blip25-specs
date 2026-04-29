@@ -131,7 +131,9 @@ realised as a **single combined FIR** G(f) rather than two separate filters:
 ```
 
 `G(0) = 1` (the limit of `x/sin(x)` at zero is 1). Within the passband, |G(f)|
-rises gently above unity -- about 1.43 at f = 1920 Hz -- before being rolled off
+rises gently above unity -- about **1.32** at f = 1920 Hz (computed: x = π·1920/4800
+= 0.4π, sin(0.4π) ≈ 0.9511, so P(1920) = x/sin(x) ≈ 1.3214; H(1920) = 1.0 at the
+passband edge by both branches of the H(f) piecewise) -- before being rolled off
 by H(f) in the transition band. The combined response is real-valued and
 even-symmetric, so G(f) is a linear-phase real FIR.
 
@@ -144,11 +146,17 @@ been adopted by every conformant open-source C4FM transmitter examined:
 - **Sample rate.** Choose an integer multiple of the 4800 sym/s symbol rate.
   Common choices: 48000 Hz (10 samples/symbol) or 96000 Hz (20 samples/symbol).
   Higher rates make P(f)'s rising edge near 2880 Hz easier to realise faithfully.
-- **Kernel length.** Around 80–150 taps at 48 ksps (depending on stop-band
-  attenuation requirement). OP25's `c4fm_taps` uses a fixed 81-tap kernel at
-  48 ksps; SDRTrunk derives the kernel programmatically. A 131-tap kernel at
-  48 ksps gives ~50 dB stop-band attenuation, which has been observed to
-  produce clean Pluto OTA captures in field testing.
+- **Kernel length and stop-band achievable.** OP25's shipped `c4fm_taps` is
+  a fixed 81-tap kernel at 48 ksps; field measurement reads about −11 dB
+  stop-band attenuation at f ≥ 2880 Hz. A 131-tap kernel at 48 ksps with
+  Kaiser β = 6 gets about −17 dB — already an improvement over OP25's
+  baseline and observed to clear the BCH(63,16,23) NID-decode threshold on
+  Pluto-class SDRs. To reach −30 to −40 dB, expect to spend more taps OR
+  switch design methods (see below). Empirical sweep (Kaiser β = 6, fs =
+  48 ksps): 131 taps → −17 dB, 181 taps → −22 dB, 251 taps → −27 dB, 351
+  taps → −33 dB, 501 taps → −39 dB. Unwindowed truncation reaches −40 dB
+  at N ≈ 251; equiripple Parks–McClellan (`scipy.signal.remez`) at the
+  same N typically reaches −40 dB.
 - **Construction method.** Sample G(f) on a uniform frequency grid spanning
   [-fs/2, +fs/2], inverse-FFT to time domain, circularly shift to centre the
   kernel, apply a window (Kaiser β ≈ 6, or Hamming) to taper the truncation
@@ -161,6 +169,18 @@ been adopted by every conformant open-source C4FM transmitter examined:
   has a removable singularity at f = 0; substitute the limit value 1 (or use
   the Taylor expansion `1 + (πf/4800)² / 6 + ...`) when sampling G(f) on a
   grid that hits f = 0 exactly.
+- **Normalisation and FM-modulator gain pairing.** The reference kernel
+  derivation normalises with `taps /= taps.sum()` for unity DC gain. With
+  `(N=131, fs=48000)` the resulting center-tap value is about 0.117, so a
+  unit input symbol passes through the convolution at a peak amplitude of
+  ~0.117 at the symbol-decision instant. The FM-modulator deviation gain
+  must be paired with this normalisation: with unity-DC-gain G(f), the
+  hertz-per-input-unit constant is approximately `1800 / 0.117 ≈ 8.57 ×`
+  the nominal `±1800 Hz` deviation per outer symbol. Skipping this pairing
+  causes the on-air signal to under-deviate by ~8×, degrading the
+  receiver's slicer SNR. (The exact center-tap value depends on the kernel
+  length and window; either compute it programmatically and divide, or
+  normalise the kernel for unity peak gain instead and adjust accordingly.)
 
 Cross-references:
 - **OP25:** `op25_repeater/op25_c4fm_mod_impl.cc`, function
