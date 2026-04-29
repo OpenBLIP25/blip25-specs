@@ -62,19 +62,44 @@ static const uint8_t SYMBOL_TO_DIBIT[7] = {
 static const float C4FM_DEVIATION_HZ[4] = { 600.0f, 1800.0f, -600.0f, -1800.0f };
 ```
 
-**TX-side calibration is mandatory before going on-air.** Many SDR
-TX paths (notably PlutoSDR / AD9363) silently scale the input
-amplitude through gain stages that are not exposed via the standard
-configuration interfaces — it is *not* safe to assume the listed
-deviation values map 1:1 to on-air Hz. Verify with the §8.4.1
+**TX-side calibration before going on-air.** Many SDR TX paths
+(notably PlutoSDR / AD9363) expose gain stages through the standard
+configuration interfaces that don't behave as advertised. Two
+field-observed gotchas on PlutoSDR firmware v0.39 / AD9363 1r1t mode
+(field-investigated 2026-04-29; see
+`notes_to_implementer/2026-04-29_pluto_ad9363_root_cause_back.md`
+for the investigation transcript and reg-level reproduction):
+
+- **TX BB filter gain (AD9361 reg 0x023, bits [5:0])** defaults to
+  `0x3F` = MAX rather than the typical `0x18`. Not exposed by any
+  iio attribute. Direct register write succeeds and sticks but the
+  effect on output level may be drowned by SNR in field tests.
+- **TX hardwaregain knob (`voltage0/hardwaregain`)** updates the iio
+  readback but is silently decoupled from the underlying ATTEN
+  registers (0x086–0x089) — the chip stays at 0 dB attenuation /
+  max output (~+7 dBm) regardless of host writes. `gr-osmosdr` and
+  the OP25 Pluto wrapper trust the iio knob and silently inherit
+  the bug.
+
+The conformance check that side-steps both bugs is the §8.4.1
 deviation calibration test signal (`...01 01 11 11 01 01 11 11...`
-input → 1.2 kHz tone at 2827 Hz peak deviation on the RF output).
-Over-deviation by 3–4× has been observed on uncalibrated PlutoSDR
-TX paths and pushes the FM-discriminator output into its non-linear
-range, inflating BCH NID-decode bit-error rates regardless of pulse
-shape. See §1.4.5 for the calibration procedure and
-`notes_to_implementer/2026-04-29_c4fm_g_ota_data_back.md` for a
-field-observed instance.
+input → 1.2 kHz tone at 2827 Hz peak deviation on the RF output);
+see §1.4.5. Verify on a spectrum analyser or via Welch PSD against
+Carson's-rule prediction (BW ≈ 2(Δf + fm); spec wideband BW ≈
+14.8 kHz at −20 dB).
+
+**Don't measure deviation by k-means on FM-disc cluster centres at
+low SNR.** A common but unreliable method: take the FM-discriminator
+output, k-means the four clusters, read the outer cluster centres
+as the deviation. At low SNR (< ~25 dB after DDC) this method
+inflates substantially because the FM discriminator's per-symbol
+phase noise scales with `1 / |IQ|` and gets picked up as if it were
+level shift. A Pluto OTA capture at 17–20 dB receive SNR appeared
+to read ±15-30 deviation units against a spec ±8.33, but a
+Welch-PSD spectral-occupancy check on the same capture confirmed
+the on-air signal was at spec wideband bandwidth (13.18 kHz at
+−20 dB). Use spectral occupancy or the §8.4.1 tone for
+noise-robust deviation verification.
 
 ### 1.3 Pulse Shaping -- Nyquist Raised Cosine Filter H(f)
 
