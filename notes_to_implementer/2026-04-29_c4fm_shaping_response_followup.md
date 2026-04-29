@@ -108,3 +108,59 @@ This isn't a spec issue (it's a normalisation choice), but worth
 noting for any future implementer reading the §3 reference: the
 "unity DC gain" normalisation requires a paired scaling on the FM
 gain stage. Maybe add a one-line note to §1.4.3.
+
+---
+
+## 4. OTA validation result — G(f) regresses on D(f)-less receivers
+
+Step 2 (wire the kernel into `tx_chain.rs::pulse_shape_combined_g`,
+expose via `blip25-tx --shape g`) is committed. Same-session A/B on
+Pluto+ → Pi RTL-SDR @ 855.2875 MHz, gain 40.2:
+
+| TX shape | frames decoded | NID-fail | DUID breakdown |
+|---|---|---|---|
+| ZOH wideband | 25 | 12 | 3 HDU + 15 TDU + 1 TDULC |
+| G(f) wideband | **18** | 14 | 1 HDU + **1 LDU1** + 8 TDU + 1 TDULC |
+
+G(f) regresses overall (-7 frames) but unexpectedly catches 1 LDU1
+voice frame ZOH missed. Net direction is wrong for our receiver.
+
+**Root cause** (consistent with §1.4.1's H·P·D identity): the
+blip25-edge receiver intentionally OMITS the matched D(f) integrate-
+and-dump filter. From `crates/blip25-dsp/src/sync_timing.rs:127-130`:
+
+> Pass through directly — the FM discriminator output spectrum
+> doesn't match the RRC filter's expected input (it's the derivative
+> of the phase, not the baseband signal). RRC on FM disc output
+> adds ISI instead of removing it. The DDC bandwidth already limits
+> noise sufficiently.
+
+So the chain at the slicer is H·P (no D), and P(f)'s ~32% overshoot
+near 1920 Hz arrives at the slicer un-compensated. The slicer reads
+the overshoot as inflated level-transition values and mis-classifies
+dibits at high rates — exactly the symptom the spec author predicted
+for "H only, omit P" but inverted: we have "H·P, omit D."
+
+This matches the prior negative result in
+`project_pluto_e2e_first_decode_2026_04_29.md`: a generic RC test
+also regressed (5→1 frames). The mechanism in both cases is
+overshoot-into-slicer.
+
+**Spec implications, if any**: §1.4.4's failure-modes table currently
+lists four producer-side mistakes. A receiver-side note in §1.6
+("the matched D(f) filter is mandatory if the transmitter applied
+P(f); without D(f), use ZOH-shaped TX") would close the loop on this
+class of issue. Many open-source receivers (OP25 included) DO have
+D(f) implicit in their decimation filters, so the issue is specific
+to receivers that DDC-filter directly to the symbol rate without an
+intermediate matched filter.
+
+The `pulse_shape_combined_g` path is preserved as `--shape g` for
+future TX use against D(f)-equipped receivers; the default stays
+`--shape zoh` for the current chain.
+
+Step 3 (closing the NID-error gap on Pluto OTA) needs a different
+lever — either add D(f) on the receiver side (substantial change),
+or address the actual root cause (Pluto's 3-4× over-deviation per
+the earlier `project_pluto_ota_session_2026_04_29.md` measurement,
+likely a Pluto AD9363 TX path gain-stage issue).
