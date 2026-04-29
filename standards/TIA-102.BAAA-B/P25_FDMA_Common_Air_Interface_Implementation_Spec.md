@@ -62,31 +62,36 @@ static const uint8_t SYMBOL_TO_DIBIT[7] = {
 static const float C4FM_DEVIATION_HZ[4] = { 600.0f, 1800.0f, -600.0f, -1800.0f };
 ```
 
-**TX-side calibration before going on-air.** Many SDR TX paths
-(notably PlutoSDR / AD9363) expose gain stages through the standard
-configuration interfaces that don't behave as advertised. Two
-field-observed gotchas on PlutoSDR firmware v0.39 / AD9363 1r1t mode
+**TX-side deviation verification before going on-air.** SDR TX
+paths can have non-default gain-stage state that's not exposed
+through standard configuration interfaces. One field-observed
+gotcha on PlutoSDR firmware v0.39 / AD9363 1r1t mode
 (field-investigated 2026-04-29; see
 `notes_to_implementer/2026-04-29_pluto_ad9363_root_cause_back.md`
-for the investigation transcript and reg-level reproduction):
+for the investigation transcript):
 
 - **TX BB filter gain (AD9361 reg 0x023, bits [5:0])** defaults to
-  `0x3F` = MAX rather than the typical `0x18`. Not exposed by any
-  iio attribute. Direct register write succeeds and sticks but the
-  effect on output level may be drowned by SNR in field tests.
-- **TX hardwaregain knob (`voltage0/hardwaregain`)** updates the iio
-  readback but is silently decoupled from the underlying ATTEN
-  registers (0x086–0x089) — the chip stays at 0 dB attenuation /
-  max output (~+7 dBm) regardless of host writes. `gr-osmosdr` and
-  the OP25 Pluto wrapper trust the iio knob and silently inherit
-  the bug.
+  `0x3F` = MAX rather than the typical AD9361 default `0x18`. Not
+  exposed by any iio attribute. Direct register write via
+  `direct_reg_access` succeeds and sticks, but the effect on output
+  level was unmeasurable in the noise floor of the field test —
+  may matter at cleaner SNR.
 
-The conformance check that side-steps both bugs is the §8.4.1
-deviation calibration test signal (`...01 01 11 11 01 01 11 11...`
-input → 1.2 kHz tone at 2827 Hz peak deviation on the RF output);
-see §1.4.5. Verify on a spectrum analyser or via Welch PSD against
-Carson's-rule prediction (BW ≈ 2(Δf + fm); spec wideband BW ≈
-14.8 kHz at −20 dB).
+(An earlier-reported "TX hardwaregain knob silently decoupled from
+ATTEN registers" finding was a measurement artifact: the
+`direct_reg_access` reads of 0x086/0x088 are a cache that does not
+reflect live AD9363 atten state. Empirical sweep of
+`voltage0/hardwaregain` across `[0, -45, -89]` dB confirmed the
+knob does control output power. `gr-osmosdr` and OP25 Pluto wrapper
+behave correctly.)
+
+The reliable conformance check is the §8.4.1 deviation calibration
+test signal (`...01 01 11 11 01 01 11 11...` input → 1.2 kHz tone
+at 2827 Hz peak deviation on the RF output); see §1.4.5. Verify on
+a spectrum analyser or via Welch PSD against Carson's-rule
+prediction (BW ≈ 2(Δf + fm); spec wideband BW ≈ 14.8 kHz at −20 dB
+— a Pluto OTA capture measured 13.18 kHz at -20 dB, confirming
+in-spec wideband operation).
 
 **Don't measure deviation by k-means on FM-disc cluster centres at
 low SNR.** A common but unreliable method: take the FM-discriminator
@@ -95,11 +100,16 @@ as the deviation. At low SNR (< ~25 dB after DDC) this method
 inflates substantially because the FM discriminator's per-symbol
 phase noise scales with `1 / |IQ|` and gets picked up as if it were
 level shift. A Pluto OTA capture at 17–20 dB receive SNR appeared
-to read ±15-30 deviation units against a spec ±8.33, but a
-Welch-PSD spectral-occupancy check on the same capture confirmed
-the on-air signal was at spec wideband bandwidth (13.18 kHz at
-−20 dB). Use spectral occupancy or the §8.4.1 tone for
-noise-robust deviation verification.
+to read ±15-30 deviation units against a spec ±8.33, but the
+spectral-occupancy check above confirmed the signal was actually
+in spec. Use spectral occupancy or the §8.4.1 tone for noise-robust
+deviation verification.
+
+**Lesson for SDR debugging in general.** When register-level reads
+disagree with empirical end-to-end measurements, trust the
+empirical measurement. AD9363 (and many other RFICs) have SPI shadow
+caches and ENSM-state-dependent register banks where the live state
+isn't always reflected in `direct_reg_access` debug reads.
 
 ### 1.3 Pulse Shaping -- Nyquist Raised Cosine Filter H(f)
 
