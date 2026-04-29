@@ -1295,12 +1295,12 @@ The (24,12,8) extended code appends an even parity bit to the (23,12,7) code.
 /* Golay(24,12,8) generator matrix (systematic form).
  * Each row: [12-bit identity | 12-bit parity] packed into low 24 bits of uint32_t.
  * Octal from spec converted to hex.
- * NOTE: Octal-to-binary conversion of the parity columns must be verified
- * bit-by-bit. Cross-reference with SDRTrunk Golay24.java or OP25 golay24.cc. */
+ * All 12 rows verified against MMDVMHost ENCODING_TABLE_24128 (Golay24128.cpp);
+ * see analysis/p25_golay_24_12_implementation_audit.md. */
 static const uint32_t GOLAY_24_12_GENERATOR[12] = {
     0x800C75u, /* row  1: identity 0x800, parity octal 6165 */
     0x40063Bu, /* row  2: 2000 3073 */
-    0x200F68u, /* row  3: 1000 7550 -- verify */
+    0x200F68u, /* row  3: 1000 7550 */
     0x1007B4u, /* row  4: 0400 3664 */
     0x0803DAu, /* row  5: 0200 1732 */
     0x040D99u, /* row  6: 0100 6631 */
@@ -1323,7 +1323,8 @@ Shortened from the (24,12,8) by deleting the leftmost 6 info columns.
 /* Golay(18,6,8) generator matrix (systematic form).
  * Each row: [6-bit identity | 12-bit parity] = 18 bits, packed into low 18 bits of uint32_t.
  * These are rows 7-12 of the (24,12,8) matrix with the left 6 identity columns removed.
- * Same caveat as GOLAY_24_12_GENERATOR -- verify against reference implementation. */
+ * (24,12,8) generator validated against MMDVMHost; see
+ * analysis/p25_golay_24_12_implementation_audit.md. */
 static const uint32_t GOLAY_18_6_GENERATOR[6] = {
     0x206CDu, /* row 1: octal 40 3315 */
     0x10367u, /* row 2: octal 20 1547 */
@@ -1873,7 +1874,7 @@ LOOP forever:
            - Read 1680 info bits (with SS stripped)
            - Extract 9 IMBE frames from known positions
            - For each IMBE frame: Hamming inner decode, then send 88 bits to vocoder
-           - Extract LC Hamming words -> RS(24,16,9) decode -> LC_format, MFID, LC_info
+           - Extract LC Hamming words -> RS(24,12,13) decode -> LC_format, MFID, LC_info
            - Extract LSD: cyclic(16,8,5) decode -> 2 octets
            - Output 9 decoded voice frames
            
@@ -1881,7 +1882,7 @@ LOOP forever:
            - Read 1680 info bits (with SS stripped)
            - Extract 9 IMBE frames (same positions as LDU1)
            - For each IMBE frame: Hamming inner decode -> vocoder
-           - Extract ES Hamming words -> RS decode -> MI, ALGID, KID
+           - Extract ES Hamming words -> RS(24,16,9) decode -> MI, ALGID, KID
            - Extract LSD
            - Output 9 decoded voice frames
            
