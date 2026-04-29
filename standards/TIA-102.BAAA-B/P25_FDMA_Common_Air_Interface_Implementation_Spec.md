@@ -62,10 +62,10 @@ static const uint8_t SYMBOL_TO_DIBIT[7] = {
 static const float C4FM_DEVIATION_HZ[4] = { 600.0f, 1800.0f, -600.0f, -1800.0f };
 ```
 
-### 1.3 Pulse Shaping -- Nyquist Raised Cosine Filter
+### 1.3 Pulse Shaping -- Nyquist Raised Cosine Filter H(f)
 
 The symbol stream (impulses scaled by symbol value) is filtered through a raised cosine
-filter before modulation:
+filter before modulation. From PDF §8.3:
 
 ```
 |H(f)| = 1.0                             for |f| <= 1920 Hz
@@ -77,16 +77,139 @@ Rolloff factor alpha = (2880 - 1920) / (2880 + 1920) = 0.2. This is effectively
 alpha = 0.2 relative to the symbol rate of 4800 sym/s (Nyquist bandwidth = 2400 Hz,
 excess bandwidth = 480 Hz on each side -- but the spec defines the filter shape directly).
 
-### 1.4 C4FM Shaping Filter
+Group delay is flat over the passband |f| < 2880 Hz, i.e., H(f) is a linear-phase
+real-valued response.
 
-After the Nyquist filter, a shaping filter compensates for the integrate-and-dump
-receiver matched filter:
+### 1.4 C4FM Shaping Filter P(f) -- Sinc-Inverse Pre-Emphasis
+
+After the Nyquist filter, a shaping filter pre-emphasises the symbol stream so that the
+**receiver's integrate-and-dump filter D(f)** (§1.6) produces a clean H(f)-shaped output.
+From PDF §8.4:
 
 ```
 |P(f)| = (pi*f/4800) / sin(pi*f/4800)    for |f| < 2880 Hz
 ```
 
-Combined C4FM modulator chain: `Dibits -> H(f) -> P(f) -> FM modulator -> RF output`
+Group delay is flat over |f| < 2880 Hz (linear phase, like H(f)).
+
+#### 1.4.1 Why P(f) is required: the H · P · D = H identity
+
+The receiver's integrate-and-dump filter D(f) (§1.6) has the response
+`|D(f)| = sin(πf/4800) / (πf/4800)` -- a sinc roll-off that attenuates the signal
+near the band edge. By design,
+
+```
+|P(f)| · |D(f)| = (πf/4800)/sin(πf/4800) · sin(πf/4800)/(πf/4800) = 1
+```
+
+so the end-to-end transmit-then-receive baseband response is
+
+```
+|H(f)| · |P(f)| · |D(f)| = |H(f)|
+```
+
+i.e. the symbol shape that arrives at the receiver's slicer is the raised cosine
+H(f) -- exactly the Nyquist-clean shape needed for ISI-free symbol decisions.
+
+The FM modulator's instantaneous-frequency-to-phase integrator and the FM
+discriminator's phase-to-frequency differentiator are an inverse pair and cancel
+out at the FM-discriminator output; **P(f) does NOT compensate the modulator
+integrator.** It compensates only the receiver's D(f) matched filter. Implementations
+that confuse these two roles (or that omit P(f) entirely) end up with a tilted
+post-D(f) spectrum and elevated symbol-decision errors.
+
+#### 1.4.2 Combined transmit filter G(f) = H(f) · P(f)
+
+The two filters are always cascaded on the transmit side. In practice they are
+realised as a **single combined FIR** G(f) rather than two separate filters:
+
+```
+|G(f)| = |H(f)| · |P(f)|
+       = (πf/4800)/sin(πf/4800)                                 for |f| <= 1920 Hz
+       = [0.5 + 0.5 cos(2πf/1920)] · (πf/4800)/sin(πf/4800)     for 1920 < |f| <= 2880 Hz
+       = 0                                                       for |f| > 2880 Hz
+```
+
+`G(0) = 1` (the limit of `x/sin(x)` at zero is 1). Within the passband, |G(f)|
+rises gently above unity -- about 1.43 at f = 1920 Hz -- before being rolled off
+by H(f) in the transition band. The combined response is real-valued and
+even-symmetric, so G(f) is a linear-phase real FIR.
+
+#### 1.4.3 FIR realisation -- design notes
+
+The spec defines G(f) as a frequency-domain magnitude. Realising it as a
+time-domain FIR is general DSP, not P25-specific, but the following choices have
+been adopted by every conformant open-source C4FM transmitter examined:
+
+- **Sample rate.** Choose an integer multiple of the 4800 sym/s symbol rate.
+  Common choices: 48000 Hz (10 samples/symbol) or 96000 Hz (20 samples/symbol).
+  Higher rates make P(f)'s rising edge near 2880 Hz easier to realise faithfully.
+- **Kernel length.** Around 80–150 taps at 48 ksps (depending on stop-band
+  attenuation requirement). OP25's `c4fm_taps` uses a fixed 81-tap kernel at
+  48 ksps; SDRTrunk derives the kernel programmatically. A 131-tap kernel at
+  48 ksps gives ~50 dB stop-band attenuation, which has been observed to
+  produce clean Pluto OTA captures in field testing.
+- **Construction method.** Sample G(f) on a uniform frequency grid spanning
+  [-fs/2, +fs/2], inverse-FFT to time domain, circularly shift to centre the
+  kernel, apply a window (Kaiser β ≈ 6, or Hamming) to taper the truncation
+  artefacts, and normalise.
+- **Pulse-shaping convention.** The TX symbol stream consists of impulses at
+  the dibit rate, zero-stuffed up to the FIR sample rate, then convolved with
+  G(f). Do not pass the symbols through ZOH first -- a ZOH adds an additional
+  unintended `sinc(πf/fs)` shape on top of G(f).
+- **Numerical limit at f → 0.** The closed-form `(πf/4800) / sin(πf/4800)`
+  has a removable singularity at f = 0; substitute the limit value 1 (or use
+  the Taylor expansion `1 + (πf/4800)² / 6 + ...`) when sampling G(f) on a
+  grid that hits f = 0 exactly.
+
+Cross-references:
+- **OP25:** `op25_repeater/op25_c4fm_mod_impl.cc`, function
+  `op25_c4fm_mod_impl::set_taps()`. Hard-coded 81-tap kernel.
+- **SDRTrunk:** `dsp/filter/Filters.java`, method `getC4FMRRCFilter()` (note
+  the misnomer -- it generates G(f) = H · P, not a root raised cosine).
+- **DSD-FME / digiham:** various; see project READMEs.
+
+#### 1.4.4 Common implementation failure modes
+
+These three patterns appear repeatedly in open-source C4FM transmitters and
+each has been observed to inflate post-disc symbol-error rates by enough to
+push Pluto-class SDR captures past the NID BCH(63,16,23) `t = 11` correction
+limit:
+
+| Mistake | Symptom |
+|---|---|
+| Apply H(f) only, omit P(f) | post-D(f) spectrum has a sinc tilt (low-frequency boost, high-frequency attenuation); 22+ bit errors per NID typical on edge captures |
+| Apply ZOH and then H(f) | additional `sinc(πf/fs)` shape on top of G(f); modest tilt that compounds at narrower IFs |
+| Apply H(f) and P(f) as separate stages at different sample rates | sample-rate-conversion sinc factors slip in between H and P; combined response diverges from G(f) by a few dB at the band edge |
+| Use a generic RRC filter (root raised cosine) instead of G = H · P | RRC has a different roll-off shape (sqrt of raised cosine); the receiver matched-filter D(f) does not invert RRC |
+
+The fix is the single combined FIR G(f) per §1.4.2-§1.4.3 above.
+
+#### 1.4.5 Deviation calibration -- §8.4.1 test signal
+
+Per PDF §8.4.1, a conformant C4FM transmitter is calibrated by feeding the
+symbol pattern `... 01 01 11 11 01 01 11 11 ...` -- alternating +1, +1, +3, +3,
+-1, -1, -3, -3 deviation symbols -- through the H · P chain and into the FM
+modulator. After the H(f)·P(f) chain and the FM modulator, the RF output is
+equivalent to a 1.2 kHz sine wave with peak deviation `(π/2) × 1800 Hz ≈
+2827 Hz`.
+
+This is the canonical conformance check for the entire transmit chain
+(symbol generation, G(f) FIR, deviation gain). A passing implementation
+shows:
+
+- A clean 1.2 kHz tone at the FM modulator output (visible in spectrum).
+- Peak deviation ≈ 2827 Hz on a deviation meter (or equivalent measurement
+  on an SDR).
+
+Implementations that fail this test before going on-air typically have:
+
+- Wrong G(f) realisation (one of §1.4.4 above).
+- Wrong sample-rate scaling between symbol rate, FIR rate, and FM modulator
+  deviation gain.
+- Wrong dibit-to-symbol mapping (see §1.2).
+
+Combined modulator chain: `Dibits -> G(f) = H(f) · P(f) -> FM modulator -> RF output`.
 
 ### 1.5 CQPSK Modulation (Repeater Output / LSM)
 
@@ -221,6 +344,52 @@ static uint8_t nid_duid(uint64_t nid) {
 table, but TIA-102.AABB-B §4.2 (Trunking Control Channel Formats) normatively
 assigns DUID `$7` to single-block TSBK packets (Trunking Signaling Data Units).
 DUID `$C` in AABB-B is reserved for multi-block PDUs (MBT and data PDUs).
+
+**Parity-bit-as-fixed-per-DUID — encoder-side verification check.** A
+strong reading of "P is even parity over all 63 BCH code bits" (PDF §7.5.2)
+would imply `popcount(NID) & 1 == 0` for every encoded NID. **Field-tested
+implementations (notably MMDVMHost) instead hard-code P per DUID** using the
+column above (`m_hdr[7] &= 0xFE` for HDU, `m_ldu1[7] |= 0x01` for LDU1, etc.)
+without computing it from per-NAC weight.
+
+These two readings agree only if every BCH(63,16,23) generator row
+corresponding to a NAC bit has even Hamming weight; if any such row has odd
+weight, flipping that NAC bit flips total NID parity and a fixed-per-DUID P
+cannot satisfy the strong reading for all NACs.
+
+Spot check on the GENERATOR_NID rows in §3.3 (line 321-338): row 2
+(`0x4000ab5a8e33a6be`, NAC[10]) has popcount 31 (odd). So the strong
+even-parity reading of P fails for at least some `(NAC, DUID)` combinations
+under a fixed-per-DUID P.
+
+**Implementer-side test (recommended).** Enumerate all 4096 × 7 valid
+`(NAC, DUID)` pairs and tabulate `popcount(encode_nid(nac, duid)) & 1`. Two
+useful invariants to check:
+
+```c
+/* 1. Per-DUID parity column matches MMDVMHost's hard-coded P. */
+for (uint16_t nac = 0; nac < 4096; nac++) {
+    uint64_t nid = encode_nid(nac, DUID_TSBK);  /* 0x7 */
+    assert((nid & 1ull) == 0);  /* TSBK: P column = 0 */
+}
+
+/* 2. Decoder-side: the t=11 syndrome decoder should accept any NID an
+ *    encoder emits, regardless of which P-bit convention was used. */
+```
+
+The first test confirms the encoder follows the per-DUID P column. The
+second is the interop check that matters in practice: a decoder with t=11
+correction will absorb a 1-bit difference in the P bit if conventions
+diverge, so cross-implementation interop holds either way.
+
+**For blip25-mbe specifically.** Per the implementer's TODO note, the
+expected outcome of running test (1) for `DUID_TSBK` is: all 4096 NACs yield
+NIDs with `popcount & 1 == 0` (matches MMDVMHost). If the test fails for
+some NAC, that's a bug in the local encoder's P-bit handling. If it
+*passes* but some valid received NIDs nevertheless have odd popcount, the
+emitting transmitter is using the strong "always even" reading and has
+flipped the P bit on those NACs to compensate — both are interop-conformant
+under the t=11 receiver, but worth noting in observed-behaviour logs.
 
 A conformant FDMA receiver therefore recognizes **seven** DUID values, not six:
 
