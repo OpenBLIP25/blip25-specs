@@ -1,6 +1,11 @@
 # TIA-102.BABA-A annex_h_interleave.csv — Bit Frame Format / Full-Rate Interleaving
 # Source: BABA-A PDF, page 102
 # Extracted from pdftotext -layout output with verification: All 144 bit positions (c0..c7) covered exactly once; OCR fix applied at symbol 51 (c9(5) -> c0(5))
+# Bit-index convention: indices are LSB-first within each codeword vector.
+#   bit_index 0 = LSB; bit_index (vector_size - 1) = MSB.
+#   For c_0..c_3 (23-bit Golay) max index = 22; for c_4..c_6 (15-bit Hamming) max = 14; for c_7 (7-bit raw) max = 6.
+# MSB-first implementations use: flat = offset[v] + (size[v] - 1 - bit_index).
+# Cross-validated against MMDVMHost IMBE_INTERLEAVE[144]; see analysis/p25_imbe_frame_extraction_audit.md.
 symbol,bit1_vector,bit1_index,bit0_vector,bit0_index
 0,0,22,1,21
 1,2,20,3,19

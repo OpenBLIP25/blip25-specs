@@ -603,6 +603,23 @@ matching the full-rate frame size.
 c̃_i = v̂_i ⊕ m̂_i    for 0 ≤ i ≤ 7    (addition mod 2)
 ```
 
+**Pre-Golay vs post-Golay seed (decoder-side trade-off).** Eq. 84
+specifies the seed as `16 · û₀` where `û₀` is the **Golay-decoded**
+12-bit info word. Some decoders (notably MMDVMHost's `P25Audio.cpp`)
+seed instead from the **raw first 12 bits** of the on-air c0 codeword,
+without first running Golay decode. Because P25 uses systematic
+Golay(23,12,7), the first 12 codeword bits *are* the info word, so the
+two seeds are identical when c0 is received error-free. They diverge
+when c0 has correctable errors in its info portion: a pre-Golay seed
+then produces wrong PN masks for c1..c6, and downstream FEC decode
+gets harder.
+
+For maximum robustness near the FEC edge, seed from the post-Golay
+`û₀` (after `[23,12]` correction). For implementations that prioritise
+simplicity and operate on signals well above the FEC knee, the
+pre-Golay raw seed is interop-conformant when c0 has zero errors and
+matches MMDVMHost's behaviour. Both are observed in the wild.
+
 ```c
 /* Generate the 115-element PN sequence p_r(0..=114) for full-rate IMBE
  * bit modulation. Seed is the 12-bit Golay info word u0 (range [0, 4095]). */
@@ -679,6 +696,26 @@ symbols (144 bits = 72 symbols x 2 bits/symbol). Annex H provides the complete
 The interleaving pattern from the extraction (Annex S, shown for half-rate; Annex H
 for full-rate) distributes bits from different code words across the symbol stream to
 spread burst errors across multiple FEC blocks.
+
+**Bit-index convention (important).** Annex H labels bit indices
+**LSB-first within each codeword vector**: `c_X(Y)` denotes the bit at
+index `Y` counting from the LSB end of vector `c_X`. So `c_0(22)` is
+c0's MSB (since c0 is a 23-bit Golay codeword indexed 0..22 LSB-first),
+and `c_0(0)` is c0's LSB. For implementations that pack bits MSB-first
+(C-style shift registers, the natural convention for systematic
+encoding), use the inverse mapping when consuming the Annex H table:
+
+```
+flat_position = vector_offset[v] + (vector_size[v] - 1 - bit_index)
+
+vector_offset = [0, 23, 46, 69, 92, 107, 122, 137]
+vector_size   = [23, 23, 23, 23, 15, 15, 15, 7]
+```
+
+This convention difference is the most common implementation trap.
+Validated against MMDVMHost's `IMBE_INTERLEAVE[144]` (MSB-first
+packing): all 144 entries match Annex H byte-for-byte after the remap.
+See `analysis/p25_imbe_frame_extraction_audit.md`.
 
 **For implementation:** The interleaving table is identical to the one used by the
 air interface layer. At the receiver:
