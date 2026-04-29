@@ -202,3 +202,46 @@ Given the corrected diagnosis, the lever stack is:
 
 I'll likely do (2) next as a quick check, then queue (1) for a
 focused multi-day session.
+
+---
+
+## 7. Retraction — hardwaregain knob actually works
+
+After filing this note I tested the hypothesis empirically: sweep
+hardwaregain across [0, -45, -89] dB and measure Pi mean |IQ|. Result:
+
+  - hwg=0   → mean |IQ| = 2.70, p99 = 28.3
+  - hwg=-45 → mean |IQ| = 1.53, p99 =  3.6   ← clear ~24 dB drop
+  - hwg=-89 → mean |IQ| = 1.64, p99 =  4.0   (saturated vs RTL noise floor)
+
+So **hardwaregain DOES control output power**, contrary to my §1b
+claim. `direct_reg_access` reads of 0x086 / 0x088 returning 0x00
+regardless of setting are MISLEADING — they don't reflect the live
+AD9363 atten state. The Linux iio driver presumably uses some
+SPI-shadow / cache layout that doesn't surface through that debug
+attribute.
+
+§1b withdrawn. There is no broken hardwaregain knob in v0.39 1r1t.
+
+§1a (TX BB filter gain reg 0x023 default = 0xFF instead of 0x18)
+still stands as a finding — direct write does stick, and may matter
+at cleaner SNR than ours — but the impact in our test setup was
+unmeasurable.
+
+The §6 headline conclusion is unchanged:
+
+> Pluto transmits at spec deviation. The NID error floor on Pluto
+> OTA is channel-noise limited, not TX-quality limited. The §1.6
+> D(f) pairing is the actual lever.
+
+**Lesson for future-me**: empirical end-to-end behavior tests beat
+register-level readings, especially when the register interface
+might be a cache rather than the live state. The EZ thread you
+flagged (`https://ez.analog.com/.../79733/ad9363-control-output-overage`)
+is not reachable from my environment, but the surrounding
+EngineerZone discussions (e.g., `163641/pluto-sdr-tx-power-settings`)
+and a search for `adi,update-tx-gain-in-alert-enable` would have
+saved me a half-hour earlier — both confirm that hardwaregain is
+the right knob and the typical user-visible failures (not changing
+output) are usually ENSM-state or sample-rate-recalibration related,
+not a fundamentally broken interface.
