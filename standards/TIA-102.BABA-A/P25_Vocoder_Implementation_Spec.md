@@ -1212,6 +1212,19 @@ Then `M̄_l ← γ_M · M̄_l` for `1 ≤ l ≤ L̃`. The smoothed V/UV decision
 
 Initial state: `τ_M(−1) = 20480` (Annex A §10).
 
+> **The DVSI AMBE-3000R chip applies an additional
+> spectral-discontinuity attenuation not described above.** This
+> is empirically established for half-rate (`PKT_RATET 33`) — see
+> §2.8.4 for the probe evidence (27% RMS drop on L-jump frames
+> with zero FEC errors and gain held constant) and the analysis
+> of candidate mechanisms. The same synthesis pipeline is used
+> for full-rate IMBE per §1.12, so the same beyond-spec
+> attenuation is plausibly active there too; we have not yet
+> run an equivalent probe on full-rate. Strict-spec
+> implementations should keep Eq. 112–116 as written;
+> chip-parity implementations may need a heuristic for spectral
+> discontinuity until the formula is reverse-engineered.
+
 ### 1.12 Speech Synthesis (Full-Rate)
 
 Source: BABA-A §11 "Speech Synthesis", pages 51–55, Equations 117–142.
@@ -1810,13 +1823,61 @@ On mute, run Eq. 200–205 to preserve state, bypass the synthesizer
 Runs the same §1.11.3 algorithm with half-rate's S_E (from §2.7) and
 ε_R(0) from §2.8.1. V_M thresholds per Eq. 112 unchanged.
 
+> **Chip applies an additional spectral-discontinuity attenuation
+> not specified by BABA-A.** §1.11.3's V_M / τ_M / γ_M mechanism
+> (Eq. 112–116) is BABA-A's *only* documented amplitude clamp. The
+> DVSI AMBE-3000R on `PKT_RATET 33` empirically applies a further
+> single-frame attenuation when the spectral envelope changes
+> abruptly between consecutive frames — for example, on an L
+> jump from 14 to 49 (b̂₀ = 30 → 110) with gain held constant and
+> zero FEC errors, the chip's frame-RMS drops 27% below ours
+> (3030 vs 4144), then recovers to within ~10% over the next
+> ~5 frames as steady state at the new envelope settles. A
+> gain-only spike (b̂₂ = 8 → 28, pitch and L unchanged) does
+> **not** trigger this clamp — the trigger is spectral
+> discontinuity, not amplitude.
+>
+> The trigger metric and attenuation formula are not described
+> in BABA-A §9 / §14, nor in DVSI's published patents
+> (US8595002 "half-rate MBE encoding" and US8315860 "MBE
+> encoding with noise suppression" — both checked 2026-05-14;
+> the only post-synthesis attenuation US8315860 documents is a
+> tone-detection sidelobe suppressor unrelated to frame-to-frame
+> spectral change). Candidate mechanisms include a per-bin M̄_l
+> running lowpass, a frame-to-frame cosine-similarity gate on the
+> re-binned M̄ vector, or longer-window synthesis overlap-add
+> that redistributes jump-frame energy across the boundary —
+> Probe B's chip frame-51 peak (14999 vs ours 8553) is consistent
+> with the third hypothesis.
+>
+> **For chip-parity implementations:** this is a known divergence;
+> faithful Eq. 112–116 implementations will be slightly louder
+> than the chip on real-world audio with frequent voicing or
+> harmonic-count transitions (typical GMRS / public-safety field
+> calls). Documenting as a beyond-spec chip behavior rather than
+> a spec defect, since BABA-A §9 / §14 do not promise this
+> attenuation.
+>
+> **For strict-spec implementations:** keep Eq. 112–116 as
+> written and accept the audible divergence from chip output on
+> discontinuous frames.
+>
+> Evidence: [`gap_reports/0026_chip_spectral_discontinuity_attenuation.md`](../../gap_reports/0026_chip_spectral_discontinuity_attenuation.md).
+> Tracked in [`analysis/ambe3000_chip_oracle_caveats.md`](../../analysis/ambe3000_chip_oracle_caveats.md)
+> §1.4. The same clarification applies to full-rate §1.11.3 — we
+> have not probed full-rate IMBE for this behaviour, but the
+> chip's §11 synthesis is shared between rates, so the same
+> beyond-spec attenuation is plausibly active there too.
+
 ### 2.9 Half-Rate Speech Synthesis
 
 Source: BABA-A §13.4 closing paragraph ("reconstructed spectral amplitudes
 M̃_l are then used by the synthesis algorithm, as described in Chapter 11"),
 page 66.
 
-**The half-rate decoder uses the full-rate synthesis pipeline verbatim.**
+**The half-rate decoder uses the full-rate synthesis pipeline (BABA-A
+Chapter 11) by reference.** BABA-A does not specify a separate synthesis
+algorithm for the AMBE+2 codec — §13.4 inherits Chapter 11 verbatim. So
 Eq. 117–141 from full-rate §1.12 apply unchanged to half-rate, using:
 
 - `ω̃₀`, `L̃`, `K̃` from §1.3.1 / §12.8 (half-rate pitch Annex L)
@@ -1827,6 +1888,50 @@ Eq. 117–141 from full-rate §1.12 apply unchanged to half-rate, using:
   how the synthesizer *uses* them)
 
 See §1.12.1 (unvoiced) and §1.12.2 (voiced) for the complete algorithm.
+
+#### 2.9.1 Chip divergence — unvoiced noise LCG (Eq. 117)
+
+> **The DVSI AMBE-3000R chip does not use Eq. 117's LCG on
+> `PKT_RATET 33` (P25 half-rate with FEC).** Empirical
+> cross-correlation of an all-unvoiced probe stream against the
+> chip on `pve` (192.168.1.6) at lag 0:
+>
+> | Generator | Recurrence | mod | seed (at t=0) | Pearson r vs chip |
+> |-----------|------------|-----|---------------|-------------------|
+> | BABA-A Eq. 117 (spec, Annex A) | `u(n+1) = (171·u(n) + 11213)` | `53125` | `u(−105) = 3147` | **0.06** (noise floor) |
+> | BABA-A Eq. 84–85 PN-FEC mask | `p_r(n+1) = (173·p_r(n) + 13849)` | `65536` | `60584` | **0.945** |
+>
+> The chip reuses BABA-A's §1.5 / Eq. 84–85 PN-FEC masking LCG (the
+> one used during interleave-PN demodulation, not in synthesis) for
+> the half-rate unvoiced noise sequence. The residual ~5.5%
+> uncorrelated component is consistent with a sub-frame init detail
+> (likely the frame-0 buffer prefill scheme) and does not affect the
+> LCG-identity finding.
+>
+> Status: **AMBE+2 is not itself a published TIA-102 codec
+> specification** (see [`analysis/vocoder_missing_specs.md`](../../analysis/vocoder_missing_specs.md));
+> §13.4's "use Chapter 11" is the only normative statement on
+> half-rate synthesis. The chip's choice to substitute a different
+> LCG is therefore a *de-facto* AMBE+2 implementation detail, not a
+> deviation from a normative AMBE+2 text.
+>
+> For full-rate IMBE (`PKT_RATEP` rate-index 44, all of Chapter 11
+> normative) the chip does follow Eq. 117 literally — our codec
+> matches DVSI's `tv-rc/p25_fullrate/clean.pcm` reference at 1.001×
+> RMS without any LCG swap.
+>
+> **Recommendation:** half-rate decoders that want bit-for-bit
+> sample agreement with the AMBE-3000R should use the §1.5 LCG
+> (173, 13849, 65536) for the unvoiced synthesis noise sequence.
+> Decoders that prioritise strict BABA-A literal conformance
+> should keep Eq. 117. Spectrally the two are equivalent (same
+> long-term statistics after the per-band normalisation in
+> Eq. 119–124); they differ only in the per-sample noise sequence
+> realisation, which is audibly distinguishable on fricative tails
+> at sub-frame timescales.
+>
+> Evidence: [`gap_reports/0025_chip_uses_pn_lcg_for_halfrate.md`](../../gap_reports/0025_chip_uses_pn_lcg_for_halfrate.md).
+> Analysis: [`analysis/halfrate_unvoiced_lcg_chip_vs_spec.md`](../../analysis/halfrate_unvoiced_lcg_chip_vs_spec.md).
 
 ### 2.10 Tone Frame Synthesis
 
@@ -2027,6 +2132,20 @@ b̃₂ (gain, 5 bits), b̃₃ (PRBA24, 9 bits), b̃₄ (PRBA58, 7 bits).
 
 γ̃(−1) is the reconstructed gain from the last **voice** frame (tone,
 silence, and erasure frames do not update it); initial value 0.
+
+> **Do not add a per-b̂₂ offset to Δ̃_γ.** JMBE 1.0.9's
+> `DifferentialGain.java:11-42` adds a +1.0..+1.55 log₂-domain
+> offset per-quantizer-index — commented "to more closely match
+> hardware-generated audio." A 2026-05-13 chip A/B against the
+> AMBE-3000R on the DVSI-distributed `tv-rc/r33/clean.bit` half-rate
+> reference shows the chip matches a literal Eq. 168 + Annex O decode
+> to within −0.05 dB, while JMBE's adjustment overshoots chip emission
+> by ~17 dB on field-call corpora. The literal recurrence above is
+> the chip's behavior. Consumers wanting JMBE-equivalent loudness
+> should apply post-vocoder rendering gain (HPF + peaking + output
+> gain) rather than perturbing the codec — see
+> [`gap_reports/0024_ambe_plus2_dequantize_gain_calibration.md`](../../gap_reports/0024_ambe_plus2_dequantize_gain_calibration.md)
+> for the chip A/B and PCM round-trip evidence.
 
 **Stage 2 — transformed PRBA codebook lookup:**
 
