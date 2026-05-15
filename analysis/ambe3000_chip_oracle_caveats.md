@@ -121,6 +121,90 @@ frame-to-frame jitter introduces the odd/even asymmetry above.
 Jitter >5% avoids the asymmetry but destroys the
 "single-parameter-swept" premise of scalar measurement.
 
+### 1.4 Spectral-discontinuity attenuation (the *opposite* trigger to §1.3)
+
+**Observation (gap 0026, 2026-05-14).** Where §1.3 fires when
+consecutive frames are *too similar*, §1.4 fires when they are
+*too dissimilar*. Probed on `PKT_RATET 33` half-rate with zero FEC
+errors:
+
+- **Probe A — gain-only spike** (`b̂₂ = 8 → 28 → 8` at frame 50,
+  pitch and L unchanged): chip and our (literal Eq. 112–116)
+  decode stay within ±10% peak across the spike. No clamp.
+- **Probe B — pitch/L jump** (`b̂₀ = 30 → 110 → 30`, L = 14 →
+  49 → 14, gain held constant): chip's frame-50 (jump frame) RMS
+  drops 27% below ours (3030 vs 4144). Chip's frame-51 peak grows
+  to 14999 vs ours 8553 — consistent with the chip
+  redistributing some of the jump-frame energy across the
+  boundary via a longer synthesis-window overlap-add.
+- **Probe C — spectral step** (`b̂₀ = 30` for f < 50, `= 110` for
+  f ≥ 50): the chip's attenuation is **transient** — the 27%
+  clamp fires only at the step frame, then recovers to within
+  ~10% of ours over the next ~5 frames.
+
+The trigger is **spectral discontinuity** (large ΔL or Δω̃₀
+between consecutive frames), not amplitude. Probe A's gain-only
+spike has a 5.5× amplitude swing and triggers no clamp; Probe B's
+gain is held constant and the L-jump triggers a 27% drop.
+
+**Why it's beyond-spec.** BABA-A §9 / §14 specify only the
+`V_M` / `τ_M` / `γ_M` amplitude-magnitude clamp (Eq. 112–116).
+That clamp triggers on `A_M = Σ M̄_l` exceeding `τ_M`, not on
+frame-to-frame spectral change. The `τ_M(0) = 20480` branch
+holds when `ε_R(0) ≤ 0.005` and `ε_T(0) ≤ 6` — both true on
+these zero-FEC-error probes — so our codec's `γ_M = 1.0` is the
+correct output of §1.11.3 as written.
+
+DVSI's published patents are also silent on this trigger:
+- **US8595002** ("half-rate MBE encoding") covers only encoder-side
+  quantisation and rate-conversion, no post-synthesis attenuation.
+- **US8315860** ("MBE encoding with noise suppression") describes
+  (a) encoder-side spectral subtraction capped at ~15 dB, and (b)
+  decoder-side tone-detection harmonic suppression at ~20 dB on
+  non-specified harmonics. Neither matches frame-to-frame
+  spectral-discontinuity triggering.
+
+**Candidate mechanisms** (none verified):
+
+1. **Per-bin M̄_l running lowpass.** Chip maintains a smoothed
+   `M̄_l_prev` per bin and clamps `M̄_l(0) ≤ K · M̄_l_prev` for
+   some `K > 1`. Consistent with transient clamp + L-change-driven
+   trigger (bin reshuffling at new L drops total summed energy).
+2. **Frame-to-frame spectral similarity gate.** Compute Pearson r
+   or cosine similarity between current and previous (re-binned)
+   M̄ vectors; scale current frame by similarity. Consistent with
+   gain-only spike (high similarity → no clamp) vs L-jump (low
+   similarity → clamp).
+3. **Longer synthesis-window overlap-add.** Chip's synth window
+   straddles frame boundaries differently than our 209-sample
+   Annex-I window, redistributing jump-frame energy across f=50
+   and f=51. Probe B's chip f=51 peak growth (14999 vs ours 8553)
+   is consistent with this.
+
+**Why it defeats probes.** Like §1.3, this trigger couples
+adjacent frames — a probe sweeping a single parameter
+discontinuously trips the clamp on the discontinuity frame. Smooth
+sweeps (e.g., `b̂₀` walked one index per frame, L change spread
+over many frames) avoid the clamp but require longer probe
+streams to characterise. Real-world GMRS / public-safety field
+audio has frequent voicing and harmonic-count transitions, so
+this clamp fires often on natural audio — which is why a chip-A/B
+on field calls (`tv-rc/r33/clean.pcm` excepted, which is clean
+studio-quality input) consistently shows the chip ~63–73% of our
+amplitude on frames with Golay-corrected envelope jumps.
+
+**Status.** Trigger characterised; formula unknown. Out of scope
+for BABA-A spec updates — the spec is correct as written; this is
+an AMBE+2 implementation detail in DVSI firmware. Tracked in
+`gap_reports/0026_chip_spectral_discontinuity_attenuation.md`.
+
+**Recommendation.** Implementations that want chip-parity on
+half-rate field audio will need a heuristic; faithful Eq. 112–116
+implementations will be slightly louder than the chip on
+discontinuous frames. This is the dominant residual amplitude
+divergence between our codec and the chip after the §1.1–§1.3
+caveats above are accounted for.
+
 ---
 
 ## 2. What DCMODE / control registers cannot disable
